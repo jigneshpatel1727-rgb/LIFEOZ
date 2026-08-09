@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'expense_screen.dart';
 import 'ai_screen.dart';
+import 'permissions_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,7 +23,6 @@ class _HomeScreenState extends State<HomeScreen> {
       body: _selectedIndex == 0
           ? const DashboardScreen()
           : const ExpenseScreen(),
-
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
@@ -37,7 +37,9 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Home',
           ),
           NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
+            icon: Icon(
+              Icons.account_balance_wallet_outlined,
+            ),
             selectedIcon: Icon(
               Icons.account_balance_wallet,
             ),
@@ -57,7 +59,8 @@ class DashboardScreen extends StatefulWidget {
       _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState
+    extends State<DashboardScreen> {
   double totalExpense = 0;
   double monthlyExpense = 0;
   double monthlyIncome = 0;
@@ -78,13 +81,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         prefs.getString('lifeos_expenses');
 
     final savedIncome =
-        prefs.getDouble('lifeos_monthly_income') ?? 0;
+        prefs.getDouble(
+              'lifeos_monthly_income',
+            ) ??
+            0;
 
     double total = 0;
     double monthTotal = 0;
     int count = 0;
 
-    if (expenseData != null) {
+    if (expenseData != null &&
+        expenseData.isNotEmpty) {
       try {
         final List<dynamic> expenses =
             jsonDecode(expenseData);
@@ -93,13 +100,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         for (final item in expenses) {
           final amount =
-              (item['amount'] as num).toDouble();
+              (item['amount'] as num)
+                  .toDouble();
 
           total += amount;
           count++;
 
-          final date =
-              DateTime.parse(item['date'].toString());
+          final date = DateTime.parse(
+            item['date'].toString(),
+          );
 
           if (date.year == now.year &&
               date.month == now.month) {
@@ -107,7 +116,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
         }
       } catch (_) {
-        // Ignore invalid saved expense data.
+        // Ignore invalid saved data.
       }
     }
 
@@ -117,7 +126,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       totalExpense = total;
       monthlyExpense = monthTotal;
       monthlyIncome = savedIncome;
-      savings = monthlyIncome - monthlyExpense;
+      savings =
+          monthlyIncome - monthlyExpense;
       expenseCount = count;
     });
   }
@@ -127,26 +137,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _setIncome() async {
-    final controller = TextEditingController(
+    final controller =
+        TextEditingController(
       text: monthlyIncome == 0
           ? ''
-          : monthlyIncome.toStringAsFixed(0),
+          : monthlyIncome
+              .toStringAsFixed(0),
     );
 
-    final result = await showDialog<double>(
+    final result =
+        await showDialog<double>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Monthly Income'),
+          title: const Text(
+            'Monthly Income',
+          ),
           content: TextField(
             controller: controller,
             keyboardType:
                 const TextInputType.numberWithOptions(
               decimal: true,
             ),
-            decoration: const InputDecoration(
+            decoration:
+                const InputDecoration(
               prefixText: '₹ ',
-              hintText: 'Enter monthly income',
+              hintText:
+                  'Enter monthly income',
             ),
           ),
           actions: [
@@ -154,7 +171,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               onPressed: () {
                 Navigator.pop(context);
               },
-              child: const Text('Cancel'),
+              child:
+                  const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () {
@@ -163,9 +181,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   controller.text.trim(),
                 );
 
-                Navigator.pop(context, value);
+                Navigator.pop(
+                  context,
+                  value,
+                );
               },
-              child: const Text('Save'),
+              child:
+                  const Text('Save'),
             ),
           ],
         );
@@ -177,7 +199,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (result == null) return;
 
     final prefs =
-        await SharedPreferences.getInstance();
+        await SharedPreferences
+            .getInstance();
 
     await prefs.setDouble(
       'lifeos_monthly_income',
@@ -190,7 +213,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _openAI() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => const AiScreen(),
+        builder: (_) =>
+            const AiScreen(),
       ),
     );
   }
@@ -198,7 +222,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _openExpenses() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => const ExpenseScreen(),
+        builder: (_) =>
+            const ExpenseScreen(),
+      ),
+    );
+  }
+
+  void _openPermissions() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            const PermissionsScreen(),
       ),
     );
   }
@@ -211,7 +245,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: SingleChildScrollView(
           physics:
               const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(
+          padding:
+              const EdgeInsets.fromLTRB(
             20,
             18,
             20,
@@ -221,18 +256,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             crossAxisAlignment:
                 CrossAxisAlignment.start,
             children: [
-              // -------------------------------------------------
+              // =================================================
               // HEADER
-              // -------------------------------------------------
+              // =================================================
 
               Row(
                 children: [
                   Container(
                     width: 52,
                     height: 52,
-                    decoration: BoxDecoration(
+                    decoration:
+                        BoxDecoration(
                       borderRadius:
-                          BorderRadius.circular(17),
+                          BorderRadius.circular(
+                        17,
+                      ),
                       gradient:
                           const LinearGradient(
                         colors: [
@@ -243,7 +281,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     child: const Icon(
                       Icons.hub,
-                      color: Colors.black87,
+                      color:
+                          Colors.black87,
                       size: 30,
                     ),
                   ),
@@ -253,20 +292,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const Expanded(
                     child: Column(
                       crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                          CrossAxisAlignment
+                              .start,
                       children: [
                         Text(
                           'LifeOS',
-                          style: TextStyle(
+                          style:
+                              TextStyle(
                             fontSize: 28,
                             fontWeight:
-                                FontWeight.w800,
+                                FontWeight
+                                    .w800,
                           ),
                         ),
                         SizedBox(height: 2),
                         Text(
                           'One screen. One tap. One report.',
-                          style: TextStyle(
+                          style:
+                              TextStyle(
                             fontSize: 12,
                           ),
                         ),
@@ -277,7 +320,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   IconButton(
                     onPressed: () {},
                     icon: const Icon(
-                      Icons.notifications_none,
+                      Icons
+                          .notifications_none,
                     ),
                   ),
                 ],
@@ -285,21 +329,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               const SizedBox(height: 24),
 
-              // -------------------------------------------------
-              // AI HERO CARD
-              // -------------------------------------------------
+              // =================================================
+              // AI HERO
+              // =================================================
 
               Container(
-                width: double.infinity,
+                width:
+                    double.infinity,
                 padding:
-                    const EdgeInsets.all(20),
-                decoration: BoxDecoration(
+                    const EdgeInsets.all(
+                  20,
+                ),
+                decoration:
+                    BoxDecoration(
                   borderRadius:
-                      BorderRadius.circular(25),
+                      BorderRadius.circular(
+                    25,
+                  ),
                   gradient:
                       const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                    begin:
+                        Alignment.topLeft,
+                    end: Alignment
+                        .bottomRight,
                     colors: [
                       Color(0xFF082B3A),
                       Color(0xFF07351F),
@@ -308,42 +360,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 child: Column(
                   crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                      CrossAxisAlignment
+                          .start,
                   children: [
                     Row(
                       children: [
                         const Expanded(
                           child: Text(
                             'LifeOS AI',
-                            style: TextStyle(
+                            style:
+                                TextStyle(
                               fontSize: 13,
-                              letterSpacing: 1.5,
+                              letterSpacing:
+                                  1.5,
                               fontWeight:
-                                  FontWeight.bold,
+                                  FontWeight
+                                      .bold,
                             ),
                           ),
                         ),
-
                         Container(
                           padding:
-                              const EdgeInsets.symmetric(
+                              const EdgeInsets
+                                  .symmetric(
                             horizontal: 10,
                             vertical: 5,
                           ),
                           decoration:
                               BoxDecoration(
                             borderRadius:
-                                BorderRadius.circular(
+                                BorderRadius
+                                    .circular(
                               20,
                             ),
-                            border: Border.all(
+                            border:
+                                Border.all(
                               color:
-                                  Colors.white24,
+                                  Colors
+                                      .white24,
                             ),
                           ),
-                          child: const Text(
+                          child:
+                              const Text(
                             'AI READY',
-                            style: TextStyle(
+                            style:
+                                TextStyle(
                               fontSize: 10,
                             ),
                           ),
@@ -351,34 +412,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 10),
+                    const SizedBox(
+                      height: 10,
+                    ),
 
                     const Text(
                       'Your life at a glance',
-                      style: TextStyle(
+                      style:
+                          TextStyle(
                         fontSize: 24,
                         fontWeight:
                             FontWeight.bold,
                       ),
                     ),
 
-                    const SizedBox(height: 7),
+                    const SizedBox(
+                      height: 7,
+                    ),
 
                     const Text(
                       'Ask LifeOS about your expenses, '
                       'savings and daily life.',
                     ),
 
-                    const SizedBox(height: 18),
+                    const SizedBox(
+                      height: 18,
+                    ),
 
                     SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: _openAI,
-                        icon: const Icon(
-                          Icons.auto_awesome,
+                      width:
+                          double.infinity,
+                      child:
+                          ElevatedButton
+                              .icon(
+                        onPressed:
+                            _openAI,
+                        icon:
+                            const Icon(
+                          Icons
+                              .auto_awesome,
                         ),
-                        label: const Text(
+                        label:
+                            const Text(
                           'Ask LifeOS AI',
                         ),
                       ),
@@ -387,11 +462,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(
+                height: 20,
+              ),
 
-              // -------------------------------------------------
-              // MONTHLY SUMMARY
-              // -------------------------------------------------
+              // =================================================
+              // THIS MONTH
+              // =================================================
 
               const Text(
                 'This Month',
@@ -402,77 +479,100 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(
+                height: 12,
+              ),
 
               Row(
                 children: [
                   Expanded(
-                    child: _MetricCard(
+                    child:
+                        _MetricCard(
                       label: 'Income',
                       value:
-                          _money(monthlyIncome),
-                      icon: Icons.south_west,
+                          _money(
+                        monthlyIncome,
+                      ),
+                      icon: Icons
+                          .south_west,
                     ),
                   ),
-
-                  const SizedBox(width: 12),
-
+                  const SizedBox(
+                    width: 12,
+                  ),
                   Expanded(
-                    child: _MetricCard(
+                    child:
+                        _MetricCard(
                       label: 'Expenses',
                       value:
-                          _money(monthlyExpense),
-                      icon: Icons.north_east,
+                          _money(
+                        monthlyExpense,
+                      ),
+                      icon: Icons
+                          .north_east,
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(
+                height: 12,
+              ),
 
               Row(
                 children: [
                   Expanded(
-                    child: _MetricCard(
+                    child:
+                        _MetricCard(
                       label: 'Savings',
-                      value: _money(savings),
-                      icon:
-                          Icons.savings_outlined,
+                      value:
+                          _money(savings),
+                      icon: Icons
+                          .savings_outlined,
                     ),
                   ),
-
-                  const SizedBox(width: 12),
-
+                  const SizedBox(
+                    width: 12,
+                  ),
                   Expanded(
-                    child: _MetricCard(
-                      label: 'Transactions',
+                    child:
+                        _MetricCard(
+                      label:
+                          'Transactions',
                       value:
                           '$expenseCount',
-                      icon:
-                          Icons.receipt_long_outlined,
+                      icon: Icons
+                          .receipt_long_outlined,
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(
+                height: 20,
+              ),
 
-              // -------------------------------------------------
+              // =================================================
               // INCOME
-              // -------------------------------------------------
+              // =================================================
 
               Card(
                 child: ListTile(
-                  leading: const CircleAvatar(
+                  leading:
+                      const CircleAvatar(
                     child: Icon(
-                      Icons.payments_outlined,
+                      Icons
+                          .payments_outlined,
                     ),
                   ),
-                  title: const Text(
+                  title:
+                      const Text(
                     'Set Monthly Income',
-                    style: TextStyle(
+                    style:
+                        TextStyle(
                       fontWeight:
-                          FontWeight.bold,
+                          FontWeight
+                              .bold,
                     ),
                   ),
                   subtitle: Text(
@@ -481,16 +581,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         : 'Current: ${_money(monthlyIncome)}',
                   ),
                   trailing:
-                      const Icon(Icons.edit),
-                  onTap: _setIncome,
+                      const Icon(
+                    Icons.edit,
+                  ),
+                  onTap:
+                      _setIncome,
                 ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(
+                height: 12,
+              ),
 
-              // -------------------------------------------------
+              // =================================================
               // QUICK ACTIONS
-              // -------------------------------------------------
+              // =================================================
 
               const Text(
                 'Quick Actions',
@@ -501,24 +606,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(
+                height: 12,
+              ),
 
               Row(
                 children: [
                   Expanded(
-                    child: _ActionCard(
-                      icon: Icons.add_card,
-                      title: 'Add Expense',
-                      onTap: _openExpenses,
+                    child:
+                        _ActionCard(
+                      icon: Icons
+                          .add_card,
+                      title:
+                          'Add Expense',
+                      onTap:
+                          _openExpenses,
                     ),
                   ),
-
-                  const SizedBox(width: 12),
-
+                  const SizedBox(
+                    width: 12,
+                  ),
                   Expanded(
-                    child: _ActionCard(
-                      icon:
-                          Icons.auto_awesome,
+                    child:
+                        _ActionCard(
+                      icon: Icons
+                          .auto_awesome,
                       title: 'Ask AI',
                       onTap: _openAI,
                     ),
@@ -526,24 +638,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(
+                height: 16,
+              ),
 
-              // -------------------------------------------------
+              // =================================================
               // SMART SUGGESTION
-              // -------------------------------------------------
+              // =================================================
 
               Card(
                 child: ListTile(
-                  leading: const CircleAvatar(
+                  leading:
+                      const CircleAvatar(
                     child: Icon(
-                      Icons.lightbulb_outline,
+                      Icons
+                          .lightbulb_outline,
                     ),
                   ),
-                  title: const Text(
+                  title:
+                      const Text(
                     'Smart Suggestion',
-                    style: TextStyle(
+                    style:
+                        TextStyle(
                       fontWeight:
-                          FontWeight.bold,
+                          FontWeight
+                              .bold,
                     ),
                   ),
                   subtitle: Text(
@@ -559,27 +678,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(
+                height: 12,
+              ),
 
-              // -------------------------------------------------
+              // =================================================
               // PERMISSIONS
-              // -------------------------------------------------
+              // =================================================
 
               Card(
                 child: ListTile(
-                  leading: const CircleAvatar(
+                  leading:
+                      const CircleAvatar(
                     child: Icon(
-                      Icons.security_outlined,
+                      Icons
+                          .security_outlined,
                     ),
                   ),
-                  title: const Text(
+                  title:
+                      const Text(
                     'Data & Permissions',
-                    style: TextStyle(
+                    style:
+                        TextStyle(
                       fontWeight:
-                          FontWeight.bold,
+                          FontWeight
+                              .bold,
                     ),
                   ),
-                  subtitle: const Text(
+                  subtitle:
+                      const Text(
                     'Automatic access when permitted. '
                     'Manual entry remains available when permission is denied.',
                   ),
@@ -587,30 +714,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const Icon(
                     Icons.chevron_right,
                   ),
+                  onTap:
+                      _openPermissions,
                 ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(
+                height: 12,
+              ),
 
-              // -------------------------------------------------
+              // =================================================
               // AI AGENT
-              // -------------------------------------------------
+              // =================================================
 
               Card(
                 child: ListTile(
-                  leading: const CircleAvatar(
+                  leading:
+                      const CircleAvatar(
                     child: Icon(
-                      Icons.smart_toy_outlined,
+                      Icons
+                          .smart_toy_outlined,
                     ),
                   ),
-                  title: const Text(
+                  title:
+                      const Text(
                     'LifeOS AI Agent',
-                    style: TextStyle(
+                    style:
+                        TextStyle(
                       fontWeight:
-                          FontWeight.bold,
+                          FontWeight
+                              .bold,
                     ),
                   ),
-                  subtitle: const Text(
+                  subtitle:
+                      const Text(
                     'Your personal assistant for money, '
                     'reports and daily life.',
                   ),
@@ -622,11 +759,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(
+                height: 20,
+              ),
 
-              // -------------------------------------------------
-              // TOTAL EXPENSE
-              // -------------------------------------------------
+              // =================================================
+              // TOTAL
+              // =================================================
 
               Text(
                 'All-time expenses: '
@@ -649,7 +788,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 // METRIC CARD
 // =============================================================
 
-class _MetricCard extends StatelessWidget {
+class _MetricCard
+    extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
@@ -668,15 +808,16 @@ class _MetricCard extends StatelessWidget {
             const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment:
-              CrossAxisAlignment.start,
+              CrossAxisAlignment
+                  .start,
           children: [
             Icon(
               icon,
               size: 23,
             ),
-
-            const SizedBox(height: 12),
-
+            const SizedBox(
+              height: 12,
+            ),
             Text(
               label,
               style: TextStyle(
@@ -685,12 +826,13 @@ class _MetricCard extends StatelessWidget {
                 fontSize: 13,
               ),
             ),
-
-            const SizedBox(height: 5),
-
+            const SizedBox(
+              height: 5,
+            ),
             Text(
               value,
-              style: const TextStyle(
+              style:
+                  const TextStyle(
                 fontSize: 21,
                 fontWeight:
                     FontWeight.bold,
@@ -707,7 +849,8 @@ class _MetricCard extends StatelessWidget {
 // ACTION CARD
 // =============================================================
 
-class _ActionCard extends StatelessWidget {
+class _ActionCard
+    extends StatelessWidget {
   final IconData icon;
   final String title;
   final VoidCallback onTap;
@@ -723,7 +866,9 @@ class _ActionCard extends StatelessWidget {
     return Card(
       child: InkWell(
         borderRadius:
-            BorderRadius.circular(14),
+            BorderRadius.circular(
+          14,
+        ),
         onTap: onTap,
         child: Padding(
           padding:
@@ -734,14 +879,15 @@ class _ActionCard extends StatelessWidget {
                 icon,
                 size: 30,
               ),
-
-              const SizedBox(height: 10),
-
+              const SizedBox(
+                height: 10,
+              ),
               Text(
                 title,
                 textAlign:
                     TextAlign.center,
-                style: const TextStyle(
+                style:
+                    const TextStyle(
                   fontWeight:
                       FontWeight.w600,
                 ),
