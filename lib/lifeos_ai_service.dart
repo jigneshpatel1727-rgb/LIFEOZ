@@ -1,47 +1,99 @@
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
 class LifeOSAIService {
   Future<String> analyze({
     required String category,
     required double amount,
     required String description,
   }) async {
+    // Save the expense automatically.
+    await _saveExpense(
+      amount: amount,
+      category: category,
+      description: description,
+    );
+
     final normalizedCategory = category.trim().toLowerCase();
     final note = description.trim();
 
     if (amount >= 10000) {
-      return 'High-value expense: ₹${amount.toStringAsFixed(0)}. Review whether this expense is necessary, compare alternatives, and check if it can be planned or reduced.';
+      return 'Added ₹${amount.toStringAsFixed(0)} to today\'s $category expense. This is a high-value expense, so review whether it can be reduced.';
     }
 
     if (normalizedCategory.contains('food') ||
         normalizedCategory.contains('restaurant') ||
         normalizedCategory.contains('shopping')) {
-      return 'LifeOS suggestion: this is a controllable expense. Track similar expenses this month and set a practical limit before the next purchase.';
+      return 'Added ₹${amount.toStringAsFixed(0)} to today\'s $category expense. Keep tracking this category to find ways to save.';
     }
 
     if (normalizedCategory.contains('fuel') ||
         normalizedCategory.contains('petrol') ||
         normalizedCategory.contains('diesel')) {
-      return 'LifeOS suggestion: monitor fuel spending against your monthly travel. Combining trips, reducing unnecessary travel, and comparing fuel efficiency can help reduce this cost.';
+      return 'Added ₹${amount.toStringAsFixed(0)} to today\'s Fuel expense. Keep monitoring your fuel spending.';
     }
 
     if (normalizedCategory.contains('electricity') ||
         normalizedCategory.contains('bill') ||
         normalizedCategory.contains('utility')) {
-      return 'LifeOS suggestion: this looks like a regular household cost. Compare it with previous months and look for avoidable usage or opportunities to reduce the next bill.';
+      return 'Added ₹${amount.toStringAsFixed(0)} to today\'s $category expense. Compare it with previous months.';
     }
 
     if (normalizedCategory.contains('emi') ||
         normalizedCategory.contains('loan')) {
-      return 'LifeOS suggestion: EMI is usually a committed expense. Focus on reducing discretionary spending around it and consider prepayment only after maintaining an emergency reserve.';
+      return 'Added ₹${amount.toStringAsFixed(0)} to today\'s $category expense. EMI is a committed expense, so focus on controlling other spending.';
     }
 
     if (amount <= 500) {
-      return 'LifeOS suggestion: small expenses can add up. Keep tracking this expense and review the monthly total for this category.';
+      return 'Added ₹${amount.toStringAsFixed(0)} to today\'s $category expense. Small expenses can add up, so keep tracking them.';
     }
 
     if (note.isNotEmpty) {
-      return 'LifeOS reviewed this ₹${amount.toStringAsFixed(0)} $category expense. Keep the description for better monthly reports and compare this category with your previous spending.';
+      return 'Added ₹${amount.toStringAsFixed(0)} to today\'s $category expense. Your description was also saved.';
     }
 
-    return 'LifeOS reviewed this ₹${amount.toStringAsFixed(0)} expense. Continue tracking it so the AI can identify patterns and suggest where you can save money.';
+    return 'Added ₹${amount.toStringAsFixed(0)} to today\'s $category expense.';
+  }
+
+  Future<void> _saveExpense({
+    required double amount,
+    required String category,
+    required String description,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final existing = prefs.getString('lifeos_expenses');
+
+    List<dynamic> expenses = [];
+
+    if (existing != null && existing.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(existing);
+
+        if (decoded is List) {
+          expenses = decoded;
+        }
+      } catch (_) {
+        expenses = [];
+      }
+    }
+
+    final now = DateTime.now();
+
+    final newExpense = {
+      'id': now.microsecondsSinceEpoch.toString(),
+      'amount': amount,
+      'category': category,
+      'note': description.trim(),
+      'date': now.toIso8601String(),
+    };
+
+    expenses.insert(0, newExpense);
+
+    await prefs.setString(
+      'lifeos_expenses',
+      jsonEncode(expenses),
+    );
   }
 }
