@@ -1,55 +1,7 @@
-import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import 'expense_screen.dart';
-import 'ai_screen.dart';
-import 'permissions_screen.dart';
-
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
-
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  int selectedIndex = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    final pages = [
-      const DashboardScreen(),
-      const ExpenseScreen(),
-    ];
-
-    return Scaffold(
-      body: pages[selectedIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            selectedIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            selectedIcon:
-                Icon(Icons.account_balance_wallet),
-            label: 'Money',
-          ),
-        ],
-      ),
-    );
-  }
-}
+import 'package:flutter_tts/flutter_tts.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -60,766 +12,657 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState
-    extends State<DashboardScreen> {
-  double totalExpense = 0;
-  double monthlyExpense = 0;
-  double monthlyIncome = 0;
-  int expenseCount = 0;
+    extends State<DashboardScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+
+  final FlutterTts _tts = FlutterTts();
+
+  bool _speaking = false;
+
+  final List<_CoreItem> _cores = [
+    _CoreItem(
+      icon: Icons.account_balance_wallet_rounded,
+      title: 'Expense',
+      description:
+          'This is your Expense core. I can manage your daily expenses, income, EMI, spending and savings.',
+    ),
+    _CoreItem(
+      icon: Icons.track_changes_rounded,
+      title: 'Goals',
+      description:
+          'This is your Goals core. I can help you create goals, track progress and remember important targets.',
+    ),
+    _CoreItem(
+      icon: Icons.bolt_rounded,
+      title: 'Productivity',
+      description:
+          'This is your Productivity core. I can manage your tasks, work, reminders and daily activities.',
+    ),
+    _CoreItem(
+      icon: Icons.shopping_cart_rounded,
+      title: 'Household',
+      description:
+          'This is your Household core. I can maintain your grocery, milk, medicine and daily household requirement list.',
+    ),
+    _CoreItem(
+      icon: Icons.calendar_month_rounded,
+      title: 'Life Calendar',
+      description:
+          'This is your Life Calendar. I can maintain bills, EMI dates, insurance renewals, investment dates and important reminders.',
+    ),
+  ];
 
   @override
   void initState() {
     super.initState();
-    loadDashboard();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
+
+    _setupYansi();
   }
 
-  Future<void> loadDashboard() async {
-    final prefs =
-        await SharedPreferences.getInstance();
+  Future<void> _setupYansi() async {
+    await _tts.setLanguage('en-IN');
+    await _tts.setSpeechRate(0.46);
+    await _tts.setVolume(1.0);
+    await _tts.setPitch(1.0);
 
-    final data =
-        prefs.getString('lifeos_expenses');
+    _tts.setStartHandler(() {
+      if (!mounted) return;
 
-    final income =
-        prefs.getDouble('lifeos_monthly_income') ?? 0;
+      setState(() {
+        _speaking = true;
+      });
+    });
 
-    double total = 0;
-    double month = 0;
-    int count = 0;
+    _tts.setCompletionHandler(() {
+      if (!mounted) return;
 
-    if (data != null && data.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(data);
+      setState(() {
+        _speaking = false;
+      });
+    });
+  }
 
-        if (decoded is List) {
-          final now = DateTime.now();
-
-          for (final item in decoded) {
-            if (item is! Map) continue;
-
-            final amount = item['amount'];
-
-            if (amount is! num) continue;
-
-            final value = amount.toDouble();
-
-            total += value;
-            count++;
-
-            final dateValue = item['date'];
-
-            if (dateValue != null) {
-              try {
-                final date =
-                    DateTime.parse(
-                  dateValue.toString(),
-                );
-
-                if (date.year == now.year &&
-                    date.month == now.month) {
-                  month += value;
-                }
-              } catch (_) {}
-            }
-          }
-        }
-      } catch (_) {}
-    }
+  Future<void> _speakCore(
+    _CoreItem core,
+  ) async {
+    await _tts.stop();
 
     if (!mounted) return;
 
     setState(() {
-      totalExpense = total;
-      monthlyExpense = month;
-      monthlyIncome = income;
-      expenseCount = count;
+      _speaking = true;
     });
+
+    await _tts.speak(core.description);
   }
 
-  double get savings =>
-      monthlyIncome - monthlyExpense;
-
-  String money(double value) {
-    return '₹${value.toStringAsFixed(0)}';
-  }
-
-  Future<void> setIncome() async {
-    final controller = TextEditingController(
-      text: monthlyIncome == 0
-          ? ''
-          : monthlyIncome.toStringAsFixed(0),
-    );
-
-    final result =
-        await showDialog<double>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title:
-              const Text('Monthly Income'),
-          content: TextField(
-            controller: controller,
-            keyboardType:
-                const TextInputType.numberWithOptions(
-              decimal: true,
-            ),
-            decoration:
-                const InputDecoration(
-              prefixText: '₹ ',
-              labelText:
-                  'Monthly income',
-              border:
-                  OutlineInputBorder(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child:
-                  const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final value =
-                    double.tryParse(
-                  controller.text.trim(),
-                );
-
-                if (value == null ||
-                    value < 0) {
-                  return;
-                }
-
-                Navigator.pop(
-                  context,
-                  value,
-                );
-              },
-              child:
-                  const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-
-    controller.dispose();
-
-    if (result == null) return;
-
-    final prefs =
-        await SharedPreferences
-            .getInstance();
-
-    await prefs.setDouble(
-      'lifeos_monthly_income',
-      result,
-    );
-
-    await loadDashboard();
-  }
-
-  void openAI() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            const AIScreen(),
-      ),
-    );
-  }
-
-  void openExpenses() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            const ExpenseScreen(),
-      ),
-    );
-  }
-
-  void openPermissions() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            const PermissionsScreen(),
-      ),
-    );
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _tts.stop();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: RefreshIndicator(
-        onRefresh: loadDashboard,
-        child: ListView(
-          physics:
-              const AlwaysScrollableScrollPhysics(),
-          padding:
-              const EdgeInsets.fromLTRB(
-            18,
-            18,
-            18,
-            30,
-          ),
+    return Scaffold(
+      backgroundColor: const Color(0xFF02070B),
+      body: SafeArea(
+        child: Stack(
           children: [
-            // HEADER
-            Row(
+            // Futuristic background
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _NeuralBackgroundPainter(
+                  animation:
+                      _animationController,
+                ),
+              ),
+            ),
+
+            // Main interface
+            Column(
               children: [
-                Container(
-                  width: 54,
-                  height: 54,
-                  decoration:
-                      BoxDecoration(
-                    borderRadius:
-                        BorderRadius.circular(
-                      17,
-                    ),
-                    gradient:
-                        const LinearGradient(
-                      colors: [
-                        Color(0xFF00D4FF),
-                        Color(0xFF00E676),
-                      ],
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.hub,
-                    color:
-                        Colors.black87,
-                    size: 30,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'LifeOS',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight:
-                              FontWeight.w800,
-                        ),
-                      ),
-                      Text(
-                        'One screen • One tap • One report',
-                        style: TextStyle(
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: () {},
-                  icon: const Icon(
-                    Icons.notifications_none,
+                const SizedBox(height: 18),
+
+                // LifeOS logo / title
+                _buildLogo(),
+
+                const SizedBox(height: 10),
+
+                Expanded(
+                  child: LayoutBuilder(
+                    builder:
+                        (context, constraints) {
+                      return _buildCoreInterface(
+                        constraints,
+                      );
+                    },
                   ),
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
 
-            const SizedBox(height: 22),
-
-            // AI HERO
-            Container(
-              padding:
-                  const EdgeInsets.all(20),
-              decoration:
-                  BoxDecoration(
-                borderRadius:
-                    BorderRadius.circular(
-                  25,
-                ),
-                gradient:
-                    const LinearGradient(
-                  begin:
-                      Alignment.topLeft,
-                  end:
-                      Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF082B3A),
-                    Color(0xFF07351F),
-                  ],
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'LIFEOS AI',
-                          style: TextStyle(
-                            fontSize: 13,
-                            letterSpacing:
-                                1.5,
-                            fontWeight:
-                                FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding:
-                            const EdgeInsets
-                                .symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration:
-                            BoxDecoration(
-                          borderRadius:
-                              BorderRadius
-                                  .circular(
-                            20,
-                          ),
-                          border:
-                              Border.all(
-                            color:
-                                Colors.white24,
-                          ),
-                        ),
-                        child:
-                            const Text(
-                          'AI READY',
-                          style: TextStyle(
-                            fontSize: 10,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Your life at a glance',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight:
-                          FontWeight.bold,
+  Widget _buildLogo() {
+    return Column(
+      children: [
+        AnimatedBuilder(
+          animation: _animationController,
+          builder: (context, child) {
+            return Container(
+              width: 86,
+              height: 86,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.cyan
+                        .withOpacity(
+                      0.18 +
+                          (_animationController
+                                  .value *
+                              0.15),
                     ),
+                    blurRadius: 35,
+                    spreadRadius: 8,
                   ),
-                  const SizedBox(height: 7),
-                  const Text(
-                    'Ask LifeOS about your '
-                    'expenses, savings and '
-                    'daily life.',
-                  ),
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width:
-                        double.infinity,
-                    child:
-                        FilledButton.icon(
-                      onPressed: openAI,
-                      icon: const Icon(
-                        Icons.auto_awesome,
-                      ),
-                      label: const Text(
-                        'ASK LIFEOS AI',
-                      ),
-                    ),
+                  BoxShadow(
+                    color: Colors.greenAccent
+                        .withOpacity(0.12),
+                    blurRadius: 60,
+                    spreadRadius: 3,
                   ),
                 ],
               ),
-            ),
-
-            const SizedBox(height: 22),
-
-            // MONTHLY SUMMARY
-            const Text(
-              'This Month',
-              style: TextStyle(
-                fontSize: 21,
-                fontWeight:
-                    FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            Row(
-              children: [
-                Expanded(
-                  child: metricCard(
-                    'Income',
-                    money(monthlyIncome),
-                    Icons
-                        .south_west,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: metricCard(
-                    'Expenses',
-                    money(monthlyExpense),
-                    Icons
-                        .north_east,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 10),
-
-            Row(
-              children: [
-                Expanded(
-                  child: metricCard(
-                    'Savings',
-                    money(savings),
-                    Icons
-                        .savings_outlined,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: metricCard(
-                    'Transactions',
-                    '$expenseCount',
-                    Icons
-                        .receipt_long_outlined,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // INCOME
-            Card(
-              child: ListTile(
-                leading:
-                    const CircleAvatar(
-                  child: Icon(
-                    Icons.payments_outlined,
-                  ),
-                ),
-                title: const Text(
-                  'Monthly Income',
-                  style: TextStyle(
-                    fontWeight:
-                        FontWeight.bold,
-                  ),
-                ),
-                subtitle: Text(
-                  monthlyIncome == 0
-                      ? 'Tap to add income'
-                      : money(
-                          monthlyIncome,
-                        ),
-                ),
-                trailing:
-                    const Icon(
-                  Icons.edit,
-                ),
-                onTap: setIncome,
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // QUICK ACTIONS
-            const Text(
-              'Quick Actions',
-              style: TextStyle(
-                fontSize: 21,
-                fontWeight:
-                    FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            Row(
-              children: [
-                Expanded(
-                  child: actionCard(
-                    Icons.add_card,
-                    'Add Expense',
-                    openExpenses,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: actionCard(
-                    Icons.auto_awesome,
-                    'Ask AI',
-                    openAI,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // SMART INSIGHT
-            Card(
-              child: ListTile(
-                leading:
-                    const CircleAvatar(
-                  child: Icon(
-                    Icons
-                        .lightbulb_outline,
-                  ),
-                ),
-                title: const Text(
-                  'Smart Insight',
-                  style: TextStyle(
-                    fontWeight:
-                        FontWeight.bold,
-                  ),
-                ),
-                subtitle: Text(
-                  monthlyExpense == 0
-                      ? 'Add expenses and LifeOS '
-                        'will analyse your spending.'
-                      : savings < 0
-                          ? '⚠️ Your expenses are '
-                            'higher than recorded income.'
-                          : '✅ Your recorded income '
-                            'is higher than your '
-                            'monthly expenses.',
-                ),
-                trailing:
-                    const Icon(
-                  Icons.chevron_right,
-                ),
-                onTap: openAI,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // PERMISSIONS
-            Card(
-              child: ListTile(
-                leading:
-                    const CircleAvatar(
-                  child: Icon(
-                    Icons.security_outlined,
-                  ),
-                ),
-                title: const Text(
-                  'Data & Permissions',
-                  style: TextStyle(
-                    fontWeight:
-                        FontWeight.bold,
-                  ),
-                ),
-                subtitle:
-                    const Text(
-                  'Allow automatic access where '
-                  'available. Manual entry remains '
-                  'available if permission is denied.',
-                ),
-                trailing:
-                    const Icon(
-                  Icons.chevron_right,
-                ),
-                onTap:
-                    openPermissions,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // AI AGENT
-            Card(
-              child: ListTile(
-                leading:
-                    const CircleAvatar(
-                  child: Icon(
-                    Icons
-                        .smart_toy_outlined,
-                  ),
-                ),
-                title: const Text(
-                  'LifeOS AI Agent',
-                  style: TextStyle(
-                    fontWeight:
-                        FontWeight.bold,
-                  ),
-                ),
-                subtitle:
-                    const Text(
-                  'Your personal assistant for '
-                  'money, reports and daily life.',
-                ),
-                trailing:
-                    const Icon(
-                  Icons.chevron_right,
-                ),
-                onTap: openAI,
-              ),
-            ),
-
-            const SizedBox(height: 22),
-
-            // REPORT PREVIEW
-            Container(
-              padding:
-                  const EdgeInsets.all(18),
-              decoration:
-                  BoxDecoration(
-                borderRadius:
-                    BorderRadius.circular(
-                  20,
-                ),
-                border: Border.all(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .outlineVariant,
+              child: CustomPaint(
+                painter: _LifeOSLogoPainter(
+                  progress:
+                      _animationController.value,
                 ),
               ),
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(
-                        Icons
-                            .assessment_outlined,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'LifeOS Report',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight:
-                              FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Income: ${money(monthlyIncome)}',
-                  ),
-                  Text(
-                    'Expenses: ${money(monthlyExpense)}',
-                  ),
-                  Text(
-                    'Savings: ${money(savings)}',
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Detailed reports will become '
-                    'available as LifeOS collects more data.',
-                    style: TextStyle(
-                      fontSize: 12,
-                    ),
-                  ),
+            );
+          },
+        ),
+
+        const SizedBox(height: 5),
+
+        const Text(
+          'LIFEOS',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 6,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCoreInterface(
+    BoxConstraints constraints,
+  ) {
+    final width = constraints.maxWidth;
+    final height = constraints.maxHeight;
+
+    final centerX = width / 2;
+    final centerY = height / 2;
+
+    final radius =
+        math.min(width * 0.34, height * 0.34);
+
+    return Stack(
+      children: [
+        // Central AI hub
+        Positioned(
+          left: centerX - 58,
+          top: centerY - 58,
+          child: _buildCentralHub(),
+        ),
+
+        // Five core icons
+        ...List.generate(
+          _cores.length,
+          (index) {
+            final core = _cores[index];
+
+            // Five-point circular arrangement
+            final angle =
+                (-math.pi / 2) +
+                    (index *
+                        (2 * math.pi / 5));
+
+            final x =
+                centerX +
+                    radius * math.cos(angle) -
+                    38;
+
+            final y =
+                centerY +
+                    radius * math.sin(angle) -
+                    38;
+
+            return Positioned(
+              left: x,
+              top: y,
+              child: _buildCoreButton(core),
+            );
+          },
+        ),
+
+        // Connection lines
+        Positioned.fill(
+          child: IgnorePointer(
+            child: CustomPaint(
+              painter:
+                  _ConnectionPainter(
+                animation:
+                    _animationController,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCentralHub() {
+    return AnimatedBuilder(
+      animation: _animationController,
+      builder: (context, child) {
+        final pulse =
+            1.0 +
+                math.sin(
+                      _animationController
+                              .value *
+                          math.pi *
+                          2,
+                    ) *
+                    0.05;
+
+        return Transform.scale(
+          scale: pulse,
+          child: Container(
+            width: 116,
+            height: 116,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient:
+                  const RadialGradient(
+                colors: [
+                  Color(0xFF0D333A),
+                  Color(0xFF06171D),
+                  Color(0xFF02070B),
                 ],
               ),
-            ),
-
-            const SizedBox(height: 20),
-
-            Text(
-              'All-time expenses: '
-              '${money(totalExpense)}',
-              style: TextStyle(
-                fontSize: 13,
+              border: Border.all(
                 color:
-                    Colors.grey.shade600,
+                    Colors.cyanAccent
+                        .withOpacity(0.75),
+                width: 2,
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget metricCard(
-    String title,
-    String value,
-    IconData icon,
-  ) {
-    return Card(
-      child: Padding(
-        padding:
-            const EdgeInsets.all(15),
-        child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  icon,
-                  size: 19,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.cyan
+                      .withOpacity(0.35),
+                  blurRadius: 30,
+                  spreadRadius: 5,
                 ),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: Text(
-                    title,
-                    style:
-                        const TextStyle(
-                      fontSize: 13,
-                    ),
-                  ),
+                BoxShadow(
+                  color: Colors.greenAccent
+                      .withOpacity(0.18),
+                  blurRadius: 55,
+                  spreadRadius: 5,
                 ),
               ],
             ),
-            const SizedBox(height: 9),
-            Text(
-              value,
-              style:
-                  const TextStyle(
-                fontSize: 20,
-                fontWeight:
-                    FontWeight.bold,
+            child: Center(
+              child: Icon(
+                Icons.psychology_rounded,
+                size: 54,
+                color:
+                    Colors.cyanAccent,
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget actionCard(
-    IconData icon,
-    String title,
-    VoidCallback onTap,
+  Widget _buildCoreButton(
+    _CoreItem core,
   ) {
-    return Card(
-      child: InkWell(
-        borderRadius:
-            BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding:
-              const EdgeInsets.all(18),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                size: 30,
+    return GestureDetector(
+      onTap: () {
+        _speakCore(core);
+      },
+      child: AnimatedBuilder(
+        animation: _animationController,
+        builder: (context, child) {
+          return Container(
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient:
+                  const RadialGradient(
+                colors: [
+                  Color(0xFF153C43),
+                  Color(0xFF07171D),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                textAlign:
-                    TextAlign.center,
-                style:
-                    const TextStyle(
-                  fontWeight:
-                      FontWeight.bold,
+              border: Border.all(
+                color: Colors.cyanAccent
+                    .withOpacity(0.8),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.cyan
+                      .withOpacity(0.25),
+                  blurRadius: 22,
+                  spreadRadius: 3,
                 ),
+                BoxShadow(
+                  color: Colors.greenAccent
+                      .withOpacity(0.12),
+                  blurRadius: 40,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Center(
+              child: Icon(
+                core.icon,
+                size: 34,
+                color:
+                    Colors.cyanAccent,
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
+  }
+}
+
+class _CoreItem {
+  final IconData icon;
+  final String title;
+  final String description;
+
+  const _CoreItem({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+}
+
+class _NeuralBackgroundPainter
+    extends CustomPainter {
+  final Animation<double> animation;
+
+  _NeuralBackgroundPainter({
+    required this.animation,
+  }) : super(repaint: animation);
+
+  @override
+  void paint(
+    Canvas canvas,
+    Size size,
+  ) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.6;
+
+    final center =
+        Offset(
+      size.width / 2,
+      size.height / 2,
+    );
+
+    for (int i = 0; i < 16; i++) {
+      final angle =
+          animation.value *
+                  math.pi *
+                  2 +
+              i * 0.4;
+
+      final radius =
+          100.0 + (i * 20);
+
+      final point = Offset(
+        center.dx +
+            math.cos(angle) *
+                radius,
+        center.dy +
+            math.sin(angle) *
+                radius,
+      );
+
+      paint.color =
+          Colors.cyan.withOpacity(
+        0.035,
+      );
+
+      canvas.drawLine(
+        center,
+        point,
+        paint,
+      );
+    }
+
+    for (int i = 0; i < 35; i++) {
+      final x =
+          (i * 97.0) %
+              size.width;
+
+      final y =
+          (i * 173.0) %
+              size.height;
+
+      paint
+        ..style =
+            PaintingStyle.fill
+        ..color =
+            Colors.cyan.withOpacity(
+          0.04,
+        );
+
+      canvas.drawCircle(
+        Offset(x, y),
+        1.2,
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(
+    covariant _NeuralBackgroundPainter
+        oldDelegate,
+  ) {
+    return true;
+  }
+}
+
+class _ConnectionPainter
+    extends CustomPainter {
+  final Animation<double> animation;
+
+  _ConnectionPainter({
+    required this.animation,
+  }) : super(repaint: animation);
+
+  @override
+  void paint(
+    Canvas canvas,
+    Size size,
+  ) {
+    final center = Offset(
+      size.width / 2,
+      size.height / 2,
+    );
+
+    final radius =
+        math.min(
+              size.width * 0.34,
+              size.height * 0.34,
+            );
+
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    for (int i = 0; i < 5; i++) {
+      final angle =
+          (-math.pi / 2) +
+              (i *
+                  (2 * math.pi / 5));
+
+      final end = Offset(
+        center.dx +
+            radius *
+                math.cos(angle),
+        center.dy +
+            radius *
+                math.sin(angle),
+      );
+
+      final opacity =
+          0.12 +
+              0.08 *
+                  math.sin(
+                    animation.value *
+                            math.pi *
+                            2 +
+                        i,
+                  );
+
+      paint.color =
+          Colors.cyan.withOpacity(
+        opacity,
+      );
+
+      canvas.drawLine(
+        center,
+        end,
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(
+    covariant _ConnectionPainter
+        oldDelegate,
+  ) {
+    return true;
+  }
+}
+
+class _LifeOSLogoPainter
+    extends CustomPainter {
+  final double progress;
+
+  _LifeOSLogoPainter({
+    required this.progress,
+  });
+
+  @override
+  void paint(
+    Canvas canvas,
+    Size size,
+  ) {
+    final center =
+        Offset(
+      size.width / 2,
+      size.height / 2,
+    );
+
+    final radius =
+        size.width * 0.32;
+
+    final paint = Paint()
+      ..style =
+          PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color =
+          Colors.cyanAccent;
+
+    canvas.drawCircle(
+      center,
+      radius,
+      paint,
+    );
+
+    for (int i = 0; i < 8; i++) {
+      final angle =
+          progress *
+                  math.pi *
+                  2 +
+              i *
+                  (math.pi / 4);
+
+      final start =
+          Offset(
+        center.dx +
+            radius *
+                math.cos(angle),
+        center.dy +
+            radius *
+                math.sin(angle),
+      );
+
+      final end =
+          Offset(
+        center.dx +
+            radius *
+                1.45 *
+                math.cos(angle),
+        center.dy +
+            radius *
+                1.45 *
+                math.sin(angle),
+      );
+
+      canvas.drawLine(
+        start,
+        end,
+        paint,
+      );
+    }
+
+    final nodePaint = Paint()
+      ..style =
+          PaintingStyle.fill
+      ..color =
+          Colors.greenAccent;
+
+    canvas.drawCircle(
+      center,
+      7,
+      nodePaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(
+    covariant _LifeOSLogoPainter
+        oldDelegate,
+  ) {
+    return true;
   }
 }
