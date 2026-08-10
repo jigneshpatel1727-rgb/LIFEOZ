@@ -11,30 +11,77 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
+      # 1. Download LifeOS source code
       - name: Checkout LifeOS
         uses: actions/checkout@v4
 
+      # 2. Setup Java
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
+      # 3. Setup Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
+      # 4. Generate Android project
       - name: Generate Android project
         run: flutter create --platforms=android .
 
+      # 5. Add microphone permission
+      - name: Add microphone permission
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path(
+              "android/app/src/main/AndroidManifest.xml"
+          )
+
+          text = path.read_text()
+
+          permission = (
+              '<uses-permission '
+              'android:name="android.permission.RECORD_AUDIO"/>'
+          )
+
+          manifest_start = (
+              '<manifest '
+              'xmlns:android='
+              '"http://schemas.android.com/apk/res/android">'
+          )
+
+          if permission not in text:
+              text = text.replace(
+                  manifest_start,
+                  manifest_start
+                  + "\n    "
+                  + permission
+              )
+
+          path.write_text(text)
+          PY
+
+      # 6. Get Flutter packages
       - name: Get dependencies
         run: flutter pub get
 
+      # 7. Check Flutter project
+      - name: Analyze Flutter project
+        run: flutter analyze
+        continue-on-error: true
+
+      # 8. Build release APK
       - name: Build LifeOS APK
         run: flutter build apk --release
 
+      # 9. Upload APK
       - name: Upload LifeOS APK
         uses: actions/upload-artifact@v4
         with:
