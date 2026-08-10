@@ -51,6 +51,10 @@ class _AIScreenState extends State<AIScreen> {
     _initializeVoice();
   }
 
+  // ------------------------------------------------------------
+  // TEXT TO SPEECH
+  // ------------------------------------------------------------
+
   Future<void> _setupTts() async {
     await _tts.setLanguage('en-IN');
     await _tts.setSpeechRate(0.48);
@@ -89,6 +93,10 @@ class _AIScreenState extends State<AIScreen> {
       });
     });
   }
+
+  // ------------------------------------------------------------
+  // INITIALIZE VOICE
+  // ------------------------------------------------------------
 
   Future<void> _initializeVoice() async {
     try {
@@ -137,10 +145,10 @@ class _AIScreenState extends State<AIScreen> {
       for (final locale in locales) {
         final id = locale.localeId.toLowerCase();
 
-        if (id == 'en_in' ||
-            id == 'en-in' ||
-            id == 'en_us' ||
-            id == 'en-us') {
+        if (id == 'en-in' ||
+            id == 'en_in' ||
+            id == 'en-us' ||
+            id == 'en_us') {
           selected = locale.localeId;
           break;
         }
@@ -157,16 +165,16 @@ class _AIScreenState extends State<AIScreen> {
         _selectedLocaleId = selected;
       });
 
-      // Give Android a moment before Yansi starts talking.
       await Future.delayed(
         const Duration(milliseconds: 800),
       );
 
       if (!_started) {
         _started = true;
+
         await _greetUser();
       }
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
@@ -175,6 +183,10 @@ class _AIScreenState extends State<AIScreen> {
       });
     }
   }
+
+  // ------------------------------------------------------------
+  // YANSI GREETING
+  // ------------------------------------------------------------
 
   Future<void> _greetUser() async {
     const greeting =
@@ -187,19 +199,29 @@ class _AIScreenState extends State<AIScreen> {
       _message = greeting;
     });
 
+    // Yansi speaks first.
     await _speak(greeting);
 
     if (!mounted) return;
 
+    // Give Android time to release the speaker.
     await Future.delayed(
-      const Duration(milliseconds: 500),
+      const Duration(seconds: 2),
     );
 
+    if (!mounted) return;
+
+    // Automatically start listening.
     await _startListening();
   }
 
+  // ------------------------------------------------------------
+  // YANSI SPEAK
+  // ------------------------------------------------------------
+
   Future<void> _speak(String text) async {
     try {
+      // Stop microphone before speaking.
       await _speech.stop();
 
       if (mounted) {
@@ -217,13 +239,15 @@ class _AIScreenState extends State<AIScreen> {
 
       await _tts.speak(text);
 
-      // Wait for speech to finish.
+      // Give TTS enough time to finish.
+      final milliseconds =
+          1200 + (text.length * 45);
+
       await Future.delayed(
-        Duration(
-          milliseconds:
-              1200 + (text.length * 45),
-        ),
+        Duration(milliseconds: milliseconds),
       );
+
+      await _tts.stop();
 
       if (!mounted) return;
 
@@ -238,6 +262,10 @@ class _AIScreenState extends State<AIScreen> {
       });
     }
   }
+
+  // ------------------------------------------------------------
+  // START LISTENING
+  // ------------------------------------------------------------
 
   Future<void> _startListening() async {
     if (!_speechAvailable) {
@@ -284,6 +312,10 @@ class _AIScreenState extends State<AIScreen> {
     }
   }
 
+  // ------------------------------------------------------------
+  // STOP LISTENING
+  // ------------------------------------------------------------
+
   Future<void> _stopListening() async {
     await _speech.stop();
 
@@ -293,6 +325,10 @@ class _AIScreenState extends State<AIScreen> {
       _listening = false;
     });
   }
+
+  // ------------------------------------------------------------
+  // SPEECH STATUS
+  // ------------------------------------------------------------
 
   void _onSpeechStatus(String status) {
     if (!mounted) return;
@@ -312,12 +348,17 @@ class _AIScreenState extends State<AIScreen> {
     }
   }
 
+  // ------------------------------------------------------------
+  // SPEECH RESULT
+  // ------------------------------------------------------------
+
   void _onSpeechResult(
     SpeechRecognitionResult result,
   ) {
     if (!mounted) return;
 
-    final text = result.recognizedWords.trim();
+    final text =
+        result.recognizedWords.trim();
 
     if (text.isEmpty) return;
 
@@ -332,6 +373,10 @@ class _AIScreenState extends State<AIScreen> {
       _processVoiceCommand(text);
     }
   }
+
+  // ------------------------------------------------------------
+  // PROCESS VOICE COMMAND
+  // ------------------------------------------------------------
 
   Future<void> _processVoiceCommand(
     String text,
@@ -352,24 +397,24 @@ class _AIScreenState extends State<AIScreen> {
 
     final lower = text.toLowerCase();
 
-    final amount = _extractAmount(text);
+    final amount =
+        _extractAmount(text);
 
-    final category = _extractCategory(lower);
+    final category =
+        _extractCategory(lower);
 
     final description = text;
 
-    if (category != null) {
-      _categoryController.text = category;
-    } else {
-      _categoryController.text = 'Other';
-    }
+    _categoryController.text =
+        category ?? 'Other';
 
     if (amount != null) {
       _amountController.text =
           amount.toStringAsFixed(0);
     }
 
-    _descriptionController.text = description;
+    _descriptionController.text =
+        description;
 
     String response;
 
@@ -397,12 +442,19 @@ class _AIScreenState extends State<AIScreen> {
 
     if (!mounted) return;
 
+    // Automatically listen again.
     await Future.delayed(
-      const Duration(milliseconds: 500),
+      const Duration(seconds: 2),
     );
+
+    if (!mounted) return;
 
     await _startListening();
   }
+
+  // ------------------------------------------------------------
+  // FIND AMOUNT
+  // ------------------------------------------------------------
 
   double? _extractAmount(String text) {
     final cleaned = text
@@ -418,7 +470,9 @@ class _AIScreenState extends State<AIScreen> {
         r'(\d+(?:\.\d+)?)\s*(?:rs\.?|rupees?|inr)',
       ),
       RegExp(
-        r'(?:spent|paid|cost|costs|amount|for)\s*(?:is|of)?\s*(\d+(?:\.\d+)?)',
+        r'(?:spent|paid|cost|costs|amount|for)'
+        r'\s*(?:is|of)?\s*'
+        r'(\d+(?:\.\d+)?)',
       ),
       RegExp(
         r'\b(\d+(?:\.\d+)?)\b',
@@ -426,13 +480,15 @@ class _AIScreenState extends State<AIScreen> {
     ];
 
     for (final pattern in patterns) {
-      final match = pattern.firstMatch(cleaned);
+      final match =
+          pattern.firstMatch(cleaned);
 
       if (match != null) {
         final value =
             double.tryParse(match.group(1)!);
 
-        if (value != null && value > 0) {
+        if (value != null &&
+            value > 0) {
           return value;
         }
       }
@@ -441,8 +497,15 @@ class _AIScreenState extends State<AIScreen> {
     return null;
   }
 
-  String? _extractCategory(String text) {
-    final categories = <String, List<String>>{
+  // ------------------------------------------------------------
+  // FIND CATEGORY
+  // ------------------------------------------------------------
+
+  String? _extractCategory(
+    String text,
+  ) {
+    final categories =
+        <String, List<String>>{
       'Fuel': [
         'petrol',
         'diesel',
@@ -512,8 +575,10 @@ class _AIScreenState extends State<AIScreen> {
       ],
     };
 
-    for (final entry in categories.entries) {
-      for (final word in entry.value) {
+    for (final entry
+        in categories.entries) {
+      for (final word
+          in entry.value) {
         if (text.contains(word)) {
           return entry.key;
         }
@@ -522,6 +587,10 @@ class _AIScreenState extends State<AIScreen> {
 
     return null;
   }
+
+  // ------------------------------------------------------------
+  // MANUAL YANSI SPEAK
+  // ------------------------------------------------------------
 
   Future<void> _manualSpeak() async {
     const text =
@@ -534,6 +603,10 @@ class _AIScreenState extends State<AIScreen> {
 
     await _speak(text);
   }
+
+  // ------------------------------------------------------------
+  // CLEAR
+  // ------------------------------------------------------------
 
   Future<void> _clear() async {
     await _speech.stop();
@@ -555,21 +628,12 @@ class _AIScreenState extends State<AIScreen> {
     });
   }
 
-  @override
-  void dispose() {
-    _speech.stop();
-    _tts.stop();
-
-    _categoryController.dispose();
-    _amountController.dispose();
-    _descriptionController.dispose();
-
-    super.dispose();
-  }
+  // ------------------------------------------------------------
+  // STATUS CARD
+  // ------------------------------------------------------------
 
   Widget _statusCard() {
     String status;
-
     IconData icon;
 
     if (_speaking) {
@@ -588,12 +652,16 @@ class _AIScreenState extends State<AIScreen> {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding:
+            const EdgeInsets.all(18),
         child: Row(
           children: [
             CircleAvatar(
               radius: 28,
-              child: Icon(icon, size: 28),
+              child: Icon(
+                icon,
+                size: 28,
+              ),
             ),
             const SizedBox(width: 15),
             Expanded(
@@ -601,7 +669,8 @@ class _AIScreenState extends State<AIScreen> {
                 status,
                 style: const TextStyle(
                   fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  fontWeight:
+                      FontWeight.bold,
                 ),
               ),
             ),
@@ -610,6 +679,10 @@ class _AIScreenState extends State<AIScreen> {
       ),
     );
   }
+
+  // ------------------------------------------------------------
+  // FIELD
+  // ------------------------------------------------------------
 
   Widget _field({
     required String label,
@@ -625,22 +698,30 @@ class _AIScreenState extends State<AIScreen> {
         labelText: label,
         hintText: hint,
         prefixIcon: Icon(icon),
-        border: const OutlineInputBorder(),
+        border:
+            const OutlineInputBorder(),
       ),
     );
   }
 
+  // ------------------------------------------------------------
+  // UI
+  // ------------------------------------------------------------
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Yansi AI'),
+        title:
+            const Text('Yansi AI'),
         centerTitle: true,
       ),
-
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(18),
+          padding:
+              const EdgeInsets.all(18),
           child: Column(
             children: [
               const SizedBox(height: 10),
@@ -648,16 +729,22 @@ class _AIScreenState extends State<AIScreen> {
               Container(
                 width: 105,
                 height: 105,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Theme.of(context)
+                decoration:
+                    BoxDecoration(
+                  shape:
+                      BoxShape.circle,
+                  color: Theme.of(
+                    context,
+                  )
                       .colorScheme
                       .primaryContainer,
                 ),
                 child: Icon(
                   Icons.smart_toy,
                   size: 55,
-                  color: Theme.of(context)
+                  color: Theme.of(
+                    context,
+                  )
                       .colorScheme
                       .primary,
                 ),
@@ -669,7 +756,8 @@ class _AIScreenState extends State<AIScreen> {
                 'Yansi',
                 style: TextStyle(
                   fontSize: 32,
-                  fontWeight: FontWeight.bold,
+                  fontWeight:
+                      FontWeight.bold,
                 ),
               ),
 
@@ -690,11 +778,14 @@ class _AIScreenState extends State<AIScreen> {
 
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(18),
+                  padding:
+                      const EdgeInsets.all(18),
                   child: Text(
                     _message,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    textAlign:
+                        TextAlign.center,
+                    style:
+                        const TextStyle(
                       fontSize: 17,
                       height: 1.5,
                     ),
@@ -704,22 +795,32 @@ class _AIScreenState extends State<AIScreen> {
 
               const SizedBox(height: 15),
 
-              if (_recognizedText.isNotEmpty)
+              if (_recognizedText
+                  .isNotEmpty)
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(15),
+                    padding:
+                        const EdgeInsets.all(15),
                     child: Column(
                       crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                          CrossAxisAlignment
+                              .start,
                       children: [
                         const Text(
                           'What I heard',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
+                          style:
+                              TextStyle(
+                            fontWeight:
+                                FontWeight
+                                    .bold,
                           ),
                         ),
-                        const SizedBox(height: 7),
-                        Text(_recognizedText),
+                        const SizedBox(
+                          height: 7,
+                        ),
+                        Text(
+                          _recognizedText,
+                        ),
                       ],
                     ),
                   ),
@@ -729,25 +830,39 @@ class _AIScreenState extends State<AIScreen> {
 
               if (_speechAvailable &&
                   _locales.isNotEmpty)
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedLocaleId,
+                DropdownButtonFormField<
+                    String>(
+                  initialValue:
+                      _selectedLocaleId,
                   decoration:
                       const InputDecoration(
-                    labelText: 'Voice Language',
+                    labelText:
+                        'Voice Language',
                     prefixIcon:
-                        Icon(Icons.language),
+                        Icon(
+                      Icons.language,
+                    ),
                     border:
                         OutlineInputBorder(),
                   ),
-                  items: _locales.map((locale) {
-                    return DropdownMenuItem<String>(
-                      value: locale.localeId,
-                      child: Text(locale.name),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
+                  items:
+                      _locales.map(
+                    (locale) {
+                      return DropdownMenuItem<
+                          String>(
+                        value:
+                            locale.localeId,
+                        child: Text(
+                          locale.name,
+                        ),
+                      );
+                    },
+                  ).toList(),
+                  onChanged:
+                      (value) {
                     setState(() {
-                      _selectedLocaleId = value;
+                      _selectedLocaleId =
+                          value;
                     });
                   },
                 ),
@@ -755,11 +870,14 @@ class _AIScreenState extends State<AIScreen> {
               const SizedBox(height: 18),
 
               SizedBox(
-                width: double.infinity,
+                width:
+                    double.infinity,
                 height: 65,
-                child: FilledButton.icon(
+                child:
+                    FilledButton.icon(
                   onPressed:
-                      _speaking || _processing
+                      _speaking ||
+                              _processing
                           ? null
                           : _listening
                               ? _stopListening
@@ -774,9 +892,11 @@ class _AIScreenState extends State<AIScreen> {
                     _listening
                         ? 'STOP LISTENING'
                         : 'TALK TO YANSI',
-                    style: const TextStyle(
+                    style:
+                        const TextStyle(
                       fontSize: 17,
-                      fontWeight: FontWeight.bold,
+                      fontWeight:
+                          FontWeight.bold,
                     ),
                   ),
                 ),
@@ -787,25 +907,30 @@ class _AIScreenState extends State<AIScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
+                    child:
+                        OutlinedButton.icon(
                       onPressed:
                           _manualSpeak,
                       icon: const Icon(
                         Icons.volume_up,
                       ),
-                      label:
-                          const Text('Yansi Speak'),
+                      label: const Text(
+                        'Yansi Speak',
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(
+                      width: 10),
                   Expanded(
-                    child: OutlinedButton.icon(
+                    child:
+                        OutlinedButton.icon(
                       onPressed: _clear,
                       icon: const Icon(
                         Icons.clear,
                       ),
-                      label:
-                          const Text('Clear'),
+                      label: const Text(
+                        'Clear',
+                      ),
                     ),
                   ),
                 ],
@@ -814,12 +939,14 @@ class _AIScreenState extends State<AIScreen> {
               const SizedBox(height: 25),
 
               _field(
-                label: 'Expense Category',
+                label:
+                    'Expense Category',
                 hint:
                     'Yansi will fill this automatically',
                 controller:
                     _categoryController,
-                icon: Icons.category,
+                icon:
+                    Icons.category,
               ),
 
               const SizedBox(height: 15),
@@ -830,7 +957,8 @@ class _AIScreenState extends State<AIScreen> {
                     'Yansi will find the amount',
                 controller:
                     _amountController,
-                icon: Icons.currency_rupee,
+                icon: Icons
+                    .currency_rupee,
                 keyboardType:
                     const TextInputType
                         .numberWithOptions(
@@ -841,7 +969,8 @@ class _AIScreenState extends State<AIScreen> {
               const SizedBox(height: 15),
 
               _field(
-                label: 'Description',
+                label:
+                    'Description',
                 hint:
                     'Your spoken sentence',
                 controller:
@@ -853,24 +982,30 @@ class _AIScreenState extends State<AIScreen> {
 
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(18),
+                  padding:
+                      const EdgeInsets.all(18),
                   child: Column(
                     crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                        CrossAxisAlignment
+                            .start,
                     children: const [
                       Text(
                         'Example',
-                        style: TextStyle(
+                        style:
+                            TextStyle(
                           fontSize: 18,
                           fontWeight:
-                              FontWeight.bold,
+                              FontWeight
+                                  .bold,
                         ),
                       ),
-                      SizedBox(height: 8),
+                      SizedBox(
+                          height: 8),
                       Text(
                         'Say: "I spent 500 rupees on petrol today."',
                       ),
-                      SizedBox(height: 6),
+                      SizedBox(
+                          height: 6),
                       Text(
                         'Yansi → Fuel → ₹500 → '
                         'records your description automatically.',
