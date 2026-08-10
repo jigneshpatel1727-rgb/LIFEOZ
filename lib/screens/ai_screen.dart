@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+
 import '../lifeos_ai_service.dart';
 
 class AIScreen extends StatefulWidget {
@@ -20,34 +24,228 @@ class _AIScreenState extends State<AIScreen> {
   final TextEditingController _descriptionController =
       TextEditingController();
 
+  final stt.SpeechToText _speech = stt.SpeechToText();
+
   String _result = 'LifeOS AI is ready.';
 
   bool _loading = false;
+  bool _speechAvailable = false;
+  bool _listening = false;
+
+  String _activeField = '';
+
+  List<stt.LocaleName> _locales = [];
+  String? _selectedLocaleId;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeSpeech();
+  }
+
+  Future<void> _initializeSpeech() async {
+    try {
+      final microphoneStatus =
+          await Permission.microphone.request();
+
+      if (!microphoneStatus.isGranted) {
+        if (!mounted) return;
+
+        setState(() {
+          _speechAvailable = false;
+        });
+
+        return;
+      }
+
+      final available = await _speech.initialize(
+        onStatus: _onSpeechStatus,
+        onError: (error) {
+          if (!mounted) return;
+
+          setState(() {
+            _listening = false;
+          });
+        },
+      );
+
+      if (!mounted) return;
+
+      List<stt.LocaleName> locales = [];
+
+      if (available) {
+        locales = await _speech.locales();
+
+        String? defaultLocale;
+
+        for (final locale in locales) {
+          if (locale.localeId.toLowerCase() == 'en_in') {
+            defaultLocale = locale.localeId;
+            break;
+          }
+        }
+
+        defaultLocale ??=
+            locales.isNotEmpty ? locales.first.localeId : null;
+
+        setState(() {
+          _speechAvailable = true;
+          _locales = locales;
+          _selectedLocaleId = defaultLocale;
+        });
+      } else {
+        setState(() {
+          _speechAvailable = false;
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _speechAvailable = false;
+      });
+    }
+  }
+
+  void _onSpeechStatus(String status) {
+    if (!mounted) return;
+
+    if (status == 'done' || status == 'notListening') {
+      setState(() {
+        _listening = false;
+        _activeField = '';
+      });
+    }
+  }
+
+  void _onSpeechResult(SpeechRecognitionResult result) {
+    if (!mounted) return;
+
+    final text = result.recognizedWords;
+
+    if (text.isEmpty) return;
+
+    setState(() {
+      if (_activeField == 'category') {
+        _categoryController.text = text;
+        _categoryController.selection =
+            TextSelection.fromPosition(
+          TextPosition(
+            offset: _categoryController.text.length,
+          ),
+        );
+      } else if (_activeField == 'amount') {
+        _amountController.text = text;
+        _amountController.selection =
+            TextSelection.fromPosition(
+          TextPosition(
+            offset: _amountController.text.length,
+          ),
+        );
+      } else if (_activeField == 'description') {
+        _descriptionController.text = text;
+        _descriptionController.selection =
+            TextSelection.fromPosition(
+          TextPosition(
+            offset: _descriptionController.text.length,
+          ),
+        );
+      }
+    });
+  }
+
+  Future<void> _toggleListening(String field) async {
+    if (!_speechAvailable) {
+      await _showMicrophoneMessage();
+      return;
+    }
+
+    if (_listening) {
+      await _speech.stop();
+
+      if (!mounted) return;
+
+      setState(() {
+        _listening = false;
+        _activeField = '';
+      });
+
+      return;
+    }
+
+    _activeField = field;
+
+    setState(() {
+      _listening = true;
+    });
+
+    try {
+      await _speech.listen(
+        onResult: _onSpeechResult,
+        options: stt.SpeechListenOptions(
+          localeId: _selectedLocaleId,
+          partialResults: true,
+          cancelOnError: true,
+          listenMode: stt.ListenMode.dictation,
+          pauseFor: const Duration(seconds: 3),
+          listenFor: const Duration(seconds: 30),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _listening = false;
+        _activeField = '';
+      });
+
+      await _showMicrophoneMessage();
+    }
+  }
+
+  Future<void> _showMicrophoneMessage() async {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Microphone permission is required for voice typing. '
+          'You can continue using manual typing.',
+        ),
+      ),
+    );
+  }
 
   Future<void> _analyze() async {
-    final category = _categoryController.text.trim();
+    final category =
+        _categoryController.text.trim();
+
     final amount =
         double.tryParse(_amountController.text.trim());
+
     final description =
         _descriptionController.text.trim();
 
     if (category.isEmpty) {
       setState(() {
-        _result = 'Please enter an expense category.';
+        _result =
+            'Please enter an expense category.';
       });
       return;
     }
 
     if (amount == null || amount <= 0) {
       setState(() {
-        _result = 'Please enter a valid amount.';
+        _result =
+            'Please enter a valid amount.';
       });
       return;
     }
 
     setState(() {
       _loading = true;
-      _result = 'LifeOS AI is analysing...';
+      _result =
+          'LifeOS AI is analysing...';
     });
 
     try {
@@ -63,13 +261,14 @@ class _AIScreenState extends State<AIScreen> {
         _loading = false;
         _result = result;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
         _loading = false;
         _result =
-            'LifeOS AI could not analyse this expense. Please try again.';
+            'LifeOS AI could not analyse this expense. '
+            'Please try again.';
       });
     }
   }
@@ -80,15 +279,57 @@ class _AIScreenState extends State<AIScreen> {
     _descriptionController.clear();
 
     setState(() {
-      _result = 'LifeOS AI is ready.';
+      _result =
+          'LifeOS AI is ready.';
     });
+  }
+
+  Widget _voiceButton(String field) {
+    final isActive =
+        _listening && _activeField == field;
+
+    return IconButton(
+      tooltip: isActive
+          ? 'Stop listening'
+          : 'Voice input',
+      onPressed:
+          _loading ? null : () => _toggleListening(field),
+      icon: Icon(
+        isActive
+            ? Icons.stop_circle
+            : Icons.mic_none,
+        color: isActive
+            ? Colors.red
+            : Theme.of(context)
+                .colorScheme
+                .primary,
+      ),
+    );
+  }
+
+  InputDecoration _decoration({
+    required String label,
+    required String hint,
+    required IconData icon,
+    required String field,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: Icon(icon),
+      suffixIcon: _voiceButton(field),
+      border: const OutlineInputBorder(),
+    );
   }
 
   @override
   void dispose() {
+    _speech.stop();
+
     _categoryController.dispose();
     _amountController.dispose();
     _descriptionController.dispose();
+
     super.dispose();
   }
 
@@ -104,15 +345,16 @@ class _AIScreenState extends State<AIScreen> {
         padding: const EdgeInsets.all(20),
 
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment:
+              CrossAxisAlignment.stretch,
 
           children: [
             const SizedBox(height: 10),
 
-            // AI ICON
             Container(
               width: 90,
               height: 90,
+
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Theme.of(context)
@@ -153,82 +395,128 @@ class _AIScreenState extends State<AIScreen> {
               ),
             ),
 
-            const SizedBox(height: 28),
+            const SizedBox(height: 20),
 
-            // CATEGORY
+            if (_speechAvailable &&
+                _locales.isNotEmpty)
+              DropdownButtonFormField<String>(
+                value: _selectedLocaleId,
+                decoration:
+                    const InputDecoration(
+                  labelText: 'Voice Language',
+                  prefixIcon:
+                      Icon(Icons.language),
+                  border:
+                      OutlineInputBorder(),
+                ),
+                items: _locales
+                    .map(
+                      (locale) =>
+                          DropdownMenuItem<String>(
+                        value:
+                            locale.localeId,
+                        child:
+                            Text(locale.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedLocaleId =
+                        value;
+                  });
+                },
+              ),
+
+            if (_speechAvailable)
+              const Padding(
+                padding:
+                    EdgeInsets.only(top: 8),
+                child: Text(
+                  '🎙️ Tap the microphone to speak.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+
+            const SizedBox(height: 20),
+
             TextField(
-              controller: _categoryController,
-
+              controller:
+                  _categoryController,
               textInputAction:
                   TextInputAction.next,
 
-              decoration: const InputDecoration(
-                labelText: 'Expense Category',
-                hintText:
+              decoration: _decoration(
+                label:
+                    'Expense Category',
+                hint:
                     'Fuel, Food, Shopping, EMI...',
-                prefixIcon:
-                    Icon(Icons.category_outlined),
-                border: OutlineInputBorder(),
+                icon:
+                    Icons.category_outlined,
+                field: 'category',
               ),
             ),
 
             const SizedBox(height: 16),
 
-            // AMOUNT
             TextField(
-              controller: _amountController,
+              controller:
+                  _amountController,
 
               keyboardType:
-                  const TextInputType.numberWithOptions(
+                  const TextInputType
+                      .numberWithOptions(
                 decimal: true,
               ),
 
               textInputAction:
                   TextInputAction.next,
 
-              decoration: const InputDecoration(
-                labelText: 'Amount',
-                hintText: 'Enter amount',
-                prefixText: '₹ ',
-                prefixIcon:
-                    Icon(Icons.currency_rupee),
-                border: OutlineInputBorder(),
+              decoration: _decoration(
+                label: 'Amount',
+                hint: 'Enter amount',
+                icon:
+                    Icons.currency_rupee,
+                field: 'amount',
               ),
             ),
 
             const SizedBox(height: 16),
 
-            // DESCRIPTION
             TextField(
-              controller: _descriptionController,
+              controller:
+                  _descriptionController,
 
               maxLines: 3,
 
-              decoration: const InputDecoration(
-                labelText: 'Description',
-                hintText:
+              decoration: _decoration(
+                label: 'Description',
+                hint:
                     'What was this expense for?',
-                prefixIcon:
-                    Icon(Icons.notes_outlined),
-                border: OutlineInputBorder(),
+                icon:
+                    Icons.notes_outlined,
+                field: 'description',
               ),
             ),
 
             const SizedBox(height: 20),
 
-            // ASK AI BUTTON
             SizedBox(
               height: 52,
 
               child: FilledButton.icon(
                 onPressed:
-                    _loading ? null : _analyze,
+                    _loading
+                        ? null
+                        : _analyze,
 
                 icon: _loading
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-
                         child:
                             CircularProgressIndicator(
                           strokeWidth: 2,
@@ -248,23 +536,22 @@ class _AIScreenState extends State<AIScreen> {
 
             const SizedBox(height: 10),
 
-            // CLEAR BUTTON
             TextButton.icon(
               onPressed:
-                  _loading ? null : _clearForm,
+                  _loading
+                      ? null
+                      : _clearForm,
 
               icon: const Icon(
                 Icons.refresh,
               ),
 
-              label: const Text(
-                'Clear',
-              ),
+              label:
+                  const Text('Clear'),
             ),
 
             const SizedBox(height: 20),
 
-            // RESULT CARD
             Card(
               elevation: 2,
 
@@ -281,16 +568,17 @@ class _AIScreenState extends State<AIScreen> {
                       children: [
                         Icon(
                           Icons.auto_awesome,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary,
+                          color:
+                              Theme.of(context)
+                                  .colorScheme
+                                  .primary,
                         ),
 
-                        const SizedBox(width: 10),
+                        const SizedBox(
+                            width: 10),
 
                         const Text(
                           'AI Recommendation',
-
                           style: TextStyle(
                             fontSize: 19,
                             fontWeight:
@@ -304,8 +592,8 @@ class _AIScreenState extends State<AIScreen> {
 
                     Text(
                       _result,
-
-                      style: const TextStyle(
+                      style:
+                          const TextStyle(
                         fontSize: 16,
                         height: 1.5,
                       ),
@@ -317,7 +605,6 @@ class _AIScreenState extends State<AIScreen> {
 
             const SizedBox(height: 20),
 
-            // LIFEOS PRINCIPLE
             Card(
               color: Theme.of(context)
                   .colorScheme
@@ -334,7 +621,6 @@ class _AIScreenState extends State<AIScreen> {
                   children: [
                     Text(
                       'LifeOS Principle',
-
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight:
@@ -345,7 +631,8 @@ class _AIScreenState extends State<AIScreen> {
                     SizedBox(height: 8),
 
                     Text(
-                      'Track → Understand → Improve → Save',
+                      'Track → Understand → '
+                      'Improve → Save',
                       style: TextStyle(
                         fontSize: 15,
                       ),
