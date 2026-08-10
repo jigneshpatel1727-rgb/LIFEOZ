@@ -2,7 +2,7 @@ name: lifeos
 description: LifeOS AI personal operating system MVP.
 publish_to: "none"
 
-version: 0.2.0+2
+version: 0.3.0+3
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -15,11 +15,11 @@ dependencies:
   http: ^1.2.1
   permission_handler: ^11.3.1
   speech_to_text: ^7.4.0
+  flutter_tts: ^4.2.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
   flutter_lints: ^3.0.2
 
 flutter:
