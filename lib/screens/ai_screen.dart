@@ -26,7 +26,7 @@ class _AIScreenState extends State<AIScreen> {
 
   final stt.SpeechToText _speech = stt.SpeechToText();
 
-  String _result = 'LifeOS AI is ready.';
+  String _result = 'Yansi is ready to help you.';
 
   bool _loading = false;
   bool _speechAvailable = false;
@@ -65,39 +65,41 @@ class _AIScreenState extends State<AIScreen> {
 
           setState(() {
             _listening = false;
+            _activeField = '';
           });
         },
       );
 
       if (!mounted) return;
 
-      List<stt.LocaleName> locales = [];
-
-      if (available) {
-        locales = await _speech.locales();
-
-        String? defaultLocale;
-
-        for (final locale in locales) {
-          if (locale.localeId.toLowerCase() == 'en_in') {
-            defaultLocale = locale.localeId;
-            break;
-          }
-        }
-
-        defaultLocale ??=
-            locales.isNotEmpty ? locales.first.localeId : null;
-
-        setState(() {
-          _speechAvailable = true;
-          _locales = locales;
-          _selectedLocaleId = defaultLocale;
-        });
-      } else {
+      if (!available) {
         setState(() {
           _speechAvailable = false;
         });
+        return;
       }
+
+      final locales = await _speech.locales();
+
+      String? defaultLocale;
+
+      for (final locale in locales) {
+        final id = locale.localeId.toLowerCase();
+
+        if (id == 'en_in' || id == 'en-in') {
+          defaultLocale = locale.localeId;
+          break;
+        }
+      }
+
+      defaultLocale ??=
+          locales.isNotEmpty ? locales.first.localeId : null;
+
+      setState(() {
+        _speechAvailable = true;
+        _locales = locales;
+        _selectedLocaleId = defaultLocale;
+      });
     } catch (_) {
       if (!mounted) return;
 
@@ -118,7 +120,9 @@ class _AIScreenState extends State<AIScreen> {
     }
   }
 
-  void _onSpeechResult(SpeechRecognitionResult result) {
+  void _onSpeechResult(
+    SpeechRecognitionResult result,
+  ) {
     if (!mounted) return;
 
     final text = result.recognizedWords;
@@ -128,6 +132,7 @@ class _AIScreenState extends State<AIScreen> {
     setState(() {
       if (_activeField == 'category') {
         _categoryController.text = text;
+
         _categoryController.selection =
             TextSelection.fromPosition(
           TextPosition(
@@ -136,6 +141,7 @@ class _AIScreenState extends State<AIScreen> {
         );
       } else if (_activeField == 'amount') {
         _amountController.text = text;
+
         _amountController.selection =
             TextSelection.fromPosition(
           TextPosition(
@@ -144,6 +150,7 @@ class _AIScreenState extends State<AIScreen> {
         );
       } else if (_activeField == 'description') {
         _descriptionController.text = text;
+
         _descriptionController.selection =
             TextSelection.fromPosition(
           TextPosition(
@@ -182,14 +189,17 @@ class _AIScreenState extends State<AIScreen> {
     try {
       await _speech.listen(
         onResult: _onSpeechResult,
-        options: stt.SpeechListenOptions(
-          localeId: _selectedLocaleId,
-          partialResults: true,
-          cancelOnError: true,
-          listenMode: stt.ListenMode.dictation,
-          pauseFor: const Duration(seconds: 3),
-          listenFor: const Duration(seconds: 30),
-        ),
+
+        // IMPORTANT:
+        // These are direct parameters because the installed
+        // speech_to_text package does not support the
+        // SpeechListenOptions "options:" parameter used before.
+        localeId: _selectedLocaleId,
+        partialResults: true,
+        cancelOnError: true,
+        listenMode: stt.ListenMode.dictation,
+        pauseFor: const Duration(seconds: 3),
+        listenFor: const Duration(seconds: 30),
       );
     } catch (_) {
       if (!mounted) return;
@@ -221,7 +231,9 @@ class _AIScreenState extends State<AIScreen> {
         _categoryController.text.trim();
 
     final amount =
-        double.tryParse(_amountController.text.trim());
+        double.tryParse(
+      _amountController.text.trim(),
+    );
 
     final description =
         _descriptionController.text.trim();
@@ -245,7 +257,7 @@ class _AIScreenState extends State<AIScreen> {
     setState(() {
       _loading = true;
       _result =
-          'LifeOS AI is analysing...';
+          'Yansi is analysing your expense...';
     });
 
     try {
@@ -267,7 +279,7 @@ class _AIScreenState extends State<AIScreen> {
       setState(() {
         _loading = false;
         _result =
-            'LifeOS AI could not analyse this expense. '
+            'Yansi could not analyse this expense. '
             'Please try again.';
       });
     }
@@ -279,8 +291,7 @@ class _AIScreenState extends State<AIScreen> {
     _descriptionController.clear();
 
     setState(() {
-      _result =
-          'LifeOS AI is ready.';
+      _result = 'Yansi is ready to help you.';
     });
   }
 
@@ -337,7 +348,7 @@ class _AIScreenState extends State<AIScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('LifeOS AI'),
+        title: const Text('Yansi AI'),
         centerTitle: true,
       ),
 
@@ -374,11 +385,11 @@ class _AIScreenState extends State<AIScreen> {
             const SizedBox(height: 18),
 
             const Text(
-              'LifeOS AI Agent',
+              'Yansi',
               textAlign: TextAlign.center,
 
               style: TextStyle(
-                fontSize: 28,
+                fontSize: 30,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -386,8 +397,20 @@ class _AIScreenState extends State<AIScreen> {
             const SizedBox(height: 8),
 
             const Text(
-              'One tap to understand your expense '
-              'and get a simple recommendation.',
+              'Your LifeOS AI Agent',
+              textAlign: TextAlign.center,
+
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            const Text(
+              'Speak or type your expense and Yansi '
+              'will help you understand it.',
               textAlign: TextAlign.center,
 
               style: TextStyle(
@@ -401,6 +424,7 @@ class _AIScreenState extends State<AIScreen> {
                 _locales.isNotEmpty)
               DropdownButtonFormField<String>(
                 value: _selectedLocaleId,
+
                 decoration:
                     const InputDecoration(
                   labelText: 'Voice Language',
@@ -409,6 +433,7 @@ class _AIScreenState extends State<AIScreen> {
                   border:
                       OutlineInputBorder(),
                 ),
+
                 items: _locales
                     .map(
                       (locale) =>
@@ -420,6 +445,7 @@ class _AIScreenState extends State<AIScreen> {
                       ),
                     )
                     .toList(),
+
                 onChanged: (value) {
                   setState(() {
                     _selectedLocaleId =
@@ -432,9 +458,11 @@ class _AIScreenState extends State<AIScreen> {
               const Padding(
                 padding:
                     EdgeInsets.only(top: 8),
+
                 child: Text(
                   '🎙️ Tap the microphone to speak.',
                   textAlign: TextAlign.center,
+
                   style: TextStyle(
                     fontSize: 13,
                   ),
@@ -446,17 +474,22 @@ class _AIScreenState extends State<AIScreen> {
             TextField(
               controller:
                   _categoryController,
+
               textInputAction:
                   TextInputAction.next,
 
               decoration: _decoration(
                 label:
                     'Expense Category',
+
                 hint:
                     'Fuel, Food, Shopping, EMI...',
+
                 icon:
                     Icons.category_outlined,
-                field: 'category',
+
+                field:
+                    'category',
               ),
             ),
 
@@ -494,11 +527,15 @@ class _AIScreenState extends State<AIScreen> {
 
               decoration: _decoration(
                 label: 'Description',
+
                 hint:
                     'What was this expense for?',
+
                 icon:
                     Icons.notes_outlined,
-                field: 'description',
+
+                field:
+                    'description',
               ),
             ),
 
@@ -517,6 +554,7 @@ class _AIScreenState extends State<AIScreen> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
+
                         child:
                             CircularProgressIndicator(
                           strokeWidth: 2,
@@ -529,7 +567,7 @@ class _AIScreenState extends State<AIScreen> {
                 label: Text(
                   _loading
                       ? 'Analysing...'
-                      : 'ASK LIFEOS AI',
+                      : 'ASK YANSI',
                 ),
               ),
             ),
@@ -568,6 +606,7 @@ class _AIScreenState extends State<AIScreen> {
                       children: [
                         Icon(
                           Icons.auto_awesome,
+
                           color:
                               Theme.of(context)
                                   .colorScheme
@@ -578,7 +617,8 @@ class _AIScreenState extends State<AIScreen> {
                             width: 10),
 
                         const Text(
-                          'AI Recommendation',
+                          'Yansi Recommendation',
+
                           style: TextStyle(
                             fontSize: 19,
                             fontWeight:
@@ -588,10 +628,12 @@ class _AIScreenState extends State<AIScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 15),
+                    const SizedBox(
+                        height: 15),
 
                     Text(
                       _result,
+
                       style:
                           const TextStyle(
                         fontSize: 16,
@@ -621,6 +663,7 @@ class _AIScreenState extends State<AIScreen> {
                   children: [
                     Text(
                       'LifeOS Principle',
+
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight:
@@ -633,6 +676,7 @@ class _AIScreenState extends State<AIScreen> {
                     Text(
                       'Track → Understand → '
                       'Improve → Save',
+
                       style: TextStyle(
                         fontSize: 15,
                       ),
