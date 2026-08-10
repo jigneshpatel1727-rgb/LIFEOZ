@@ -12,30 +12,25 @@ jobs:
 
     steps:
 
-      # 1. Download LifeOS source code
       - name: Checkout LifeOS
         uses: actions/checkout@v4
 
-      # 2. Setup Java
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      # 3. Setup Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
-      # 4. Generate Android project
       - name: Generate Android project
         run: flutter create --platforms=android .
 
-      # 5. Add microphone permission
-      - name: Add microphone permission
+      - name: Configure microphone and speech recognition
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -51,39 +46,49 @@ jobs:
               'android:name="android.permission.RECORD_AUDIO"/>'
           )
 
-          manifest_start = (
-              '<manifest '
-              'xmlns:android='
-              '"http://schemas.android.com/apk/res/android">'
-          )
-
           if permission not in text:
+              marker = '<manifest '
+              index = text.find(marker)
+
+              if index >= 0:
+                  end = text.find('>', index)
+
+                  text = (
+                      text[:end + 1]
+                      + '\n    '
+                      + permission
+                      + text[end + 1:]
+                  )
+
+          queries = '''
+          <queries>
+              <intent>
+                  <action android:name="android.speech.RecognitionService"/>
+              </intent>
+          </queries>
+          '''
+
+          if 'android.speech.RecognitionService' not in text:
               text = text.replace(
-                  manifest_start,
-                  manifest_start
-                  + "\n    "
-                  + permission
+                  '</manifest>',
+                  queries + '\n</manifest>'
               )
 
           path.write_text(text)
           PY
 
-      # 6. Get Flutter packages
       - name: Get dependencies
         run: flutter pub get
 
-      # 7. Check Flutter project
       - name: Analyze Flutter project
         run: flutter analyze
         continue-on-error: true
 
-      # 8. Build release APK
       - name: Build LifeOS APK
         run: flutter build apk --release
 
-      # 9. Upload APK
       - name: Upload LifeOS APK
         uses: actions/upload-artifact@v4
         with:
-          name: LifeOS-release-apk
+          name: LifeOS-Yansi-Voice-APK
           path: build/app/outputs/flutter-apk/app-release.apk
