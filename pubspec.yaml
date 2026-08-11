@@ -1,11 +1,11 @@
 name: lifeos
-description: LifeOS - Your personal AI life assistant.
-publish_to: 'none'
+description: LifeOS smart personal operating system.
+publish_to: "none"
 
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: ">=3.3.0 <4.0.0"
 
 dependencies:
   flutter:
@@ -13,6 +13,7 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   speech_to_text: ^7.4.0
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:
