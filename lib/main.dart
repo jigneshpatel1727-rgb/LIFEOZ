@@ -1,12 +1,31 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
-void main() {
-  runApp(const LifeOS());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final store = LifeOSStore();
+  await store.load();
+
+  runApp(
+    LifeOSApp(store: store),
+  );
 }
 
-class LifeOS extends StatelessWidget {
-  const LifeOS({super.key});
+// ============================================================
+// APP
+// ============================================================
+
+class LifeOSApp extends StatelessWidget {
+  final LifeOSStore store;
+
+  const LifeOSApp({
+    super.key,
+    required this.store,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -16,26 +35,26 @@ class LifeOS extends StatelessWidget {
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF020812),
-        fontFamily: 'sans',
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF00E5FF),
           brightness: Brightness.dark,
         ),
+        useMaterial3: true,
       ),
-      home: const MainScreen(),
+      home: MainScreen(store: store),
     );
   }
 }
 
 // ============================================================
-// DATA MODELS
+// MODELS
 // ============================================================
 
 class Expense {
-  final String category;
-  final String item;
-  final double amount;
-  final DateTime date;
+  String category;
+  String item;
+  double amount;
+  DateTime date;
 
   Expense({
     required this.category,
@@ -43,6 +62,26 @@ class Expense {
     required this.amount,
     required this.date,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'category': category,
+      'item': item,
+      'amount': amount,
+      'date': date.toIso8601String(),
+    };
+  }
+
+  factory Expense.fromJson(Map<String, dynamic> json) {
+    return Expense(
+      category: json['category'] ?? 'Other',
+      item: json['item'] ?? '',
+      amount: (json['amount'] ?? 0).toDouble(),
+      date: DateTime.parse(
+        json['date'] ?? DateTime.now().toIso8601String(),
+      ),
+    );
+  }
 }
 
 class Task {
@@ -55,6 +94,22 @@ class Task {
     this.completed = false,
     this.priority = 2,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'completed': completed,
+      'priority': priority,
+    };
+  }
+
+  factory Task.fromJson(Map<String, dynamic> json) {
+    return Task(
+      title: json['title'] ?? '',
+      completed: json['completed'] ?? false,
+      priority: json['priority'] ?? 2,
+    );
+  }
 }
 
 class HouseholdItem {
@@ -67,6 +122,22 @@ class HouseholdItem {
     required this.price,
     required this.monthlyUse,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'price': price,
+      'monthlyUse': monthlyUse,
+    };
+  }
+
+  factory HouseholdItem.fromJson(Map<String, dynamic> json) {
+    return HouseholdItem(
+      name: json['name'] ?? '',
+      price: (json['price'] ?? 0).toDouble(),
+      monthlyUse: (json['monthlyUse'] ?? 0).toDouble(),
+    );
+  }
 }
 
 class Goal {
@@ -82,151 +153,492 @@ class Goal {
 
   double get progress {
     if (target <= 0) return 0;
-    return (current / target).clamp(0, 1);
+    return (current / target).clamp(0.0, 1.0);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'target': target,
+      'current': current,
+    };
+  }
+
+  factory Goal.fromJson(Map<String, dynamic> json) {
+    return Goal(
+      name: json['name'] ?? '',
+      target: (json['target'] ?? 0).toDouble(),
+      current: (json['current'] ?? 0).toDouble(),
+    );
+  }
+}
+
+class Reminder {
+  String title;
+  DateTime date;
+
+  Reminder({
+    required this.title,
+    required this.date,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'date': date.toIso8601String(),
+    };
+  }
+
+  factory Reminder.fromJson(Map<String, dynamic> json) {
+    return Reminder(
+      title: json['title'] ?? '',
+      date: DateTime.parse(
+        json['date'] ?? DateTime.now().toIso8601String(),
+      ),
+    );
+  }
+}
+
+class DiaryEntry {
+  String text;
+  DateTime date;
+
+  DiaryEntry({
+    required this.text,
+    required this.date,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'text': text,
+      'date': date.toIso8601String(),
+    };
+  }
+
+  factory DiaryEntry.fromJson(Map<String, dynamic> json) {
+    return DiaryEntry(
+      text: json['text'] ?? '',
+      date: DateTime.parse(
+        json['date'] ?? DateTime.now().toIso8601String(),
+      ),
+    );
   }
 }
 
 // ============================================================
-// GLOBAL APP DATA
+// STORAGE
 // ============================================================
 
-final List<Expense> expenses = [
-  Expense(
-    category: 'Fuel',
-    item: 'Petrol',
-    amount: 850,
-    date: DateTime.now(),
-  ),
-  Expense(
-    category: 'Food',
-    item: 'Groceries',
-    amount: 1250,
-    date: DateTime.now(),
-  ),
-  Expense(
-    category: 'Bills',
-    item: 'Electricity',
-    amount: 1800,
-    date: DateTime.now(),
-  ),
-];
+class LifeOSStore extends ChangeNotifier {
+  SharedPreferences? _prefs;
 
-final List<Task> tasks = [
-  Task(title: 'Pay electricity bill', priority: 1),
-  Task(title: 'Buy household items', priority: 2),
-  Task(title: 'Review monthly expenses', priority: 2),
-  Task(title: 'Complete daily exercise', priority: 3),
-];
+  List<Expense> expenses = [];
+  List<Task> tasks = [];
+  List<HouseholdItem> householdItems = [];
+  List<Goal> goals = [];
+  List<Reminder> reminders = [];
+  List<DiaryEntry> diary = [];
 
-final List<HouseholdItem> householdItems = [
-  HouseholdItem(name: 'Milk', price: 60, monthlyUse: 30),
-  HouseholdItem(name: 'Rice', price: 650, monthlyUse: 1),
-  HouseholdItem(name: 'Vegetables', price: 700, monthlyUse: 4),
-  HouseholdItem(name: 'Cooking Oil', price: 180, monthlyUse: 3),
-];
+  String currency = '₹';
+  String design = 'Neon';
 
-final List<Goal> goals = [
-  Goal(name: 'House Fund', target: 1000000, current: 350000),
-  Goal(name: 'Emergency Fund', target: 300000, current: 120000),
-];
+  Future<void> load() async {
+    _prefs = await SharedPreferences.getInstance();
+
+    expenses = _readList(
+      'expenses',
+      (json) => Expense.fromJson(json),
+    );
+
+    tasks = _readList(
+      'tasks',
+      (json) => Task.fromJson(json),
+    );
+
+    householdItems = _readList(
+      'household',
+      (json) => HouseholdItem.fromJson(json),
+    );
+
+    goals = _readList(
+      'goals',
+      (json) => Goal.fromJson(json),
+    );
+
+    reminders = _readList(
+      'reminders',
+      (json) => Reminder.fromJson(json),
+    );
+
+    diary = _readList(
+      'diary',
+      (json) => DiaryEntry.fromJson(json),
+    );
+
+    currency = _prefs?.getString('currency') ?? '₹';
+    design = _prefs?.getString('design') ?? 'Neon';
+
+    if (expenses.isEmpty) {
+      expenses.add(
+        Expense(
+          category: 'Fuel',
+          item: 'Petrol',
+          amount: 850,
+          date: DateTime.now(),
+        ),
+      );
+    }
+
+    if (tasks.isEmpty) {
+      tasks.addAll([
+        Task(title: 'Pay electricity bill', priority: 1),
+        Task(title: 'Buy household items', priority: 2),
+        Task(title: 'Review monthly expenses', priority: 2),
+        Task(title: 'Complete daily activity', priority: 3),
+      ]);
+    }
+
+    if (householdItems.isEmpty) {
+      householdItems.addAll([
+        HouseholdItem(
+          name: 'Milk',
+          price: 60,
+          monthlyUse: 30,
+        ),
+        HouseholdItem(
+          name: 'Rice',
+          price: 650,
+          monthlyUse: 1,
+        ),
+        HouseholdItem(
+          name: 'Vegetables',
+          price: 700,
+          monthlyUse: 4,
+        ),
+        HouseholdItem(
+          name: 'Cooking Oil',
+          price: 180,
+          monthlyUse: 3,
+        ),
+      ]);
+    }
+
+    if (goals.isEmpty) {
+      goals.addAll([
+        Goal(
+          name: 'House Fund',
+          target: 1000000,
+          current: 350000,
+        ),
+        Goal(
+          name: 'Emergency Fund',
+          target: 300000,
+          current: 120000,
+        ),
+      ]);
+    }
+
+    await save();
+  }
+
+  List<T> _readList<T>(
+    String key,
+    T Function(Map<String, dynamic>) parser,
+  ) {
+    final raw = _prefs?.getString(key);
+
+    if (raw == null || raw.isEmpty) {
+      return [];
+    }
+
+    try {
+      final decoded = jsonDecode(raw) as List;
+
+      return decoded
+          .map(
+            (item) => parser(
+              Map<String, dynamic>.from(item),
+            ),
+          )
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> save() async {
+    await _prefs?.setString(
+      'expenses',
+      jsonEncode(
+        expenses.map((e) => e.toJson()).toList(),
+      ),
+    );
+
+    await _prefs?.setString(
+      'tasks',
+      jsonEncode(
+        tasks.map((e) => e.toJson()).toList(),
+      ),
+    );
+
+    await _prefs?.setString(
+      'household',
+      jsonEncode(
+        householdItems.map((e) => e.toJson()).toList(),
+      ),
+    );
+
+    await _prefs?.setString(
+      'goals',
+      jsonEncode(
+        goals.map((e) => e.toJson()).toList(),
+      ),
+    );
+
+    await _prefs?.setString(
+      'reminders',
+      jsonEncode(
+        reminders.map((e) => e.toJson()).toList(),
+      ),
+    );
+
+    await _prefs?.setString(
+      'diary',
+      jsonEncode(
+        diary.map((e) => e.toJson()).toList(),
+      ),
+    );
+
+    await _prefs?.setString('currency', currency);
+    await _prefs?.setString('design', design);
+  }
+
+  Future<void> addExpense({
+    required String category,
+    required String item,
+    required double amount,
+  }) async {
+    expenses.add(
+      Expense(
+        category: category,
+        item: item,
+        amount: amount,
+        date: DateTime.now(),
+      ),
+    );
+
+    await save();
+    notifyListeners();
+  }
+
+  Future<void> addTask(String title) async {
+    tasks.add(
+      Task(title: title),
+    );
+
+    await save();
+    notifyListeners();
+  }
+
+  Future<void> addReminder(
+    String title,
+    DateTime date,
+  ) async {
+    reminders.add(
+      Reminder(
+        title: title,
+        date: date,
+      ),
+    );
+
+    await save();
+    notifyListeners();
+  }
+
+  Future<void> addDiary(String text) async {
+    diary.add(
+      DiaryEntry(
+        text: text,
+        date: DateTime.now(),
+      ),
+    );
+
+    await save();
+    notifyListeners();
+  }
+
+  Future<void> setCurrency(String value) async {
+    currency = value;
+    await save();
+    notifyListeners();
+  }
+
+  Future<void> setDesign(String value) async {
+    design = value;
+    await save();
+    notifyListeners();
+  }
+}
 
 // ============================================================
 // MAIN SCREEN
 // ============================================================
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  final LifeOSStore store;
+
+  const MainScreen({
+    super.key,
+    required this.store,
+  });
 
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
-  final stt.SpeechToText speech = stt.SpeechToText();
+  late stt.SpeechToText speech;
 
   bool listening = false;
-  String selectedPeriod = 'Month';
 
   @override
   void initState() {
     super.initState();
+
+    speech = stt.SpeechToText();
+
     speech.initialize();
   }
 
-  Future<void> listenToYansi() async {
+  Future<void> listen() async {
     if (listening) {
       await speech.stop();
-      setState(() => listening = false);
+
+      setState(() {
+        listening = false;
+      });
+
       return;
     }
 
-    setState(() => listening = true);
+    final available = await speech.initialize();
+
+    if (!available) {
+      return;
+    }
+
+    setState(() {
+      listening = true;
+    });
 
     await speech.listen(
       onResult: (result) {
         if (result.finalResult) {
-          setState(() => listening = false);
-          _processVoice(result.recognizedWords);
+          final text = result.recognizedWords;
+
+          setState(() {
+            listening = false;
+          });
+
+          processYansiCommand(text);
         }
       },
     );
   }
 
-  void _processVoice(String text) {
-    final lower = text.toLowerCase();
+  Future<void> processYansiCommand(String text) async {
+    final command = text.toLowerCase();
 
-    // Expense example:
-    // "I spent 500 on petrol"
-    final match = RegExp(
+    final amountMatch = RegExp(
       r'(\d+(?:\.\d+)?)',
-    ).firstMatch(lower);
+    ).firstMatch(command);
 
-    if (match != null &&
-        (lower.contains('spent') ||
-            lower.contains('paid') ||
-            lower.contains('buy'))) {
-      final amount = double.tryParse(match.group(1)!);
+    if (amountMatch != null &&
+        (command.contains('spent') ||
+            command.contains('paid') ||
+            command.contains('buy') ||
+            command.contains('bought'))) {
+      final amount =
+          double.tryParse(amountMatch.group(1)!);
 
       if (amount != null) {
         String category = 'Other';
 
-        if (lower.contains('petrol') ||
-            lower.contains('fuel') ||
-            lower.contains('diesel')) {
+        if (command.contains('petrol') ||
+            command.contains('fuel') ||
+            command.contains('diesel')) {
           category = 'Fuel';
-        } else if (lower.contains('milk') ||
-            lower.contains('grocery') ||
-            lower.contains('vegetable')) {
+        } else if (command.contains('milk') ||
+            command.contains('grocery') ||
+            command.contains('vegetable')) {
           category = 'Household';
-        } else if (lower.contains('electricity') ||
-            lower.contains('bill')) {
+        } else if (command.contains('electricity') ||
+            command.contains('bill')) {
           category = 'Bills';
-        } else if (lower.contains('food') ||
-            lower.contains('restaurant')) {
+        } else if (command.contains('food') ||
+            command.contains('restaurant')) {
           category = 'Food';
         }
 
-        expenses.add(
-          Expense(
-            category: category,
-            item: text,
-            amount: amount,
-            date: DateTime.now(),
-          ),
+        await widget.store.addExpense(
+          category: category,
+          item: text,
+          amount: amount,
         );
 
-        setState(() {});
+        _showMessage(
+          '${widget.store.currency}${amount.toStringAsFixed(0)} recorded',
+        );
+
+        return;
       }
     }
+
+    if (command.contains('remind') ||
+        command.contains('reminder')) {
+      await widget.store.addReminder(
+        text,
+        DateTime.now().add(
+          const Duration(days: 1),
+        ),
+      );
+
+      _showMessage('Reminder created');
+
+      return;
+    }
+
+    if (command.contains('task') ||
+        command.contains('todo') ||
+        command.contains('need to')) {
+      await widget.store.addTask(text);
+
+      _showMessage('Task added');
+
+      return;
+    }
+
+    await widget.store.addDiary(text);
+
+    _showMessage('Added to your diary');
   }
 
-  void openCore(String core) {
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void openCore(String title) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => CoreScreen(
-          title: core,
-          onChanged: () => setState(() {}),
+          title: title,
+          store: widget.store,
         ),
       ),
     );
@@ -250,152 +662,141 @@ class _MainScreenState extends State<MainScreen> {
         child: SafeArea(
           child: Stack(
             children: [
-              // ------------------------------------------------
-              // TOP BAR
-              // ------------------------------------------------
-
               Positioned(
                 top: 12,
                 left: 15,
-                child: _topButton(
-                  Icons.hub_rounded,
-                  () {
-                    _showCoreMenu();
-                  },
+                child: _button(
+                  Icons.menu_rounded,
+                  showMenu,
                 ),
               ),
-
               Positioned(
                 top: 12,
                 right: 15,
-                child: _topButton(
+                child: _button(
                   Icons.notifications_none_rounded,
-                  () {
-                    _showReminders();
-                  },
+                  showReminders,
                 ),
               ),
-
-              // ------------------------------------------------
-              // CENTER DESIGN
-              // ------------------------------------------------
-
               Center(
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
                       const SizedBox(height: 30),
 
-                      _lifeosLogo(),
+                      _logo(),
 
-                      const SizedBox(height: 25),
+                      const SizedBox(height: 20),
 
                       const Text(
                         'L I F E O S',
                         style: TextStyle(
                           fontSize: 30,
-                          fontWeight: FontWeight.w300,
                           letterSpacing: 9,
-                          color: Colors.white,
+                          fontWeight: FontWeight.w300,
                         ),
                       ),
 
-                      const SizedBox(height: 35),
+                      const SizedBox(height: 25),
 
                       SizedBox(
                         width: 380,
-                        height: 610,
+                        height: 570,
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
-                            _orbit(),
+                            Container(
+                              width: 370,
+                              height: 370,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: const Color(
+                                    0xFF00E5FF,
+                                  ).withOpacity(.18),
+                                ),
+                              ),
+                            ),
 
-                            // CENTER INTELLIGENCE
-                            _centerBrain(),
+                            _brain(),
 
-                            // TOP - MONEY
                             Positioned(
                               top: 0,
-                              child: _coreIcon(
+                              child: _core(
                                 Icons.account_balance_wallet_rounded,
-                                () => openCore('Money'),
+                                'Money',
                               ),
                             ),
 
-                            // LEFT TOP - PRODUCTIVITY
                             Positioned(
                               left: 0,
-                              top: 165,
-                              child: _coreIcon(
+                              top: 160,
+                              child: _core(
                                 Icons.calendar_month_rounded,
-                                () => openCore('Productivity'),
+                                'Productivity',
                               ),
                             ),
 
-                            // RIGHT TOP - HEALTH
                             Positioned(
                               right: 0,
-                              top: 165,
-                              child: _coreIcon(
+                              top: 160,
+                              child: _core(
                                 Icons.favorite_rounded,
-                                () => openCore('Health'),
+                                'Health',
                               ),
                             ),
 
-                            // LEFT BOTTOM - HOUSEHOLD
                             Positioned(
                               left: 35,
-                              bottom: 65,
-                              child: _coreIcon(
+                              bottom: 40,
+                              child: _core(
                                 Icons.shopping_cart_rounded,
-                                () => openCore('Household'),
+                                'Household',
                               ),
                             ),
 
-                            // RIGHT BOTTOM - GOALS
                             Positioned(
                               right: 35,
-                              bottom: 65,
-                              child: _coreIcon(
+                              bottom: 40,
+                              child: _core(
                                 Icons.track_changes_rounded,
-                                () => openCore('Goals'),
+                                'Goals',
                               ),
                             ),
                           ],
                         ),
                       ),
 
-                      const SizedBox(height: 5),
-
-                      // INVISIBLE/BACKGROUND AI CONTROL
                       GestureDetector(
-                        onTap: listenToYansi,
+                        onTap: listen,
                         child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          width: 62,
-                          height: 62,
+                          duration:
+                              const Duration(milliseconds: 300),
+                          width: 65,
+                          height: 65,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: listening
-                                  ? const Color(0xFF7CFF4D)
-                                  : const Color(0xFF00DFFF),
+                                  ? const Color(0xFF5CFF6A)
+                                  : const Color(0xFF00E5FF),
+                              width: 2,
                             ),
                             boxShadow: [
                               BoxShadow(
                                 color: listening
-                                    ? const Color(0xFF7CFF4D)
-                                    : const Color(0xFF00DFFF),
-                                blurRadius: listening ? 30 : 12,
+                                    ? const Color(0xFF5CFF6A)
+                                    : const Color(0xFF00E5FF),
+                                blurRadius: 20,
                               ),
                             ],
                           ),
                           child: Icon(
                             listening
-                                ? Icons.mic_rounded
-                                : Icons.mic_none_rounded,
+                                ? Icons.mic
+                                : Icons.mic_none,
                             color: Colors.white,
-                            size: 28,
+                            size: 30,
                           ),
                         ),
                       ),
@@ -412,10 +813,10 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _lifeosLogo() {
+  Widget _logo() {
     return Container(
-      width: 72,
-      height: 72,
+      width: 70,
+      height: 70,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
@@ -431,13 +832,13 @@ class _MainScreenState extends State<MainScreen> {
       ),
       child: const Icon(
         Icons.hub_rounded,
-        size: 44,
         color: Color(0xFF00E5FF),
+        size: 42,
       ),
     );
   }
 
-  Widget _centerBrain() {
+  Widget _brain() {
     return Container(
       width: 155,
       height: 155,
@@ -445,8 +846,8 @@ class _MainScreenState extends State<MainScreen> {
         shape: BoxShape.circle,
         gradient: const RadialGradient(
           colors: [
-            Color(0xFF183C50),
-            Color(0xFF04121C),
+            Color(0xFF173B4E),
+            Color(0xFF03111B),
           ],
         ),
         border: Border.all(
@@ -457,47 +858,29 @@ class _MainScreenState extends State<MainScreen> {
           BoxShadow(
             color: Color(0xFF00E5FF),
             blurRadius: 25,
-            spreadRadius: 3,
           ),
         ],
       ),
       child: const Icon(
         Icons.psychology_rounded,
-        size: 80,
         color: Color(0xFF5CFF6A),
+        size: 75,
       ),
     );
   }
 
-  Widget _orbit() {
-    return Container(
-      width: 370,
-      height: 370,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: const Color(0xFF00DFFF).withOpacity(.18),
-        ),
-      ),
-    );
-  }
-
-  Widget _coreIcon(IconData icon, VoidCallback action) {
+  Widget _core(
+    IconData icon,
+    String title,
+  ) {
     return GestureDetector(
-      onTap: action,
+      onTap: () => openCore(title),
       child: Container(
-        width: 125,
-        height: 125,
+        width: 115,
+        height: 115,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF021321),
-              Color(0xFF071A24),
-            ],
-          ),
+          color: const Color(0xFF061824),
           border: Border.all(
             color: const Color(0xFF00E5FF),
             width: 2,
@@ -505,60 +888,52 @@ class _MainScreenState extends State<MainScreen> {
           boxShadow: const [
             BoxShadow(
               color: Color(0xFF00DFFF),
-              blurRadius: 18,
+              blurRadius: 16,
             ),
           ],
         ),
         child: Icon(
           icon,
-          size: 55,
-          color: const Color(0xFF64FF62),
+          size: 52,
+          color: const Color(0xFF5CFF6A),
         ),
       ),
     );
   }
 
-  Widget _topButton(IconData icon, VoidCallback action) {
+  Widget _button(
+    IconData icon,
+    VoidCallback action,
+  ) {
     return GestureDetector(
       onTap: action,
       child: Container(
-        width: 55,
-        height: 55,
+        width: 52,
+        height: 52,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(15),
           border: Border.all(
             color: const Color(0xFF00E5FF),
           ),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0xFF00E5FF),
-              blurRadius: 12,
-            ),
-          ],
         ),
         child: Icon(
           icon,
-          color: const Color(0xFF65FF52),
+          color: const Color(0xFF5CFF6A),
         ),
       ),
     );
   }
 
-  void _showCoreMenu() {
+  void showMenu() {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF06131C),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(25),
-        ),
-      ),
       builder: (_) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
+        return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const SizedBox(height: 15),
               const Text(
                 'LifeOS',
                 style: TextStyle(
@@ -566,13 +941,32 @@ class _MainScreenState extends State<MainScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              const SizedBox(height: 10),
+              _menuItem(
+                'Money',
+                Icons.account_balance_wallet,
+              ),
+              _menuItem(
+                'Health',
+                Icons.favorite,
+              ),
+              _menuItem(
+                'Productivity',
+                Icons.calendar_month,
+              ),
+              _menuItem(
+                'Household',
+                Icons.shopping_cart,
+              ),
+              _menuItem(
+                'Goals',
+                Icons.track_changes,
+              ),
+              _menuItem(
+                'Settings',
+                Icons.settings,
+              ),
               const SizedBox(height: 15),
-              _menuItem('Money', Icons.account_balance_wallet_rounded),
-              _menuItem('Health', Icons.favorite_rounded),
-              _menuItem('Productivity', Icons.calendar_month_rounded),
-              _menuItem('Household', Icons.shopping_cart_rounded),
-              _menuItem('Goals', Icons.track_changes_rounded),
-              _menuItem('Settings', Icons.settings_rounded),
             ],
           ),
         );
@@ -580,7 +974,10 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _menuItem(String title, IconData icon) {
+  Widget _menuItem(
+    String title,
+    IconData icon,
+  ) {
     return ListTile(
       leading: Icon(
         icon,
@@ -590,49 +987,61 @@ class _MainScreenState extends State<MainScreen> {
       onTap: () {
         Navigator.pop(context);
 
-        if (title != 'Settings') {
-          openCore(title);
-        } else {
+        if (title == 'Settings') {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => const SettingsScreen(),
+              builder: (_) => SettingsScreen(
+                store: widget.store,
+              ),
             ),
           );
+        } else {
+          openCore(title);
         }
       },
     );
   }
 
-  void _showReminders() {
+  void showReminders() {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF06131C),
       builder: (_) {
-        return const Padding(
-          padding: EdgeInsets.all(25),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.notifications_active_rounded,
-                color: Color(0xFF5CFF6A),
-                size: 40,
-              ),
-              SizedBox(height: 15),
-              Text(
-                'Smart Reminders',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.notifications_active,
+                  color: Color(0xFF5CFF6A),
+                  size: 42,
                 ),
-              ),
-              SizedBox(height: 10),
-              Text(
-                'Bills, insurance, tasks and important dates will appear here.',
-                textAlign: TextAlign.center,
-              ),
-            ],
+                const SizedBox(height: 12),
+                const Text(
+                  'Smart Reminders',
+                  style: TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 15),
+                if (widget.store.reminders.isEmpty)
+                  const Text(
+                    'No reminders yet.',
+                  ),
+                ...widget.store.reminders.map(
+                  (r) => ListTile(
+                    title: Text(r.title),
+                    subtitle: Text(
+                      '${r.date.day}/${r.date.month}/${r.date.year}',
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -646,12 +1055,12 @@ class _MainScreenState extends State<MainScreen> {
 
 class CoreScreen extends StatefulWidget {
   final String title;
-  final VoidCallback onChanged;
+  final LifeOSStore store;
 
   const CoreScreen({
     super.key,
     required this.title,
-    required this.onChanged,
+    required this.store,
   });
 
   @override
@@ -667,42 +1076,35 @@ class _CoreScreenState extends State<CoreScreen> {
       backgroundColor: const Color(0xFF020812),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          widget.title,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: Text(widget.title),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 5, 16, 30),
-        child: Column(
-          children: [
-            _periodSelector(),
-
-            const SizedBox(height: 18),
-
-            _mainInsight(),
-
-            const SizedBox(height: 15),
-
-            if (widget.title == 'Money') _money(),
-
-            if (widget.title == 'Health') _health(),
-
-            if (widget.title == 'Productivity') _productivity(),
-
-            if (widget.title == 'Household') _household(),
-
-            if (widget.title == 'Goals') _goals(),
-          ],
-        ),
+      body: AnimatedBuilder(
+        animation: widget.store,
+        builder: (_, __) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _periods(),
+                const SizedBox(height: 15),
+                _insight(),
+                const SizedBox(height: 15),
+                if (widget.title == 'Money') money(),
+                if (widget.title == 'Health') health(),
+                if (widget.title == 'Productivity')
+                  productivity(),
+                if (widget.title == 'Household')
+                  household(),
+                if (widget.title == 'Goals') goals(),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _periodSelector() {
+  Widget _periods() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -720,18 +1122,20 @@ class _CoreScreenState extends State<CoreScreen> {
               padding: const EdgeInsets.only(right: 8),
               child: GestureDetector(
                 onTap: () {
-                  setState(() => period = p);
+                  setState(() {
+                    period = p;
+                  });
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 15,
+                    horizontal: 14,
                     vertical: 9,
                   ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
                     color: selected
-                        ? const Color(0xFF00DFFF)
-                        : const Color(0xFF0A1A24),
+                        ? const Color(0xFF00E5FF)
+                        : const Color(0xFF091923),
                   ),
                   child: Text(
                     p,
@@ -739,7 +1143,6 @@ class _CoreScreenState extends State<CoreScreen> {
                       color: selected
                           ? Colors.black
                           : Colors.white,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -751,43 +1154,42 @@ class _CoreScreenState extends State<CoreScreen> {
     );
   }
 
-  Widget _mainInsight() {
-    String message = '';
+  Widget _insight() {
+    String text;
 
     switch (widget.title) {
       case 'Money':
-        message = 'Spending is being monitored automatically.';
+        text =
+            'LifeOS is monitoring your spending and identifying saving opportunities.';
         break;
       case 'Health':
-        message = 'Your daily health pattern is being tracked.';
+        text =
+            'Your health activities and habits can be tracked here.';
         break;
       case 'Productivity':
-        message = 'Today has ${tasks.where((e) => !e.completed).length} pending tasks.';
+        text =
+            '${widget.store.tasks.where((t) => !t.completed).length} tasks remain today.';
         break;
       case 'Household':
-        message = 'Household prices and usage are being compared.';
+        text =
+            'Household usage and item prices are being monitored.';
         break;
-      case 'Goals':
-        message = 'Your goals are moving toward their targets.';
-        break;
+      default:
+        text =
+            'Your goals are being measured against their targets.';
     }
 
     return _card(
-      child: Row(
+      Row(
         children: [
           const Icon(
-            Icons.auto_graph_rounded,
+            Icons.auto_graph,
             color: Color(0xFF5CFF6A),
-            size: 32,
+            size: 30,
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                fontSize: 15,
-              ),
-            ),
+            child: Text(text),
           ),
         ],
       ),
@@ -798,55 +1200,44 @@ class _CoreScreenState extends State<CoreScreen> {
   // MONEY
   // ==========================================================
 
-  Widget _money() {
-    final total = expenses.fold<double>(
+  Widget money() {
+    final total = widget.store.expenses.fold<double>(
       0,
       (sum, e) => sum + e.amount,
     );
 
     return Column(
       children: [
-        _metricGrid([
-          _metric('Spent', '₹${total.toStringAsFixed(0)}'),
-          _metric('Budget', '₹30,000'),
-          _metric('Saved', '₹12,500'),
-          _metric('Bills', '₹8,450'),
+        _metrics([
+          _metric('Spent', '${widget.store.currency}${total.toStringAsFixed(0)}'),
+          _metric('Budget', '${widget.store.currency}30,000'),
+          _metric('Bills', '${widget.store.currency}8,450'),
+          _metric('Saving', '${widget.store.currency}12,500'),
         ]),
-
         const SizedBox(height: 15),
-
-        _graphCard(
-          title: 'Cash Flow',
-          values: const [55, 62, 45, 72, 58, 78, 68],
+        _graph(
+          'Cash Flow',
+          const [40, 52, 47, 63, 58, 72, 68],
         ),
-
         const SizedBox(height: 15),
-
         _card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Column(
             children: [
               const Text(
-                'Money Insight',
+                'Smart Analysis',
                 style: TextStyle(
+                  fontSize: 19,
                   fontWeight: FontWeight.bold,
-                  fontSize: 18,
                 ),
               ),
-              const SizedBox(height: 10),
-              const Text(
-                'LifeOS will compare spending with previous periods and identify avoidable expenses.',
+              const SizedBox(height: 12),
+              _line(
+                'Potential saving',
+                '${widget.store.currency}3,200',
               ),
-              const SizedBox(height: 15),
-              _insightLine(
-                Icons.trending_down,
-                'Potential saving opportunity',
-                '₹3,200',
-              ),
-              _insightLine(
-                Icons.warning_amber_rounded,
+              _line(
                 'Upcoming commitments',
-                '₹8,450',
+                '${widget.store.currency}8,450',
               ),
             ],
           ),
@@ -859,43 +1250,27 @@ class _CoreScreenState extends State<CoreScreen> {
   // HEALTH
   // ==========================================================
 
-  Widget _health() {
+  Widget health() {
     return Column(
       children: [
-        _metricGrid([
+        _metrics([
           _metric('Activity', '72%'),
           _metric('Sleep', '7.2 h'),
           _metric('Habits', '5/7'),
           _metric('Visits', '1'),
         ]),
-
         const SizedBox(height: 15),
-
-        _graphCard(
-          title: 'Health Trend',
-          values: const [45, 60, 55, 70, 68, 80, 74],
+        _graph(
+          'Health Trend',
+          const [45, 60, 55, 70, 68, 80, 74],
         ),
-
         const SizedBox(height: 15),
-
         _card(
-          child: Column(
+          Column(
             children: [
-              _healthRow(
-                Icons.directions_walk,
-                'Daily activity',
-                'Good',
-              ),
-              _healthRow(
-                Icons.bedtime,
-                'Sleep',
-                'Needs attention',
-              ),
-              _healthRow(
-                Icons.medication,
-                'Medicine',
-                'No missed dose',
-              ),
+              _line('Activity', 'Good'),
+              _line('Sleep', 'Needs attention'),
+              _line('Medicine', 'On schedule'),
             ],
           ),
         ),
@@ -907,26 +1282,24 @@ class _CoreScreenState extends State<CoreScreen> {
   // PRODUCTIVITY
   // ==========================================================
 
-  Widget _productivity() {
+  Widget productivity() {
     return Column(
       children: [
-        _metricGrid([
+        _metrics([
           _metric(
             'Done',
-            '${tasks.where((e) => e.completed).length}',
+            '${widget.store.tasks.where((t) => t.completed).length}',
           ),
           _metric(
             'Pending',
-            '${tasks.where((e) => !e.completed).length}',
+            '${widget.store.tasks.where((t) => !t.completed).length}',
           ),
           _metric('Focus', '78%'),
           _metric('Streak', '6 d'),
         ]),
-
         const SizedBox(height: 15),
-
         _card(
-          child: Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
@@ -937,54 +1310,81 @@ class _CoreScreenState extends State<CoreScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-
-              ...tasks.map(
+              ...widget.store.tasks.map(
                 (task) => CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
                   value: task.completed,
                   activeColor: const Color(0xFF5CFF6A),
                   title: Text(task.title),
-                  onChanged: (value) {
+                  onChanged: (value) async {
                     setState(() {
                       task.completed = value ?? false;
                     });
-                    widget.onChanged();
+
+                    await widget.store.save();
+                    widget.store.notifyListeners();
                   },
                 ),
               ),
             ],
           ),
         ),
-
         const SizedBox(height: 15),
-
         _card(
-          child: Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Smart Calendar',
+                'Calendar',
                 style: TextStyle(
                   fontSize: 19,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 15),
-              _calendarEvent(
-                'Today',
-                'Electricity bill',
-                'Due',
+              const SizedBox(height: 10),
+              ...widget.store.reminders.map(
+                (r) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.event,
+                    color: Color(0xFF5CFF6A),
+                  ),
+                  title: Text(r.title),
+                  subtitle: Text(
+                    '${r.date.day}/${r.date.month}/${r.date.year}',
+                  ),
+                ),
               ),
-              _calendarEvent(
-                '15 Sep',
-                'Insurance payment',
-                'Upcoming',
+              if (widget.store.reminders.isEmpty)
+                const Text('No reminders yet.'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 15),
+        _card(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Personal Diary',
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              _calendarEvent(
-                '20 Sep',
-                'Important date',
-                'Reminder',
+              const SizedBox(height: 10),
+              ...widget.store.diary.reversed.take(5).map(
+                (entry) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    entry.text,
+                  ),
+                ),
               ),
+              if (widget.store.diary.isEmpty)
+                const Text(
+                  'Speak to Yansi and your diary can be written automatically.',
+                ),
             ],
           ),
         ),
@@ -996,25 +1396,30 @@ class _CoreScreenState extends State<CoreScreen> {
   // HOUSEHOLD
   // ==========================================================
 
-  Widget _household() {
-    final monthly = householdItems.fold<double>(
+  Widget household() {
+    final monthly = widget.store.householdItems.fold<double>(
       0,
-      (sum, item) => sum + item.price * item.monthlyUse,
+      (sum, item) =>
+          sum + item.price * item.monthlyUse,
     );
 
     return Column(
       children: [
-        _metricGrid([
-          _metric('Monthly', '₹${monthly.toStringAsFixed(0)}'),
-          _metric('Items', '${householdItems.length}'),
-          _metric('Bills', '₹4,200'),
-          _metric('Saving', '₹1,150'),
+        _metrics([
+          _metric(
+            'Monthly',
+            '${widget.store.currency}${monthly.toStringAsFixed(0)}',
+          ),
+          _metric(
+            'Items',
+            '${widget.store.householdItems.length}',
+          ),
+          _metric('Bills', '${widget.store.currency}4,200'),
+          _metric('Saving', '${widget.store.currency}1,150'),
         ]),
-
         const SizedBox(height: 15),
-
         _card(
-          child: Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
@@ -1024,9 +1429,8 @@ class _CoreScreenState extends State<CoreScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 12),
-
-              ...householdItems.map(
+              const SizedBox(height: 10),
+              ...widget.store.householdItems.map(
                 (item) => ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(
@@ -1035,41 +1439,34 @@ class _CoreScreenState extends State<CoreScreen> {
                   ),
                   title: Text(item.name),
                   subtitle: Text(
-                    '${item.monthlyUse} × ₹${item.price.toStringAsFixed(0)}',
+                    '${item.monthlyUse} × ${widget.store.currency}${item.price.toStringAsFixed(0)}',
                   ),
                   trailing: Text(
-                    '₹${(item.price * item.monthlyUse).toStringAsFixed(0)}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    '${widget.store.currency}${(item.price * item.monthlyUse).toStringAsFixed(0)}',
                   ),
                 ),
               ),
             ],
           ),
         ),
-
         const SizedBox(height: 15),
-
-        _graphCard(
-          title: 'Household Cost Trend',
-          values: const [42, 50, 47, 63, 57, 70, 64],
+        _graph(
+          'Household Cost Trend',
+          const [42, 50, 47, 63, 57, 70, 64],
         ),
-
         const SizedBox(height: 15),
-
         _card(
-          child: Row(
-            children: [
-              const Icon(
+          Row(
+            children: const [
+              Icon(
                 Icons.lightbulb_outline,
                 color: Color(0xFF5CFF6A),
                 size: 32,
               ),
-              const SizedBox(width: 12),
-              const Expanded(
+              SizedBox(width: 12),
+              Expanded(
                 child: Text(
-                  'AI can compare item prices and usage to identify where household spending can be reduced.',
+                  'Price and usage analysis will identify opportunities to reduce household costs.',
                 ),
               ),
             ],
@@ -1083,24 +1480,23 @@ class _CoreScreenState extends State<CoreScreen> {
   // GOALS
   // ==========================================================
 
-  Widget _goals() {
+  Widget goals() {
     return Column(
       children: [
-        _metricGrid([
-          _metric('Goals', '${goals.length}'),
+        _metrics([
+          _metric('Goals', '${widget.store.goals.length}'),
           _metric('Average', '48%'),
           _metric('On track', '2'),
           _metric('Risk', '0'),
         ]),
-
         const SizedBox(height: 15),
-
-        ...goals.map(
+        ...widget.store.goals.map(
           (goal) => Padding(
             padding: const EdgeInsets.only(bottom: 15),
             child: _card(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
                 children: [
                   Text(
                     goal.name,
@@ -1115,7 +1511,7 @@ class _CoreScreenState extends State<CoreScreen> {
                     minHeight: 9,
                     backgroundColor: Colors.white12,
                     valueColor:
-                        const AlwaysStoppedAnimation<Color>(
+                        const AlwaysStoppedAnimation(
                       Color(0xFF5CFF6A),
                     ),
                   ),
@@ -1125,10 +1521,10 @@ class _CoreScreenState extends State<CoreScreen> {
                         MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '₹${goal.current.toStringAsFixed(0)}',
+                        '${widget.store.currency}${goal.current.toStringAsFixed(0)}',
                       ),
                       Text(
-                        '₹${goal.target.toStringAsFixed(0)}',
+                        '${widget.store.currency}${goal.target.toStringAsFixed(0)}',
                       ),
                     ],
                   ),
@@ -1137,20 +1533,19 @@ class _CoreScreenState extends State<CoreScreen> {
             ),
           ),
         ),
-
-        _graphCard(
-          title: 'Progress Projection',
-          values: const [25, 31, 38, 45, 52, 61, 70],
+        _graph(
+          'Goal Progress',
+          const [25, 31, 38, 45, 52, 61, 70],
         ),
       ],
     );
   }
 
   // ==========================================================
-  // COMMON WIDGETS
+  // UI HELPERS
   // ==========================================================
 
-  Widget _metricGrid(List<Widget> metrics) {
+  Widget _metrics(List<Widget> children) {
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
@@ -1158,11 +1553,14 @@ class _CoreScreenState extends State<CoreScreen> {
       crossAxisSpacing: 10,
       mainAxisSpacing: 10,
       childAspectRatio: 2.1,
-      children: metrics,
+      children: children,
     );
   }
 
-  Widget _metric(String label, String value) {
+  Widget _metric(
+    String title,
+    String value,
+  ) {
     return Container(
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
@@ -1173,10 +1571,11 @@ class _CoreScreenState extends State<CoreScreen> {
         ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           Text(
-            label,
+            title,
             style: const TextStyle(
               color: Colors.white60,
               fontSize: 12,
@@ -1196,13 +1595,14 @@ class _CoreScreenState extends State<CoreScreen> {
     );
   }
 
-  Widget _graphCard({
-    required String title,
-    required List<double> values,
-  }) {
+  Widget _graph(
+    String title,
+    List<double> values,
+  ) {
     return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           Text(
             title,
@@ -1211,8 +1611,7 @@ class _CoreScreenState extends State<CoreScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 20),
-
+          const SizedBox(height: 15),
           SizedBox(
             height: 150,
             child: CustomPaint(
@@ -1225,7 +1624,7 @@ class _CoreScreenState extends State<CoreScreen> {
     );
   }
 
-  Widget _card({required Widget child}) {
+  Widget _card(Widget child) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -1240,24 +1639,21 @@ class _CoreScreenState extends State<CoreScreen> {
     );
   }
 
-  Widget _insightLine(
-    IconData icon,
+  Widget _line(
     String title,
     String value,
   ) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: const Color(0xFF5CFF6A),
+          Expanded(
+            child: Text(title),
           ),
-          const SizedBox(width: 10),
-          Expanded(child: Text(title)),
           Text(
             value,
             style: const TextStyle(
+              color: Color(0xFF5CFF6A),
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1265,43 +1661,10 @@ class _CoreScreenState extends State<CoreScreen> {
       ),
     );
   }
-
-  Widget _healthRow(
-    IconData icon,
-    String title,
-    String value,
-  ) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        icon,
-        color: const Color(0xFF5CFF6A),
-      ),
-      title: Text(title),
-      trailing: Text(value),
-    );
-  }
-
-  Widget _calendarEvent(
-    String date,
-    String title,
-    String status,
-  ) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(
-        Icons.event_available_rounded,
-        color: Color(0xFF00DFFF),
-      ),
-      title: Text(title),
-      subtitle: Text(date),
-      trailing: Text(status),
-    );
-  }
 }
 
 // ============================================================
-// GRAPH PAINTER
+// GRAPH
 // ============================================================
 
 class GraphPainter extends CustomPainter {
@@ -1310,36 +1673,41 @@ class GraphPainter extends CustomPainter {
   GraphPainter(this.values);
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final linePaint = Paint()
-      ..color = const Color(0xFF00DFFF)
+  void paint(
+    Canvas canvas,
+    Size size,
+  ) {
+    if (values.length < 2) return;
+
+    final line = Paint()
+      ..color = const Color(0xFF00E5FF)
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke;
 
-    final dotPaint = Paint()
-      ..color = const Color(0xFF5CFF6A)
-      ..style = PaintingStyle.fill;
+    final dot = Paint()
+      ..color = const Color(0xFF5CFF6A);
 
     final path = Path();
 
-    final maxValue = values.reduce(
+    final max = values.reduce(
       (a, b) => a > b ? a : b,
     );
 
-    final minValue = values.reduce(
+    final min = values.reduce(
       (a, b) => a < b ? a : b,
     );
 
-    final range =
-        maxValue - minValue == 0 ? 1 : maxValue - minValue;
+    final range = max == min ? 1 : max - min;
 
     for (int i = 0; i < values.length; i++) {
-      final x = i * size.width / (values.length - 1);
+      final x =
+          i * size.width / (values.length - 1);
 
       final normalized =
-          (values[i] - minValue) / range;
+          (values[i] - min) / range;
 
-      final y = size.height -
+      final y =
+          size.height -
           normalized * (size.height - 20) -
           10;
 
@@ -1352,15 +1720,17 @@ class GraphPainter extends CustomPainter {
       canvas.drawCircle(
         Offset(x, y),
         4,
-        dotPaint,
+        dot,
       );
     }
 
-    canvas.drawPath(path, linePaint);
+    canvas.drawPath(path, line);
   }
 
   @override
-  bool shouldRepaint(covariant GraphPainter oldDelegate) {
+  bool shouldRepaint(
+    covariant GraphPainter oldDelegate,
+  ) {
     return oldDelegate.values != values;
   }
 }
@@ -1369,16 +1739,13 @@ class GraphPainter extends CustomPainter {
 // SETTINGS
 // ============================================================
 
-class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+class SettingsScreen extends StatelessWidget {
+  final LifeOSStore store;
 
-  @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  String currency = '₹ INR';
-  String design = 'Neon';
+  const SettingsScreen({
+    super.key,
+    required this.store,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1388,58 +1755,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: const Text('Settings'),
         backgroundColor: Colors.transparent,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(18),
-        children: [
-          _settingCard(
-            Icons.currency_exchange,
-            'Currency',
-            currency,
-            () {
-              setState(() {
-                currency =
-                    currency == '₹ INR' ? '\$ USD' : '₹ INR';
-              });
-            },
-          ),
-          _settingCard(
-            Icons.palette_outlined,
-            'Design',
-            design,
-            () {
-              setState(() {
-                design =
-                    design == 'Neon' ? 'Classic' : 'Neon';
-              });
-            },
-          ),
-          _settingCard(
-            Icons.mic_none_rounded,
-            'Microphone',
-            'Permission',
-            () {},
-          ),
-          _settingCard(
-            Icons.camera_alt_outlined,
-            'Camera',
-            'Bill scanning',
-            () {},
-          ),
-          _settingCard(
-            Icons.notifications_none_rounded,
-            'Notifications',
-            'Reminders',
-            () {},
-          ),
-        ],
+      body: AnimatedBuilder(
+        animation: store,
+        builder: (_, __) {
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _setting(
+                context,
+                Icons.currency_exchange,
+                'Currency',
+                store.currency,
+                () async {
+                  await store.setCurrency(
+                    store.currency == '₹'
+                        ? '\$'
+                        : '₹',
+                  );
+                },
+              ),
+              _setting(
+                context,
+                Icons.palette_outlined,
+                'Design',
+                store.design,
+                () async {
+                  await store.setDesign(
+                    store.design == 'Neon'
+                        ? 'Classic'
+                        : 'Neon',
+                  );
+                },
+              ),
+              _setting(
+                context,
+                Icons.mic_none_rounded,
+                'Microphone',
+                'Permission',
+                () {},
+              ),
+              _setting(
+                context,
+                Icons.camera_alt_outlined,
+                'Camera',
+                'Bill scanning',
+                () {},
+              ),
+              _setting(
+                context,
+                Icons.notifications_none_rounded,
+                'Notifications',
+                'Reminders',
+                () {},
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _settingCard(
+  Widget _setting(
+    BuildContext context,
     IconData icon,
     String title,
-    String value,
+    String subtitle,
     VoidCallback action,
   ) {
     return Card(
@@ -1451,7 +1831,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           color: const Color(0xFF5CFF6A),
         ),
         title: Text(title),
-        subtitle: Text(value),
+        subtitle: Text(subtitle),
         trailing: const Icon(
           Icons.chevron_right_rounded,
         ),
