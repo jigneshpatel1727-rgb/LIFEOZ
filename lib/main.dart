@@ -10,9 +10,9 @@ void main() {
   runApp(const LifeOSApp());
 }
 
-// ============================================================
-// LIFEOS
-// ============================================================
+const Color cyan = Color(0xFF00E5FF);
+const Color green = Color(0xFF39FF72);
+const Color background = Color(0xFF020912);
 
 class LifeOSApp extends StatelessWidget {
   const LifeOSApp({super.key});
@@ -22,22 +22,17 @@ class LifeOSApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'LifeOS',
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF01070D),
-        useMaterial3: true,
+      theme: ThemeData.dark(useMaterial3: true).copyWith(
+        scaffoldBackgroundColor: background,
+        colorScheme: const ColorScheme.dark(
+          primary: cyan,
+          secondary: green,
+        ),
       ),
       home: const LifeOSHome(),
     );
   }
 }
-
-// ============================================================
-// COLORS
-// ============================================================
-
-const Color cyan = Color(0xFF00E5FF);
-const Color green = Color(0xFF39FF88);
 
 // ============================================================
 // HOME
@@ -52,16 +47,14 @@ class LifeOSHome extends StatefulWidget {
 
 class _LifeOSHomeState extends State<LifeOSHome>
     with TickerProviderStateMixin {
-  late AnimationController pulseController;
-  late AnimationController rotationController;
-  late AnimationController particleController;
+  late final AnimationController pulseController;
+  late final AnimationController particleController;
 
   final stt.SpeechToText speech = stt.SpeechToText();
   final FlutterTts tts = FlutterTts();
 
   bool listening = false;
   bool menuOpen = false;
-  bool notifications = true;
   bool yansiReady = false;
 
   String heardText = '';
@@ -75,40 +68,41 @@ class _LifeOSHomeState extends State<LifeOSHome>
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
 
-    rotationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 18),
-    )..repeat();
-
     particleController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 12),
     )..repeat();
 
-    _initializeYansi();
+    initializeYansi();
   }
 
   // ==========================================================
-  // YANSI INITIALIZATION
+  // YANSI
   // ==========================================================
 
-  Future<void> _initializeYansi() async {
-    await tts.setLanguage('en-IN');
-    await tts.setSpeechRate(0.48);
-    await tts.setPitch(1.0);
-    await tts.setVolume(1.0);
+  Future<void> initializeYansi() async {
+    try {
+      await tts.setLanguage('en-IN');
+      await tts.setSpeechRate(0.47);
+      await tts.setPitch(1.0);
+      await tts.setVolume(1.0);
 
-    yansiReady = true;
+      yansiReady = true;
 
-    // Small delay so the home screen appears first.
-    await Future.delayed(const Duration(milliseconds: 900));
+      if (mounted) {
+        setState(() {});
+      }
 
-    if (!mounted) return;
+      await Future.delayed(
+        const Duration(milliseconds: 900),
+      );
 
-    await speak(
-      "Hello. I'm Yansi. Your LifeOS assistant is ready. "
-      "Tell me what you want to add or manage.",
-    );
+      if (!mounted) return;
+
+      await speak(
+        "Hello. I'm Yansi. Your LifeOS assistant is ready.",
+      );
+    } catch (_) {}
   }
 
   Future<void> speak(String text) async {
@@ -119,12 +113,12 @@ class _LifeOSHomeState extends State<LifeOSHome>
   }
 
   // ==========================================================
-  // VOICE LISTENING
+  // VOICE
   // ==========================================================
 
   Future<void> startListening() async {
     if (!yansiReady) {
-      await _initializeYansi();
+      await initializeYansi();
     }
 
     final available = await speech.initialize(
@@ -147,10 +141,6 @@ class _LifeOSHomeState extends State<LifeOSHome>
     );
 
     if (!available) {
-      await speak(
-        "Sorry. Voice recognition is not available on this device.",
-      );
-
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -166,6 +156,8 @@ class _LifeOSHomeState extends State<LifeOSHome>
 
     await tts.stop();
 
+    if (!mounted) return;
+
     setState(() {
       listening = true;
       heardText = '';
@@ -175,6 +167,7 @@ class _LifeOSHomeState extends State<LifeOSHome>
       localeId: 'en_IN',
       listenFor: const Duration(seconds: 30),
       pauseFor: const Duration(seconds: 4),
+      partialResults: true,
       onResult: (result) {
         if (!mounted) return;
 
@@ -187,7 +180,7 @@ class _LifeOSHomeState extends State<LifeOSHome>
             listening = false;
           });
 
-          processYansiCommand(
+          processCommand(
             result.recognizedWords,
           );
         }
@@ -195,50 +188,33 @@ class _LifeOSHomeState extends State<LifeOSHome>
     );
   }
 
-  Future<void> stopListening() async {
-    await speech.stop();
-
-    if (mounted) {
-      setState(() {
-        listening = false;
-      });
-    }
-  }
-
   // ==========================================================
-  // YANSI COMMAND ENGINE
+  // COMMAND PROCESSING
   // ==========================================================
 
-  Future<void> processYansiCommand(String text) async {
-    if (text.trim().isEmpty) {
-      await speak("I didn't hear anything. Please try again.");
-      return;
-    }
-
+  Future<void> processCommand(String text) async {
     final lower = text.toLowerCase();
-
-    // -----------------------------
-    // EXPENSE
-    // -----------------------------
-
     final amount = extractAmount(text);
 
-    final looksLikeExpense =
+    final isExpense =
         amount != null &&
         (
           lower.contains('spent') ||
-          lower.contains('spend') ||
           lower.contains('paid') ||
-          lower.contains('pay') ||
-          lower.contains('bought') ||
           lower.contains('buy') ||
+          lower.contains('bought') ||
           lower.contains('expense') ||
+          lower.contains('rupee') ||
           lower.contains('rupees') ||
           lower.contains('rs') ||
           lower.contains('₹')
         );
 
-    if (looksLikeExpense) {
+    // --------------------------------------------------------
+    // EXPENSE
+    // --------------------------------------------------------
+
+    if (isExpense) {
       final category = detectCategory(lower);
 
       await saveExpense(
@@ -247,28 +223,17 @@ class _LifeOSHomeState extends State<LifeOSHome>
         text,
       );
 
-      final response =
-          "Done. I added ${money(amount)} to today's "
-          "$category expenses.";
-
-      await speak(response);
-
-      if (!mounted) return;
-
-      showDialog(
-        context: context,
-        builder: (_) => YansiDialog(
-          title: 'Yansi',
-          message: response,
-        ),
+      await speak(
+        'Done. I added ₹${amount.toStringAsFixed(0)} '
+        'to today’s $category expenses.',
       );
 
       return;
     }
 
-    // -----------------------------
+    // --------------------------------------------------------
     // SHOPPING
-    // -----------------------------
+    // --------------------------------------------------------
 
     if (lower.contains('shopping') ||
         lower.contains('shopping list') ||
@@ -280,54 +245,32 @@ class _LifeOSHomeState extends State<LifeOSHome>
 
       await saveShoppingItem(item);
 
-      final response =
-          "Done. I added $item to your shopping list.";
-
-      await speak(response);
-
-      if (!mounted) return;
-
-      showDialog(
-        context: context,
-        builder: (_) => YansiDialog(
-          title: 'Shopping',
-          message: response,
-        ),
+      await speak(
+        'Done. I added $item to your shopping list.',
       );
 
       return;
     }
 
-    // -----------------------------
+    // --------------------------------------------------------
     // DIARY
-    // -----------------------------
+    // --------------------------------------------------------
 
     if (lower.contains('diary') ||
-        lower.contains('write in my diary') ||
-        lower.contains('journal')) {
+        lower.contains('journal') ||
+        lower.contains('write in my diary')) {
       await saveDiary(text);
 
-      const response =
-          "Done. I've saved that in your diary.";
-
-      await speak(response);
-
-      if (!mounted) return;
-
-      showDialog(
-        context: context,
-        builder: (_) => const YansiDialog(
-          title: 'Diary',
-          message: response,
-        ),
+      await speak(
+        "Done. I've saved that in your diary.",
       );
 
       return;
     }
 
-    // -----------------------------
-    // TASK / REMINDER
-    // -----------------------------
+    // --------------------------------------------------------
+    // TASK
+    // --------------------------------------------------------
 
     if (lower.contains('remind me') ||
         lower.contains('reminder') ||
@@ -335,73 +278,44 @@ class _LifeOSHomeState extends State<LifeOSHome>
         lower.contains('task')) {
       await saveTask(text);
 
-      const response =
-          "Done. I've saved that as a task.";
-
-      await speak(response);
-
-      if (!mounted) return;
-
-      showDialog(
-        context: context,
-        builder: (_) => const YansiDialog(
-          title: 'Task',
-          message: response,
-        ),
+      await speak(
+        "Done. I've saved that as a task.",
       );
 
       return;
     }
 
-    // -----------------------------
+    // --------------------------------------------------------
     // GREETING
-    // -----------------------------
+    // --------------------------------------------------------
 
     if (lower.contains('hello') ||
         lower.contains('hi yansi') ||
         lower.contains('hello yansi')) {
-      const response =
-          "Hello. I'm Yansi. I'm ready to help you.";
+      await speak(
+        "Hello. I'm Yansi. I'm ready to help you.",
+      );
 
-      await speak(response);
       return;
     }
 
-    // -----------------------------
+    // --------------------------------------------------------
     // DEFAULT
-    // -----------------------------
+    // --------------------------------------------------------
 
-    final response =
-        "I heard you say: $text. "
-        "You can tell me an expense, shopping item, diary entry, "
-        "or reminder.";
-
-    await speak(response);
-
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      builder: (_) => YansiDialog(
-        title: 'Yansi',
-        message: response,
-      ),
+    await speak(
+      'I heard you say: $text. '
+      'You can tell me an expense, shopping item, '
+      'diary entry, or reminder.',
     );
   }
 
   // ==========================================================
-  // AMOUNT EXTRACTION
+  // AMOUNT
   // ==========================================================
 
   double? extractAmount(String text) {
-    String cleaned = text.toLowerCase();
-
-    cleaned = cleaned
-        .replaceAll(',', '')
-        .replaceAll('₹', '')
-        .replaceAll('rs.', 'rs')
-        .replaceAll('rupees', '')
-        .replaceAll('rs ', ' ');
+    final cleaned = text.replaceAll(',', '');
 
     final match = RegExp(
       r'(\d+(?:\.\d+)?)',
@@ -422,9 +336,9 @@ class _LifeOSHomeState extends State<LifeOSHome>
 
   String detectCategory(String text) {
     if (text.contains('petrol') ||
-        text.contains('fuel') ||
         text.contains('diesel') ||
-        text.contains('gas')) {
+        text.contains('fuel') ||
+        text.contains('cng')) {
       return 'Fuel';
     }
 
@@ -478,14 +392,6 @@ class _LifeOSHomeState extends State<LifeOSHome>
     return 'Other';
   }
 
-  String money(double amount) {
-    if (amount == amount.roundToDouble()) {
-      return '₹${amount.toInt()}';
-    }
-
-    return '₹${amount.toStringAsFixed(2)}';
-  }
-
   // ==========================================================
   // STORAGE
   // ==========================================================
@@ -499,7 +405,10 @@ class _LifeOSHomeState extends State<LifeOSHome>
         await SharedPreferences.getInstance();
 
     final expenses =
-        prefs.getStringList('lifeos_expenses') ?? [];
+        prefs.getStringList(
+              'lifeos_expenses',
+            ) ??
+            [];
 
     final record = [
       DateTime.now().toIso8601String(),
@@ -523,7 +432,10 @@ class _LifeOSHomeState extends State<LifeOSHome>
         await SharedPreferences.getInstance();
 
     final list =
-        prefs.getStringList('lifeos_shopping') ?? [];
+        prefs.getStringList(
+              'lifeos_shopping',
+            ) ??
+            [];
 
     list.add(
       '${DateTime.now().toIso8601String()}|$item',
@@ -542,7 +454,10 @@ class _LifeOSHomeState extends State<LifeOSHome>
         await SharedPreferences.getInstance();
 
     final list =
-        prefs.getStringList('lifeos_diary') ?? [];
+        prefs.getStringList(
+              'lifeos_diary',
+            ) ??
+            [];
 
     list.add(
       '${DateTime.now().toIso8601String()}|$text',
@@ -561,7 +476,10 @@ class _LifeOSHomeState extends State<LifeOSHome>
         await SharedPreferences.getInstance();
 
     final list =
-        prefs.getStringList('lifeos_tasks') ?? [];
+        prefs.getStringList(
+              'lifeos_tasks',
+            ) ??
+            [];
 
     list.add(
       '${DateTime.now().toIso8601String()}|$text',
@@ -573,7 +491,9 @@ class _LifeOSHomeState extends State<LifeOSHome>
     );
   }
 
-  String extractShoppingItem(String text) {
+  String extractShoppingItem(
+    String text,
+  ) {
     final lower = text.toLowerCase();
 
     if (lower.contains('milk')) {
@@ -596,18 +516,17 @@ class _LifeOSHomeState extends State<LifeOSHome>
   }
 
   // ==========================================================
-  // CORE
+  // CORE NAVIGATION
   // ==========================================================
 
   void openCore(
-    BuildContext context,
     String title,
     IconData icon,
   ) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => CoreDetailScreen(
+        builder: (_) => CoreScreen(
           title: title,
           icon: icon,
         ),
@@ -615,13 +534,16 @@ class _LifeOSHomeState extends State<LifeOSHome>
     );
   }
 
+  // ==========================================================
+  // DISPOSE
+  // ==========================================================
+
   @override
   void dispose() {
     speech.stop();
     tts.stop();
 
     pulseController.dispose();
-    rotationController.dispose();
     particleController.dispose();
 
     super.dispose();
@@ -637,344 +559,558 @@ class _LifeOSHomeState extends State<LifeOSHome>
       body: AnimatedBuilder(
         animation: Listenable.merge([
           pulseController,
-          rotationController,
           particleController,
         ]),
         builder: (context, child) {
-          return Stack(
-            children: [
-              const FuturisticBackground(),
-
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: ParticlePainter(
-                    progress: particleController.value,
+          return SafeArea(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: SpacePainter(
+                      particleController.value,
+                    ),
                   ),
                 ),
-              ),
 
-              SafeArea(
-                child: LayoutBuilder(
-                  builder: (
-                    context,
-                    constraints,
-                  ) {
-                    final width =
-                        constraints.maxWidth;
+                buildSmallMenu(),
 
-                    final height =
-                        constraints.maxHeight;
+                buildSmallBell(),
 
-                    return Stack(
-                      children: [
-                        // MENU
-                        Positioned(
-                          top: 10,
-                          left: 10,
-                          child: HudButton(
-                            icon: menuOpen
-                                ? Icons.close_rounded
-                                : Icons.menu_rounded,
-                            onTap: () {
-                              setState(() {
-                                menuOpen =
-                                    !menuOpen;
-                              });
-                            },
-                          ),
-                        ),
-
-                        // BELL
-                        Positioned(
-                          top: 10,
-                          right: 10,
-                          child: BellButton(
-                            active:
-                                notifications,
-                            onTap: () {
-                              setState(() {
-                                notifications =
-                                    !notifications;
-                              });
-                            },
-                          ),
-                        ),
-
-                        // LIFEOS TITLE
-                        Positioned(
-                          top: 62,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: Text(
-                              'L I F E O S',
-                              style: TextStyle(
-                                color: Colors.white
-                                    .withOpacity(.92),
-                                fontSize: 24,
-                                fontWeight:
-                                    FontWeight.w300,
-                                letterSpacing: 7,
-                                shadows: const [
-                                  Shadow(
-                                    color: cyan,
-                                    blurRadius: 18,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        // NETWORK
-                        Positioned.fill(
-                          top: 115,
-                          child: CustomPaint(
-                            painter:
-                                NeuralNetworkPainter(
-                              pulse:
-                                  pulseController
-                                      .value,
-                              rotation:
-                                  rotationController
-                                      .value,
-                            ),
-                          ),
-                        ),
-
-                        // FINANCE
-                        Positioned(
-                          top: height * .14,
-                          left:
-                              width / 2 - 60,
-                          child: CoreOrb(
-                            size: 120,
-                            icon: Icons
-                                .account_balance_wallet_rounded,
-                            color: cyan,
-                            pulse:
-                                pulseController
-                                    .value,
-                            onTap: () =>
-                                openCore(
-                              context,
-                              'Finance',
-                              Icons
-                                  .account_balance_wallet_rounded,
-                            ),
-                          ),
-                        ),
-
-                        // CALENDAR
-                        Positioned(
-                          top: height * .33,
-                          left: -6,
-                          child: CoreOrb(
-                            size: 114,
-                            icon: Icons
-                                .calendar_month_rounded,
-                            color: cyan,
-                            pulse:
-                                pulseController
-                                    .value,
-                            onTap: () =>
-                                openCore(
-                              context,
-                              'Calendar',
-                              Icons
-                                  .calendar_month_rounded,
-                            ),
-                          ),
-                        ),
-
-                        // HEALTH
-                        Positioned(
-                          top: height * .33,
-                          right: -6,
-                          child: CoreOrb(
-                            size: 114,
-                            icon: Icons
-                                .favorite_rounded,
-                            color: green,
-                            pulse:
-                                pulseController
-                                    .value,
-                            onTap: () =>
-                                openCore(
-                              context,
-                              'Health',
-                              Icons
-                                  .favorite_rounded,
-                            ),
-                          ),
-                        ),
-
-                        // YANSI
-                        Positioned(
-                          top: height * .39,
-                          left:
-                              width / 2 - 95,
-                          child: YansiOrb(
-                            size: 190,
-                            pulse:
-                                pulseController
-                                    .value,
-                            rotation:
-                                rotationController
-                                    .value,
-                            listening: listening,
-                            onTap: () {
-                              if (listening) {
-                                stopListening();
-                              } else {
-                                startListening();
-                              }
-                            },
-                          ),
-                        ),
-
-                        // SHOPPING
-                        Positioned(
-                          top: height * .60,
-                          left: 12,
-                          child: CoreOrb(
-                            size: 110,
-                            icon: Icons
-                                .shopping_cart_rounded,
-                            color: green,
-                            pulse:
-                                pulseController
-                                    .value,
-                            onTap: () =>
-                                openCore(
-                              context,
-                              'Shopping',
-                              Icons
-                                  .shopping_cart_rounded,
-                            ),
-                          ),
-                        ),
-
-                        // GOALS
-                        Positioned(
-                          top: height * .60,
-                          right: 12,
-                          child: CoreOrb(
-                            size: 110,
-                            icon: Icons
-                                .track_changes_rounded,
-                            color: green,
-                            pulse:
-                                pulseController
-                                    .value,
-                            onTap: () =>
-                                openCore(
-                              context,
-                              'Goals',
-                              Icons
-                                  .track_changes_rounded,
-                            ),
-                          ),
-                        ),
-
-                        // LISTENING
-                        if (listening)
-                          Positioned(
-                            left: 25,
-                            right: 25,
-                            bottom: 50,
-                            child: Container(
-                              padding:
-                                  const EdgeInsets
-                                      .all(14),
-                              decoration:
-                                  BoxDecoration(
-                                color:
-                                    const Color(
-                                  0xEE031522,
-                                ),
-                                borderRadius:
-                                    BorderRadius
-                                        .circular(
-                                  18,
-                                ),
-                                border:
-                                    Border.all(
-                                  color: green
-                                      .withOpacity(
-                                    .55,
-                                  ),
-                                ),
-                              ),
-                              child: Text(
-                                heardText.isEmpty
-                                    ? 'YANSI IS LISTENING...'
-                                    : heardText,
-                                textAlign:
-                                    TextAlign.center,
-                                maxLines: 3,
-                                overflow:
-                                    TextOverflow
-                                        .ellipsis,
-                                style:
-                                    const TextStyle(
-                                  color:
-                                      Colors.white,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                        // MENU PANEL
-                        if (menuOpen)
-                          Positioned(
-                            top: 58,
-                            left: 10,
-                            child:
-                                MenuPanel(
-                              close: () {
-                                setState(() {
-                                  menuOpen =
-                                      false;
-                                });
-                              },
-                              openCore:
-                                  (title,
-                                      icon) {
-                                openCore(
-                                  context,
-                                  title,
-                                  icon,
-                                );
-                              },
-                            ),
-                          ),
-                      ],
-                    );
-                  },
+                Center(
+                  child: buildLifeOSLayout(),
                 ),
-              ),
-            ],
+
+                if (menuOpen)
+                  buildSideMenu(),
+
+                if (listening)
+                  buildListeningPanel(),
+              ],
+            ),
           );
         },
       ),
     );
   }
+
+  // ==========================================================
+  // SMALL MENU
+  // ==========================================================
+
+  Widget buildSmallMenu() {
+    return Positioned(
+      top: 6,
+      left: 9,
+      child: TinyHudButton(
+        icon: menuOpen
+            ? Icons.close_rounded
+            : Icons.menu_rounded,
+        onTap: () {
+          setState(() {
+            menuOpen = !menuOpen;
+          });
+        },
+      ),
+    );
+  }
+
+  // ==========================================================
+  // SMALL BELL
+  // ==========================================================
+
+  Widget buildSmallBell() {
+    return Positioned(
+      top: 6,
+      right: 9,
+      child: TinyHudButton(
+        icon: Icons.notifications_none_rounded,
+        showDot: true,
+        onTap: () {
+          speak(
+            'You have no new LifeOS alerts.',
+          );
+        },
+      ),
+    );
+  }
+
+  // ==========================================================
+  // MAIN FUTURISTIC LAYOUT
+  // ==========================================================
+
+  Widget buildLifeOSLayout() {
+    final size = MediaQuery.sizeOf(context);
+
+    final width = size.width;
+    final height = size.height;
+
+    final centerY = height * 0.50;
+
+    return SizedBox(
+      width: width,
+      height: height,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: OrbitPainter(),
+              ),
+            ),
+          ),
+
+          // ----------------------------------------------------
+          // TITLE
+          // ----------------------------------------------------
+
+          Positioned(
+            top: 94,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Text(
+                'L I F E O S',
+                style: TextStyle(
+                  fontSize: 27,
+                  letterSpacing: 12,
+                  fontWeight: FontWeight.w300,
+                  color: Colors.white.withOpacity(0.92),
+                ),
+              ),
+            ),
+          ),
+
+          // ----------------------------------------------------
+          // MONEY
+          // ----------------------------------------------------
+
+          Positioned(
+            top: centerY - 150,
+            left: width / 2 - 40,
+            child: buildCore(
+              Icons.account_balance_wallet_rounded,
+              () {
+                openCore(
+                  'Money',
+                  Icons.account_balance_wallet_rounded,
+                );
+              },
+              80,
+            ),
+          ),
+
+          // ----------------------------------------------------
+          // PLANNING
+          // ----------------------------------------------------
+
+          Positioned(
+            top: centerY + 28,
+            left: 10,
+            child: buildCore(
+              Icons.calendar_month_rounded,
+              () {
+                openCore(
+                  'Planning',
+                  Icons.calendar_month_rounded,
+                );
+              },
+              72,
+            ),
+          ),
+
+          // ----------------------------------------------------
+          // HEALTH
+          // ----------------------------------------------------
+
+          Positioned(
+            top: centerY + 28,
+            right: 10,
+            child: buildCore(
+              Icons.favorite_rounded,
+              () {
+                openCore(
+                  'Health',
+                  Icons.favorite_rounded,
+                );
+              },
+              72,
+            ),
+          ),
+
+          // ----------------------------------------------------
+          // SHOPPING
+          // ----------------------------------------------------
+
+          Positioned(
+            top: centerY + 270,
+            left: 62,
+            child: buildCore(
+              Icons.shopping_cart_rounded,
+              () {
+                openCore(
+                  'Shopping',
+                  Icons.shopping_cart_rounded,
+                );
+              },
+              72,
+            ),
+          ),
+
+          // ----------------------------------------------------
+          // GROWTH
+          // ----------------------------------------------------
+
+          Positioned(
+            top: centerY + 270,
+            right: 62,
+            child: buildCore(
+              Icons.auto_graph_rounded,
+              () {
+                openCore(
+                  'Growth',
+                  Icons.auto_graph_rounded,
+                );
+              },
+              72,
+            ),
+          ),
+
+          // ----------------------------------------------------
+          // YANSI
+          // ----------------------------------------------------
+
+          Positioned(
+            top: centerY - 4,
+            left: width / 2 - 78,
+            child: buildYansi(156),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================================
+  // CORE BUTTON
+  // ==========================================================
+
+  Widget buildCore(
+    IconData icon,
+    VoidCallback onTap,
+    double size,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(
+            0xFF061723,
+          ).withOpacity(0.92),
+          border: Border.all(
+            color: cyan.withOpacity(0.95),
+            width: 1.7,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: cyan.withOpacity(0.22),
+              blurRadius: 24,
+            ),
+            BoxShadow(
+              color: green.withOpacity(0.12),
+              blurRadius: 44,
+            ),
+          ],
+        ),
+        child: Center(
+          child: Icon(
+            icon,
+            size: size * 0.42,
+            color: green,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==========================================================
+  // YANSI
+  // ==========================================================
+
+  Widget buildYansi(double size) {
+    return GestureDetector(
+      onTap: listening
+          ? () {
+              speech.stop();
+
+              setState(() {
+                listening = false;
+              });
+            }
+          : startListening,
+      child: AnimatedBuilder(
+        animation: pulseController,
+        builder: (_, __) {
+          final glow =
+              18 + pulseController.value * 20;
+
+          return Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF04131F),
+              border: Border.all(
+                color: cyan,
+                width: 2.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: cyan.withOpacity(0.25),
+                  blurRadius: glow,
+                ),
+                BoxShadow(
+                  color: green.withOpacity(0.16),
+                  blurRadius: glow * 2,
+                ),
+              ],
+            ),
+            child: CustomPaint(
+              painter: YansiPainter(
+                pulseController.value,
+              ),
+              child: Center(
+                child: Icon(
+                  listening
+                      ? Icons.mic_rounded
+                      : Icons.psychology_rounded,
+                  size: 60,
+                  color: green,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ==========================================================
+  // SIDE MENU
+  // ==========================================================
+
+  Widget buildSideMenu() {
+    return Positioned(
+      top: 48,
+      left: 9,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          width: 205,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(
+              0xFF06131D,
+            ).withOpacity(0.97),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: cyan.withOpacity(0.55),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: cyan.withOpacity(0.18),
+                blurRadius: 28,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'LIFEOS',
+                style: TextStyle(
+                  letterSpacing: 4,
+                  color: cyan,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              menuRow(
+                Icons.account_balance_wallet_rounded,
+                'Money',
+                () {
+                  openCore(
+                    'Money',
+                    Icons.account_balance_wallet_rounded,
+                  );
+                },
+              ),
+
+              menuRow(
+                Icons.calendar_month_rounded,
+                'Planning',
+                () {
+                  openCore(
+                    'Planning',
+                    Icons.calendar_month_rounded,
+                  );
+                },
+              ),
+
+              menuRow(
+                Icons.favorite_rounded,
+                'Health',
+                () {
+                  openCore(
+                    'Health',
+                    Icons.favorite_rounded,
+                  );
+                },
+              ),
+
+              menuRow(
+                Icons.shopping_cart_rounded,
+                'Shopping',
+                () {
+                  openCore(
+                    'Shopping',
+                    Icons.shopping_cart_rounded,
+                  );
+                },
+              ),
+
+              menuRow(
+                Icons.auto_graph_rounded,
+                'Growth',
+                () {
+                  openCore(
+                    'Growth',
+                    Icons.auto_graph_rounded,
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget menuRow(
+    IconData icon,
+    String text,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: () {
+        setState(() {
+          menuOpen = false;
+        });
+
+        onTap();
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          vertical: 10,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: green,
+              size: 21,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              text,
+              style: const TextStyle(
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==========================================================
+  // LISTENING PANEL
+  // ==========================================================
+
+  Widget buildListeningPanel() {
+    return Positioned(
+      left: 22,
+      right: 22,
+      bottom: 22,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(
+            0xFF06131D,
+          ).withOpacity(0.94),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: cyan.withOpacity(0.6),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.graphic_eq_rounded,
+              color: green,
+            ),
+
+            const SizedBox(width: 10),
+
+            Expanded(
+              child: Text(
+                heardText.isEmpty
+                    ? 'Yansi is listening...'
+                    : heardText,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+
+            IconButton(
+              onPressed: () {
+                speech.stop();
+
+                setState(() {
+                  listening = false;
+                });
+              },
+              icon: const Icon(
+                Icons.close_rounded,
+                size: 19,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ============================================================
-// HUD BUTTON
+// SMALL HUD BUTTON
 // ============================================================
 
-class HudButton extends StatelessWidget {
+class TinyHudButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
+  final bool showDot;
 
-  const HudButton({
+  const TinyHudButton({
     super.key,
     required this.icon,
     required this.onTap,
+    this.showDot = false,
   });
 
   @override
@@ -982,414 +1118,49 @@ class HudButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 43,
-        height: 38,
+        width: 40,
+        height: 36,
         decoration: BoxDecoration(
-          color: const Color(0xCC031522),
-          borderRadius:
-              BorderRadius.circular(12),
+          color: const Color(
+            0xFF04131F,
+          ).withOpacity(0.82),
+          borderRadius: BorderRadius.circular(11),
           border: Border.all(
-            color: cyan.withOpacity(.65),
+            color: cyan.withOpacity(0.65),
+            width: 1,
           ),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: Color(0x4400E5FF),
+              color: cyan.withOpacity(0.10),
               blurRadius: 12,
             ),
           ],
         ),
-        child: Icon(
-          icon,
-          color: green,
-          size: 20,
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// BELL
-// ============================================================
-
-class BellButton extends StatelessWidget {
-  final bool active;
-  final VoidCallback onTap;
-
-  const BellButton({
-    super.key,
-    required this.active,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 43,
-        height: 38,
-        decoration: BoxDecoration(
-          color: const Color(0xCC031522),
-          borderRadius:
-              BorderRadius.circular(12),
-          border: Border.all(
-            color: cyan.withOpacity(.65),
-          ),
-        ),
-        child: Icon(
-          active
-              ? Icons.notifications_none_rounded
-              : Icons.notifications_off_outlined,
-          color: green,
-          size: 20,
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// CORE ORB
-// ============================================================
-
-class CoreOrb extends StatelessWidget {
-  final double size;
-  final IconData icon;
-  final Color color;
-  final double pulse;
-  final VoidCallback onTap;
-
-  const CoreOrb({
-    super.key,
-    required this.size,
-    required this.icon,
-    required this.color,
-    required this.pulse,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: CustomPaint(
-          painter: CorePainter(
-            color: color,
-            pulse: pulse,
-          ),
-          child: Center(
-            child: Container(
-              width: size * .48,
-              height: size * .48,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xDD031522),
-                border: Border.all(
-                  color: color,
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color:
-                        color.withOpacity(.5),
-                    blurRadius:
-                        15 + pulse * 10,
-                  ),
-                ],
-              ),
-              child: Icon(
-                icon,
-                color: color,
-                size: size * .22,
-              ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(
+              icon,
+              color: green,
+              size: 19,
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
-// ============================================================
-// YANSI ORB
-// ============================================================
-
-class YansiOrb extends StatelessWidget {
-  final double size;
-  final double pulse;
-  final double rotation;
-  final bool listening;
-  final VoidCallback onTap;
-
-  const YansiOrb({
-    super.key,
-    required this.size,
-    required this.pulse,
-    required this.rotation,
-    required this.listening,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: CustomPaint(
-          painter: YansiPainter(
-            pulse: pulse,
-            rotation: rotation,
-            listening: listening,
-          ),
-          child: Center(
-            child: Column(
-              mainAxisSize:
-                  MainAxisSize.min,
-              children: [
-                Icon(
-                  listening
-                      ? Icons.graphic_eq_rounded
-                      : Icons.psychology_rounded,
-                  color: green,
-                  size: 52,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  listening
-                      ? 'LISTENING'
-                      : 'YANSI',
-                  style:
-                      const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight:
-                        FontWeight.bold,
-                    letterSpacing: 3,
+            if (showDot)
+              Positioned(
+                top: 6,
+                right: 7,
+                child: Container(
+                  width: 4.5,
+                  height: 4.5,
+                  decoration:
+                      const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: green,
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// MENU
-// ============================================================
-
-class MenuPanel extends StatelessWidget {
-  final VoidCallback close;
-  final void Function(
-    String,
-    IconData,
-  ) openCore;
-
-  const MenuPanel({
-    super.key,
-    required this.close,
-    required this.openCore,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      (
-        'Finance',
-        Icons.account_balance_wallet_rounded
-      ),
-      (
-        'Calendar',
-        Icons.calendar_month_rounded
-      ),
-      (
-        'Health',
-        Icons.favorite_rounded
-      ),
-      (
-        'Shopping',
-        Icons.shopping_cart_rounded
-      ),
-      (
-        'Goals',
-        Icons.track_changes_rounded
-      ),
-    ];
-
-    return Container(
-      width: 210,
-      padding:
-          const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: const Color(0xF5031522),
-        borderRadius:
-            BorderRadius.circular(18),
-        border: Border.all(
-          color: cyan.withOpacity(.55),
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x5500E5FF),
-            blurRadius: 25,
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          const Padding(
-            padding:
-                EdgeInsets.all(8),
-            child: Text(
-              'LIFEOS CORES',
-              style: TextStyle(
-                color: cyan,
-                fontSize: 11,
-                letterSpacing: 2,
               ),
-            ),
-          ),
-          ...items.map(
-            (item) => ListTile(
-              dense: true,
-              leading: Icon(
-                item.$2,
-                color: green,
-                size: 20,
-              ),
-              title: Text(
-                item.$1,
-                style:
-                    const TextStyle(
-                  color: Colors.white,
-                ),
-              ),
-              onTap: () {
-                close();
-                openCore(
-                  item.$1,
-                  item.$2,
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================
-// CORE DETAIL
-// ============================================================
-
-class CoreDetailScreen
-    extends StatelessWidget {
-  final String title;
-  final IconData icon;
-
-  const CoreDetailScreen({
-    super.key,
-    required this.title,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor:
-          const Color(0xFF01070D),
-      appBar: AppBar(
-        backgroundColor:
-            Colors.transparent,
-        title: Text(
-          title,
-          style:
-              const TextStyle(
-            letterSpacing: 2,
-          ),
+          ],
         ),
-        iconTheme:
-            const IconThemeData(
-          color: cyan,
-        ),
-      ),
-      body: Stack(
-        children: [
-          const FuturisticBackground(),
-          Center(
-            child: Padding(
-              padding:
-                  const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment:
-                    MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 130,
-                    height: 130,
-                    decoration:
-                        BoxDecoration(
-                      shape:
-                          BoxShape.circle,
-                      border: Border.all(
-                        color: cyan,
-                        width: 1.5,
-                      ),
-                      boxShadow:
-                          const [
-                        BoxShadow(
-                          color:
-                              Color(0x5500E5FF),
-                          blurRadius: 30,
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      icon,
-                      size: 58,
-                      color: cyan,
-                    ),
-                  ),
-                  const SizedBox(
-                    height: 30,
-                  ),
-                  Text(
-                    title.toUpperCase(),
-                    style:
-                        const TextStyle(
-                      fontSize: 25,
-                      letterSpacing: 5,
-                      color:
-                          Colors.white,
-                    ),
-                  ),
-                  const SizedBox(
-                    height: 15,
-                  ),
-                  Text(
-                    'Yansi will use this LifeOS core '
-                    'to organize and analyze your $title.',
-                    textAlign:
-                        TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white
-                          .withOpacity(.65),
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1399,53 +1170,82 @@ class CoreDetailScreen
 // BACKGROUND
 // ============================================================
 
-class FuturisticBackground
-    extends StatelessWidget {
-  const FuturisticBackground({
-    super.key,
-  });
+class SpacePainter extends CustomPainter {
+  final double progress;
+
+  SpacePainter(this.progress);
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration:
-          const BoxDecoration(
-        gradient:
-            RadialGradient(
-          center:
-              Alignment(0, .25),
-          radius: 1.15,
-          colors: [
-            Color(0xFF06283B),
-            Color(0xFF020D17),
-            Color(0xFF01050A),
-          ],
-        ),
-      ),
-      child: CustomPaint(
-        painter:
-            CircuitPainter(),
-        child:
-            const SizedBox.expand(),
-      ),
+  void paint(
+    Canvas canvas,
+    Size size,
+  ) {
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = background,
     );
+
+    final gridPaint = Paint()
+      ..color = cyan.withOpacity(0.035)
+      ..style = PaintingStyle.stroke;
+
+    for (
+      double y = 0;
+      y < size.height;
+      y += 42
+    ) {
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        gridPaint,
+      );
+    }
+
+    for (
+      double x = 0;
+      x < size.width;
+      x += 42
+    ) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height),
+        gridPaint,
+      );
+    }
+
+    final particlePaint = Paint()
+      ..color = cyan.withOpacity(0.35);
+
+    for (int i = 0; i < 34; i++) {
+      final x =
+          (i * 83.7) % size.width;
+
+      final y =
+          ((i * 47.3) +
+                  progress * 80) %
+              size.height;
+
+      canvas.drawCircle(
+        Offset(x, y),
+        i % 4 == 0 ? 1.5 : 0.7,
+        particlePaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(
+    covariant SpacePainter oldDelegate,
+  ) {
+    return oldDelegate.progress != progress;
   }
 }
 
 // ============================================================
-// CORE PAINTER
+// ORBIT / NEURAL CONNECTIONS
 // ============================================================
 
-class CorePainter
-    extends CustomPainter {
-  final Color color;
-  final double pulse;
-
-  CorePainter({
-    required this.color,
-    required this.pulse,
-  });
-
+class OrbitPainter extends CustomPainter {
   @override
   void paint(
     Canvas canvas,
@@ -1453,75 +1253,125 @@ class CorePainter
   ) {
     final center = Offset(
       size.width / 2,
-      size.height / 2,
+      size.height * 0.50 + 55,
     );
 
-    final radius =
-        size.width / 2;
+    final orbitPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = cyan.withOpacity(0.13);
 
-    final glowPaint = Paint()
-      ..color = color.withOpacity(
-        .16 + pulse * .1,
-      )
-      ..maskFilter =
-          const MaskFilter.blur(
-        BlurStyle.normal,
-        16,
-      );
-
-    canvas.drawCircle(
-      center,
-      radius * .72,
-      glowPaint,
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: center,
+        width: size.width * 0.92,
+        height: size.height * 0.62,
+      ),
+      orbitPaint,
     );
+
+    final secondOrbit = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = green.withOpacity(0.10);
+
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: center,
+        width: size.width * 0.72,
+        height: size.height * 0.46,
+      ),
+      secondOrbit,
+    );
+
+    final neuralPath = Path();
+
+    neuralPath.moveTo(
+      center.dx,
+      center.dy - 115,
+    );
+
+    neuralPath.quadraticBezierTo(
+      35,
+      center.dy - 20,
+      center.dx,
+      center.dy + 45,
+    );
+
+    neuralPath.quadraticBezierTo(
+      size.width - 35,
+      center.dy - 20,
+      center.dx,
+      center.dy - 115,
+    );
+
+    canvas.drawPath(
+      neuralPath,
+      orbitPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(
+    covariant OrbitPainter oldDelegate,
+  ) {
+    return false;
+  }
+}
+
+// ============================================================
+// YANSI NEURAL PAINTER
+// ============================================================
+
+class YansiPainter extends CustomPainter {
+  final double progress;
+
+  YansiPainter(this.progress);
+
+  @override
+  void paint(
+    Canvas canvas,
+    Size size,
+  ) {
+    final center = size.center;
 
     final ringPaint = Paint()
-      ..color = color.withOpacity(.65)
-      ..style =
-          PaintingStyle.stroke
-      ..strokeWidth = 1.3;
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..color = cyan.withOpacity(0.35);
 
-    canvas.drawCircle(
-      center,
-      radius * .84,
-      ringPaint,
-    );
-
-    canvas.drawCircle(
-      center,
-      radius * .68,
-      ringPaint,
-    );
-
-    for (int i = 0; i < 8; i++) {
-      final angle =
-          i * math.pi / 4;
-
-      final start = Offset(
-        center.dx +
-            math.cos(angle) *
-                radius *
-                .84,
-        center.dy +
-            math.sin(angle) *
-                radius *
-                .84,
+    for (int i = 0; i < 3; i++) {
+      canvas.drawCircle(
+        center,
+        34 + i * 13 + progress * 3,
+        ringPaint,
       );
+    }
 
-      final end = Offset(
-        center.dx +
-            math.cos(angle) *
-                radius *
-                .94,
-        center.dy +
-            math.sin(angle) *
-                radius *
-                .94,
+    final nodePaint = Paint()
+      ..color = cyan.withOpacity(0.65);
+
+    for (int i = 0; i < 10; i++) {
+      final angle =
+          i * math.pi * 2 / 10;
+
+      const radius = 45.0;
+
+      final point = center +
+          Offset(
+            math.cos(angle) * radius,
+            math.sin(angle) * radius,
+          );
+
+      canvas.drawCircle(
+        point,
+        2.2,
+        nodePaint,
       );
 
       canvas.drawLine(
-        start,
-        end,
+        center,
+        point,
         ringPaint,
       );
     }
@@ -1529,399 +1379,59 @@ class CorePainter
 
   @override
   bool shouldRepaint(
-    covariant CorePainter oldDelegate,
-  ) =>
-      true;
-}
-
-// ============================================================
-// YANSI PAINTER
-// ============================================================
-
-class YansiPainter
-    extends CustomPainter {
-  final double pulse;
-  final double rotation;
-  final bool listening;
-
-  YansiPainter({
-    required this.pulse,
-    required this.rotation,
-    required this.listening,
-  });
-
-  @override
-  void paint(
-    Canvas canvas,
-    Size size,
-  ) {
-    final center = Offset(
-      size.width / 2,
-      size.height / 2,
-    );
-
-    final radius =
-        size.width / 2;
-
-    final glow = Paint()
-      ..color = green.withOpacity(
-        listening
-            ? .3
-            : .15 + pulse * .1,
-      )
-      ..maskFilter =
-          const MaskFilter.blur(
-        BlurStyle.normal,
-        22,
-      );
-
-    canvas.drawCircle(
-      center,
-      radius * .65,
-      glow,
-    );
-
-    final ring = Paint()
-      ..color =
-          cyan.withOpacity(.7)
-      ..style =
-          PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-
-    canvas.drawCircle(
-      center,
-      radius * .86,
-      ring,
-    );
-
-    canvas.drawCircle(
-      center,
-      radius * .72,
-      Paint()
-        ..color =
-            green.withOpacity(.55)
-        ..style =
-            PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
-
-    canvas.save();
-
-    canvas.translate(
-      center.dx,
-      center.dy,
-    );
-
-    canvas.rotate(
-      rotation * math.pi * 2,
-    );
-
-    for (int i = 0; i < 16; i++) {
-      final angle =
-          i * math.pi * 2 / 16;
-
-      final inner =
-          radius * .77;
-
-      final outer = radius *
-          (.86 + pulse * .05);
-
-      final p1 = Offset(
-        math.cos(angle) * inner,
-        math.sin(angle) * inner,
-      );
-
-      final p2 = Offset(
-        math.cos(angle) * outer,
-        math.sin(angle) * outer,
-      );
-
-      canvas.drawLine(
-        p1,
-        p2,
-        ring,
-      );
-    }
-
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(
     covariant YansiPainter oldDelegate,
-  ) =>
-      true;
-}
-
-// ============================================================
-// PARTICLES
-// ============================================================
-
-class ParticlePainter
-    extends CustomPainter {
-  final double progress;
-
-  ParticlePainter({
-    required this.progress,
-  });
-
-  @override
-  void paint(
-    Canvas canvas,
-    Size size,
   ) {
-    final paint = Paint();
-
-    for (int i = 0; i < 35; i++) {
-      final x =
-          (i * 73.0) %
-              size.width;
-
-      final baseY =
-          (i * 127.0) %
-              size.height;
-
-      final y =
-          (baseY +
-                  progress *
-                      size.height *
-                      .4) %
-              size.height;
-
-      paint.color =
-          (i % 2 == 0
-                  ? cyan
-                  : green)
-              .withOpacity(
-        .15 + (i % 5) * .07,
-      );
-
-      canvas.drawCircle(
-        Offset(x, y),
-        1.1 + (i % 3) * .4,
-        paint,
-      );
-    }
+    return oldDelegate.progress != progress;
   }
-
-  @override
-  bool shouldRepaint(
-    covariant ParticlePainter oldDelegate,
-  ) =>
-      true;
 }
 
 // ============================================================
-// NEURAL NETWORK
+// CORE DETAIL SCREEN
 // ============================================================
 
-class NeuralNetworkPainter
-    extends CustomPainter {
-  final double pulse;
-  final double rotation;
-
-  NeuralNetworkPainter({
-    required this.pulse,
-    required this.rotation,
-  });
-
-  @override
-  void paint(
-    Canvas canvas,
-    Size size,
-  ) {
-    final center = Offset(
-      size.width / 2,
-      size.height * .48,
-    );
-
-    final linePaint = Paint()
-      ..style =
-          PaintingStyle.stroke
-      ..strokeWidth = .7
-      ..color =
-          cyan.withOpacity(.22);
-
-    final nodePaint = Paint()
-      ..color = green.withOpacity(
-        .55 + pulse * .2,
-      );
-
-    final points = <Offset>[];
-
-    for (int i = 0; i < 18; i++) {
-      final angle =
-          rotation * math.pi * 2 +
-              i * math.pi * 2 / 18;
-
-      final radius =
-          size.width *
-              (.18 +
-                  (i % 4) * .035);
-
-      points.add(
-        Offset(
-          center.dx +
-              math.cos(angle) *
-                  radius,
-          center.dy +
-              math.sin(angle) *
-                  radius *
-                  .7,
-        ),
-      );
-    }
-
-    for (int i = 0;
-        i < points.length;
-        i++) {
-      for (int j = i + 1;
-          j < points.length;
-          j++) {
-        if ((points[i] -
-                    points[j])
-                .distance <
-            size.width * .13) {
-          canvas.drawLine(
-            points[i],
-            points[j],
-            linePaint,
-          );
-        }
-      }
-    }
-
-    for (final point in points) {
-      canvas.drawCircle(
-        point,
-        2.2,
-        nodePaint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(
-    covariant NeuralNetworkPainter oldDelegate,
-  ) =>
-      true;
-}
-
-// ============================================================
-// CIRCUIT
-// ============================================================
-
-class CircuitPainter
-    extends CustomPainter {
-  @override
-  void paint(
-    Canvas canvas,
-    Size size,
-  ) {
-    final paint = Paint()
-      ..color =
-          cyan.withOpacity(.035)
-      ..style =
-          PaintingStyle.stroke
-      ..strokeWidth = 1;
-
-    const gap = 42.0;
-
-    for (double x = 0;
-        x < size.width;
-        x += gap) {
-      canvas.drawLine(
-        Offset(x, 0),
-        Offset(x, size.height),
-        paint,
-      );
-    }
-
-    for (double y = 0;
-        y < size.height;
-        y += gap) {
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(
-    covariant CircuitPainter oldDelegate) =>
-      false;
-}
-
-// ============================================================
-// YANSI DIALOG
-// ============================================================
-
-class YansiDialog
-    extends StatelessWidget {
+class CoreScreen extends StatelessWidget {
   final String title;
-  final String message;
+  final IconData icon;
 
-  const YansiDialog({
+  const CoreScreen({
     super.key,
     required this.title,
-    required this.message,
+    required this.icon,
   });
 
   @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor:
-          const Color(0xFF031522),
-      shape:
-          RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.circular(24),
-        side: BorderSide(
-          color:
-              cyan.withOpacity(.5),
-        ),
+  Widget build(
+    BuildContext context,
+  ) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        backgroundColor: Colors.transparent,
       ),
-      title: Row(
-        children: [
-          const Icon(
-            Icons.psychology_rounded,
-            color: green,
-          ),
-          const SizedBox(
-            width: 10,
-          ),
-          Text(
-            title,
-            style:
-                const TextStyle(
+      body: Center(
+        child: Container(
+          width: 260,
+          height: 260,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
               color: cyan,
+              width: 2,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: cyan.withOpacity(0.20),
+                blurRadius: 35,
+              ),
+            ],
           ),
-        ],
-      ),
-      content: Text(
-        message,
-        style:
-            const TextStyle(
-          color: Colors.white,
-          height: 1.5,
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () =>
-              Navigator.pop(context),
-          child: const Text(
-            'OK',
-            style:
-                TextStyle(
-              color: green,
-            ),
+          child: Icon(
+            icon,
+            color: green,
+            size: 90,
           ),
         ),
-      ],
+      ),
     );
   }
 }
