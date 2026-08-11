@@ -1,12 +1,20 @@
 import 'yansi_brain_service.dart';
 
-/// Yansi Connector
+/// ============================================================
+/// YANSI CONNECTOR
 ///
-/// This is the bridge between the futuristic Yansi interface
-/// and the Yansi intelligence layer.
+/// This is the bridge between the existing LifeOS UI
+/// and Yansi's intelligence.
 ///
-/// We keep this separate so the existing LifeOS UI is not
-/// disturbed while we upgrade Yansi step-by-step.
+/// UI / Voice
+///     ↓
+/// YansiConnector
+///     ↓
+/// YansiBrainService
+///     ↓
+/// YansiDecision
+/// ============================================================
+
 class YansiConnector {
   static final YansiConnector instance =
       YansiConnector._internal();
@@ -20,33 +28,36 @@ class YansiConnector {
   final YansiBrainService brain =
       YansiBrainService();
 
-  /// Sends natural language to Yansi's brain.
+  /// Main intelligence entry point.
   Future<YansiDecision> process(
     String text,
   ) async {
-    return await brain.think(text);
+    return brain.think(text);
   }
 
-  /// Convenience method for checking whether
-  /// Yansi understood something.
+  /// Ask Yansi something without performing
+  /// a LifeOS action.
+  Future<String> ask(
+    String text,
+  ) async {
+    final decision = await brain.think(text);
+    return decision.response;
+  }
+
+  /// Check whether Yansi understands the command.
   Future<bool> understands(
     String text,
   ) async {
-    final decision =
-        await brain.think(text);
+    final decision = await brain.think(text);
 
     return decision.intent !=
         YansiIntent.unknown;
   }
 
-  /// Returns Yansi's response without
-  /// performing an action.
-  Future<String> ask(
+  /// Convenience method for expense commands.
+  Future<YansiDecision> understandExpense(
     String text,
   ) async {
-    final decision =
-        await brain.think(text);
-
-    return decision.response;
+    return brain.think(text);
   }
 }
