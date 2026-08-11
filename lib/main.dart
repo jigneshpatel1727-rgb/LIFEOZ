@@ -2,589 +2,1458 @@ import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 void main() {
-  runApp(const LifeOSApp());
+  runApp(const LifeOS());
 }
 
-class LifeOSApp extends StatelessWidget {
-  const LifeOSApp({super.key});
+class LifeOS extends StatelessWidget {
+  const LifeOS({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'LifeOS',
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF06131A),
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF020812),
+        fontFamily: 'sans',
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF00E5A0),
+          seedColor: const Color(0xFF00E5FF),
           brightness: Brightness.dark,
         ),
       ),
-      home: const LifeOSHome(),
+      home: const MainScreen(),
     );
   }
 }
 
+// ============================================================
+// DATA MODELS
+// ============================================================
+
 class Expense {
   final String category;
+  final String item;
   final double amount;
-  final String description;
+  final DateTime date;
 
   Expense({
     required this.category,
+    required this.item,
     required this.amount,
-    required this.description,
+    required this.date,
   });
 }
 
-class LifeOSHome extends StatefulWidget {
-  const LifeOSHome({super.key});
+class Task {
+  String title;
+  bool completed;
+  int priority;
 
-  @override
-  State<LifeOSHome> createState() => _LifeOSHomeState();
+  Task({
+    required this.title,
+    this.completed = false,
+    this.priority = 2,
+  });
 }
 
-class _LifeOSHomeState extends State<LifeOSHome> {
+class HouseholdItem {
+  String name;
+  double price;
+  double monthlyUse;
+
+  HouseholdItem({
+    required this.name,
+    required this.price,
+    required this.monthlyUse,
+  });
+}
+
+class Goal {
+  String name;
+  double target;
+  double current;
+
+  Goal({
+    required this.name,
+    required this.target,
+    required this.current,
+  });
+
+  double get progress {
+    if (target <= 0) return 0;
+    return (current / target).clamp(0, 1);
+  }
+}
+
+// ============================================================
+// GLOBAL APP DATA
+// ============================================================
+
+final List<Expense> expenses = [
+  Expense(
+    category: 'Fuel',
+    item: 'Petrol',
+    amount: 850,
+    date: DateTime.now(),
+  ),
+  Expense(
+    category: 'Food',
+    item: 'Groceries',
+    amount: 1250,
+    date: DateTime.now(),
+  ),
+  Expense(
+    category: 'Bills',
+    item: 'Electricity',
+    amount: 1800,
+    date: DateTime.now(),
+  ),
+];
+
+final List<Task> tasks = [
+  Task(title: 'Pay electricity bill', priority: 1),
+  Task(title: 'Buy household items', priority: 2),
+  Task(title: 'Review monthly expenses', priority: 2),
+  Task(title: 'Complete daily exercise', priority: 3),
+];
+
+final List<HouseholdItem> householdItems = [
+  HouseholdItem(name: 'Milk', price: 60, monthlyUse: 30),
+  HouseholdItem(name: 'Rice', price: 650, monthlyUse: 1),
+  HouseholdItem(name: 'Vegetables', price: 700, monthlyUse: 4),
+  HouseholdItem(name: 'Cooking Oil', price: 180, monthlyUse: 3),
+];
+
+final List<Goal> goals = [
+  Goal(name: 'House Fund', target: 1000000, current: 350000),
+  Goal(name: 'Emergency Fund', target: 300000, current: 120000),
+];
+
+// ============================================================
+// MAIN SCREEN
+// ============================================================
+
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
   final stt.SpeechToText speech = stt.SpeechToText();
 
-  bool menuOpen = false;
   bool listening = false;
-  bool speechAvailable = false;
-
-  String recognizedText = '';
-  String yansiMessage =
-      'Hello 👋 I am Yansi. Tell me what is happening in your life.';
-
-  final List<Expense> expenses = [];
-
-  final List<Map<String, dynamic>> cores = [
-    {'icon': Icons.account_balance_wallet_rounded, 'title': 'Money'},
-    {'icon': Icons.favorite_rounded, 'title': 'Health'},
-    {'icon': Icons.work_rounded, 'title': 'Work'},
-    {'icon': Icons.home_rounded, 'title': 'Home'},
-    {'icon': Icons.track_changes_rounded, 'title': 'Goals'},
-  ];
+  String selectedPeriod = 'Month';
 
   @override
   void initState() {
     super.initState();
-    initializeSpeech();
+    speech.initialize();
   }
 
-  Future<void> initializeSpeech() async {
-    speechAvailable = await speech.initialize(
-      onStatus: (status) {
-        if (status == 'done' || status == 'notListening') {
-          setState(() {
-            listening = false;
-          });
-        }
-      },
-      onError: (error) {
-        setState(() {
-          listening = false;
-          yansiMessage =
-              'I could not hear you. Please try speaking again.';
-        });
-      },
-    );
-
-    setState(() {});
-  }
-
-  Future<void> startListening() async {
-    if (!speechAvailable) {
-      yansiMessage =
-          'Speech recognition is not available on this device.';
-      setState(() {});
+  Future<void> listenToYansi() async {
+    if (listening) {
+      await speech.stop();
+      setState(() => listening = false);
       return;
     }
 
-    setState(() {
-      listening = true;
-      recognizedText = '';
-      yansiMessage = 'I am listening... 🎧';
-    });
+    setState(() => listening = true);
 
     await speech.listen(
       onResult: (result) {
-        setState(() {
-          recognizedText = result.recognizedWords;
-        });
-
         if (result.finalResult) {
-          processCommand(result.recognizedWords);
+          setState(() => listening = false);
+          _processVoice(result.recognizedWords);
         }
       },
     );
   }
 
-  Future<void> stopListening() async {
-    await speech.stop();
+  void _processVoice(String text) {
+    final lower = text.toLowerCase();
 
-    setState(() {
-      listening = false;
-    });
+    // Expense example:
+    // "I spent 500 on petrol"
+    final match = RegExp(
+      r'(\d+(?:\.\d+)?)',
+    ).firstMatch(lower);
 
-    if (recognizedText.isNotEmpty) {
-      processCommand(recognizedText);
+    if (match != null &&
+        (lower.contains('spent') ||
+            lower.contains('paid') ||
+            lower.contains('buy'))) {
+      final amount = double.tryParse(match.group(1)!);
+
+      if (amount != null) {
+        String category = 'Other';
+
+        if (lower.contains('petrol') ||
+            lower.contains('fuel') ||
+            lower.contains('diesel')) {
+          category = 'Fuel';
+        } else if (lower.contains('milk') ||
+            lower.contains('grocery') ||
+            lower.contains('vegetable')) {
+          category = 'Household';
+        } else if (lower.contains('electricity') ||
+            lower.contains('bill')) {
+          category = 'Bills';
+        } else if (lower.contains('food') ||
+            lower.contains('restaurant')) {
+          category = 'Food';
+        }
+
+        expenses.add(
+          Expense(
+            category: category,
+            item: text,
+            amount: amount,
+            date: DateTime.now(),
+          ),
+        );
+
+        setState(() {});
+      }
     }
   }
 
-  void processCommand(String text) {
-    final command = text.toLowerCase().trim();
-
-    final amount = extractAmount(command);
-
-    if (amount != null) {
-      String category = detectCategory(command);
-
-      String description = command;
-
-      expenses.add(
-        Expense(
-          category: category,
-          amount: amount,
-          description: description,
+  void openCore(String core) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CoreScreen(
+          title: core,
+          onChanged: () => setState(() {}),
         ),
-      );
-
-      setState(() {
-        yansiMessage =
-            'Got it 👍 ₹${amount.toStringAsFixed(0)} added to $category.';
-      });
-
-      return;
-    }
-
-    setState(() {
-      yansiMessage =
-          'I heard: "$text". Tell me an amount if you want me to record an expense.';
-    });
-  }
-
-  double? extractAmount(String text) {
-    final numberPattern = RegExp(
-      r'(?:₹|rs\.?|rupees?)?\s*(\d+(?:\.\d+)?)',
-      caseSensitive: false,
+      ),
     );
-
-    final match = numberPattern.firstMatch(text);
-
-    if (match != null) {
-      return double.tryParse(match.group(1)!);
-    }
-
-    return null;
-  }
-
-  String detectCategory(String text) {
-    if (text.contains('petrol') ||
-        text.contains('fuel') ||
-        text.contains('diesel')) {
-      return 'Fuel';
-    }
-
-    if (text.contains('milk')) {
-      return 'Milk';
-    }
-
-    if (text.contains('electricity') ||
-        text.contains('light bill') ||
-        text.contains('power')) {
-      return 'Electricity';
-    }
-
-    if (text.contains('rent')) {
-      return 'Rent';
-    }
-
-    if (text.contains('emi') ||
-        text.contains('loan') ||
-        text.contains('installment')) {
-      return 'EMI';
-    }
-
-    if (text.contains('food') ||
-        text.contains('restaurant') ||
-        text.contains('lunch') ||
-        text.contains('dinner')) {
-      return 'Food';
-    }
-
-    if (text.contains('medicine') ||
-        text.contains('medical') ||
-        text.contains('doctor')) {
-      return 'Medical';
-    }
-
-    if (text.contains('shopping') ||
-        text.contains('clothes') ||
-        text.contains('shirt') ||
-        text.contains('dress')) {
-      return 'Shopping';
-    }
-
-    if (text.contains('travel') ||
-        text.contains('bus') ||
-        text.contains('train') ||
-        text.contains('taxi')) {
-      return 'Travel';
-    }
-
-    return 'Other';
-  }
-
-  double get totalExpenses {
-    double total = 0;
-
-    for (final expense in expenses) {
-      total += expense.amount;
-    }
-
-    return total;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Positioned(
-              top: -100,
-              right: -80,
-              child: Container(
-                width: 250,
-                height: 250,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF00E5A0).withOpacity(0.08),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment.center,
+            radius: 1.1,
+            colors: [
+              Color(0xFF08243A),
+              Color(0xFF020812),
+              Color(0xFF01040A),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              // ------------------------------------------------
+              // TOP BAR
+              // ------------------------------------------------
+
+              Positioned(
+                top: 12,
+                left: 15,
+                child: _topButton(
+                  Icons.hub_rounded,
+                  () {
+                    _showCoreMenu();
+                  },
                 ),
               ),
-            ),
 
-            Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        onPressed: () {
-                          setState(() {
-                            menuOpen = !menuOpen;
-                          });
-                        },
-                        icon: Icon(
-                          menuOpen
-                              ? Icons.close_rounded
-                              : Icons.menu_rounded,
-                          color: const Color(0xFF00E5A0),
-                          size: 30,
-                        ),
-                      ),
-                      const Expanded(
-                        child: Text(
-                          'LifeOS',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 25,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 2,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 48),
-                    ],
-                  ),
+              Positioned(
+                top: 12,
+                right: 15,
+                child: _topButton(
+                  Icons.notifications_none_rounded,
+                  () {
+                    _showReminders();
+                  },
                 ),
+              ),
 
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 15),
+              // ------------------------------------------------
+              // CENTER DESIGN
+              // ------------------------------------------------
 
-                        Container(
-                          width: 145,
-                          height: 145,
+              Center(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 30),
+
+                      _lifeosLogo(),
+
+                      const SizedBox(height: 25),
+
+                      const Text(
+                        'L I F E O S',
+                        style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w300,
+                          letterSpacing: 9,
+                          color: Colors.white,
+                        ),
+                      ),
+
+                      const SizedBox(height: 35),
+
+                      SizedBox(
+                        width: 380,
+                        height: 610,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            _orbit(),
+
+                            // CENTER INTELLIGENCE
+                            _centerBrain(),
+
+                            // TOP - MONEY
+                            Positioned(
+                              top: 0,
+                              child: _coreIcon(
+                                Icons.account_balance_wallet_rounded,
+                                () => openCore('Money'),
+                              ),
+                            ),
+
+                            // LEFT TOP - PRODUCTIVITY
+                            Positioned(
+                              left: 0,
+                              top: 165,
+                              child: _coreIcon(
+                                Icons.calendar_month_rounded,
+                                () => openCore('Productivity'),
+                              ),
+                            ),
+
+                            // RIGHT TOP - HEALTH
+                            Positioned(
+                              right: 0,
+                              top: 165,
+                              child: _coreIcon(
+                                Icons.favorite_rounded,
+                                () => openCore('Health'),
+                              ),
+                            ),
+
+                            // LEFT BOTTOM - HOUSEHOLD
+                            Positioned(
+                              left: 35,
+                              bottom: 65,
+                              child: _coreIcon(
+                                Icons.shopping_cart_rounded,
+                                () => openCore('Household'),
+                              ),
+                            ),
+
+                            // RIGHT BOTTOM - GOALS
+                            Positioned(
+                              right: 35,
+                              bottom: 65,
+                              child: _coreIcon(
+                                Icons.track_changes_rounded,
+                                () => openCore('Goals'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 5),
+
+                      // INVISIBLE/BACKGROUND AI CONTROL
+                      GestureDetector(
+                        onTap: listenToYansi,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          width: 62,
+                          height: 62,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: const Color(0xFF00E5A0),
-                              width: 2,
+                              color: listening
+                                  ? const Color(0xFF7CFF4D)
+                                  : const Color(0xFF00DFFF),
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF00E5A0)
-                                    .withOpacity(0.35),
-                                blurRadius: 35,
-                                spreadRadius: 8,
+                                color: listening
+                                    ? const Color(0xFF7CFF4D)
+                                    : const Color(0xFF00DFFF),
+                                blurRadius: listening ? 30 : 12,
                               ),
                             ],
                           ),
-                          child: const Center(
-                            child: Icon(
-                              Icons.auto_awesome_rounded,
-                              size: 65,
-                              color: Color(0xFF00E5A0),
-                            ),
+                          child: Icon(
+                            listening
+                                ? Icons.mic_rounded
+                                : Icons.mic_none_rounded,
+                            color: Colors.white,
+                            size: 28,
                           ),
                         ),
+                      ),
 
-                        const SizedBox(height: 20),
-
-                        const Text(
-                          'Yansi',
-                          style: TextStyle(
-                            fontSize: 30,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF00E5A0),
-                          ),
-                        ),
-
-                        const SizedBox(height: 5),
-
-                        const Text(
-                          'Your LifeOS AI',
-                          style: TextStyle(
-                            color: Colors.white70,
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(22),
-                            border: Border.all(
-                              color: const Color(0xFF00E5A0)
-                                  .withOpacity(0.25),
-                            ),
-                            color: const Color(0xFF0B2028),
-                          ),
-                          child: Text(
-                            yansiMessage,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 17,
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-
-                        if (recognizedText.isNotEmpty) ...[
-                          const SizedBox(height: 15),
-                          Text(
-                            'You said:',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            recognizedText,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Color(0xFF00E5A0),
-                            ),
-                          ),
-                        ],
-
-                        const SizedBox(height: 22),
-
-                        GestureDetector(
-                          onTap: listening
-                              ? stopListening
-                              : startListening,
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 18,
-                            ),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(18),
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFF00E5A0),
-                                  Color(0xFF00AFC4),
-                                ],
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  listening
-                                      ? Icons.stop_rounded
-                                      : Icons.mic_rounded,
-                                  color: Colors.black,
-                                  size: 28,
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  listening
-                                      ? 'Stop Listening'
-                                      : 'Talk to Yansi',
-                                  style: const TextStyle(
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 17,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 28),
-
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            color: const Color(0xFF0B2028),
-                            border: Border.all(
-                              color: const Color(0xFF00E5A0)
-                                  .withOpacity(0.25),
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              const Text(
-                                "Today's Expenses",
-                                style: TextStyle(
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-
-                              const SizedBox(height: 12),
-
-                              Text(
-                                '₹${totalExpenses.toStringAsFixed(0)}',
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF00E5A0),
-                                ),
-                              ),
-
-                              const SizedBox(height: 15),
-
-                              if (expenses.isEmpty)
-                                const Text(
-                                  'No expenses recorded yet.',
-                                  style: TextStyle(
-                                    color: Colors.white60,
-                                  ),
-                                ),
-
-                              ...expenses.map(
-                                (expense) => ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: const Icon(
-                                    Icons.receipt_long_rounded,
-                                    color: Color(0xFF00E5A0),
-                                  ),
-                                  title: Text(expense.category),
-                                  subtitle: Text(expense.description),
-                                  trailing: Text(
-                                    '₹${expense.amount.toStringAsFixed(0)}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 28),
-
-                        Row(
-                          mainAxisAlignment:
-                              MainAxisAlignment.spaceAround,
-                          children: cores.map((core) {
-                            return _coreIcon(
-                              core['icon'],
-                              core['title'],
-                            );
-                          }).toList(),
-                        ),
-
-                        const SizedBox(height: 25),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            if (menuOpen)
-              Positioned(
-                top: 68,
-                left: 12,
-                child: Container(
-                  width: 230,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0B2028),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: const Color(0xFF00E5A0)
-                          .withOpacity(0.4),
-                    ),
-                  ),
-                  child: Column(
-                    children: cores.map((core) {
-                      return ListTile(
-                        leading: Icon(
-                          core['icon'],
-                          color: const Color(0xFF00E5A0),
-                        ),
-                        title: Text(core['title']),
-                        onTap: () {
-                          setState(() {
-                            menuOpen = false;
-                          });
-                        },
-                      );
-                    }).toList(),
+                      const SizedBox(height: 25),
+                    ],
                   ),
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _lifeosLogo() {
+    return Container(
+      width: 72,
+      height: 72,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: const Color(0xFF00E5FF),
+          width: 2,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0xFF00E5FF),
+            blurRadius: 18,
+          ),
+        ],
+      ),
+      child: const Icon(
+        Icons.hub_rounded,
+        size: 44,
+        color: Color(0xFF00E5FF),
+      ),
+    );
+  }
+
+  Widget _centerBrain() {
+    return Container(
+      width: 155,
+      height: 155,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const RadialGradient(
+          colors: [
+            Color(0xFF183C50),
+            Color(0xFF04121C),
+          ],
+        ),
+        border: Border.all(
+          color: const Color(0xFF00E5FF),
+          width: 3,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0xFF00E5FF),
+            blurRadius: 25,
+            spreadRadius: 3,
+          ),
+        ],
+      ),
+      child: const Icon(
+        Icons.psychology_rounded,
+        size: 80,
+        color: Color(0xFF5CFF6A),
+      ),
+    );
+  }
+
+  Widget _orbit() {
+    return Container(
+      width: 370,
+      height: 370,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: const Color(0xFF00DFFF).withOpacity(.18),
+        ),
+      ),
+    );
+  }
+
+  Widget _coreIcon(IconData icon, VoidCallback action) {
+    return GestureDetector(
+      onTap: action,
+      child: Container(
+        width: 125,
+        height: 125,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF021321),
+              Color(0xFF071A24),
+            ],
+          ),
+          border: Border.all(
+            color: const Color(0xFF00E5FF),
+            width: 2,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0xFF00DFFF),
+              blurRadius: 18,
+            ),
+          ],
+        ),
+        child: Icon(
+          icon,
+          size: 55,
+          color: const Color(0xFF64FF62),
+        ),
+      ),
+    );
+  }
+
+  Widget _topButton(IconData icon, VoidCallback action) {
+    return GestureDetector(
+      onTap: action,
+      child: Container(
+        width: 55,
+        height: 55,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0xFF00E5FF),
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0xFF00E5FF),
+              blurRadius: 12,
+            ),
+          ],
+        ),
+        child: Icon(
+          icon,
+          color: const Color(0xFF65FF52),
+        ),
+      ),
+    );
+  }
+
+  void _showCoreMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF06131C),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(25),
+        ),
+      ),
+      builder: (_) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'LifeOS',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 15),
+              _menuItem('Money', Icons.account_balance_wallet_rounded),
+              _menuItem('Health', Icons.favorite_rounded),
+              _menuItem('Productivity', Icons.calendar_month_rounded),
+              _menuItem('Household', Icons.shopping_cart_rounded),
+              _menuItem('Goals', Icons.track_changes_rounded),
+              _menuItem('Settings', Icons.settings_rounded),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _menuItem(String title, IconData icon) {
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: const Color(0xFF5CFF6A),
+      ),
+      title: Text(title),
+      onTap: () {
+        Navigator.pop(context);
+
+        if (title != 'Settings') {
+          openCore(title);
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const SettingsScreen(),
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  void _showReminders() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF06131C),
+      builder: (_) {
+        return const Padding(
+          padding: EdgeInsets.all(25),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.notifications_active_rounded,
+                color: Color(0xFF5CFF6A),
+                size: 40,
+              ),
+              SizedBox(height: 15),
+              Text(
+                'Smart Reminders',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 10),
+              Text(
+                'Bills, insurance, tasks and important dates will appear here.',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ============================================================
+// CORE SCREEN
+// ============================================================
+
+class CoreScreen extends StatefulWidget {
+  final String title;
+  final VoidCallback onChanged;
+
+  const CoreScreen({
+    super.key,
+    required this.title,
+    required this.onChanged,
+  });
+
+  @override
+  State<CoreScreen> createState() => _CoreScreenState();
+}
+
+class _CoreScreenState extends State<CoreScreen> {
+  String period = 'Month';
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF020812),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          widget.title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 5, 16, 30),
+        child: Column(
+          children: [
+            _periodSelector(),
+
+            const SizedBox(height: 18),
+
+            _mainInsight(),
+
+            const SizedBox(height: 15),
+
+            if (widget.title == 'Money') _money(),
+
+            if (widget.title == 'Health') _health(),
+
+            if (widget.title == 'Productivity') _productivity(),
+
+            if (widget.title == 'Household') _household(),
+
+            if (widget.title == 'Goals') _goals(),
           ],
         ),
       ),
     );
   }
 
-  Widget _coreIcon(IconData icon, String title) {
-    return GestureDetector(
-      onTap: () {},
-      child: Container(
-        width: 55,
-        height: 55,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: const Color(0xFF0B2028),
-          border: Border.all(
-            color: const Color(0xFF00E5A0).withOpacity(0.45),
+  Widget _periodSelector() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          'Day',
+          'Month',
+          'Quarter',
+          'Half-year',
+          'Year',
+        ].map(
+          (p) {
+            final selected = p == period;
+
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () {
+                  setState(() => period = p);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 15,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    color: selected
+                        ? const Color(0xFF00DFFF)
+                        : const Color(0xFF0A1A24),
+                  ),
+                  child: Text(
+                    p,
+                    style: TextStyle(
+                      color: selected
+                          ? Colors.black
+                          : Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ).toList(),
+      ),
+    );
+  }
+
+  Widget _mainInsight() {
+    String message = '';
+
+    switch (widget.title) {
+      case 'Money':
+        message = 'Spending is being monitored automatically.';
+        break;
+      case 'Health':
+        message = 'Your daily health pattern is being tracked.';
+        break;
+      case 'Productivity':
+        message = 'Today has ${tasks.where((e) => !e.completed).length} pending tasks.';
+        break;
+      case 'Household':
+        message = 'Household prices and usage are being compared.';
+        break;
+      case 'Goals':
+        message = 'Your goals are moving toward their targets.';
+        break;
+    }
+
+    return _card(
+      child: Row(
+        children: [
+          const Icon(
+            Icons.auto_graph_rounded,
+            color: Color(0xFF5CFF6A),
+            size: 32,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                fontSize: 15,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================================
+  // MONEY
+  // ==========================================================
+
+  Widget _money() {
+    final total = expenses.fold<double>(
+      0,
+      (sum, e) => sum + e.amount,
+    );
+
+    return Column(
+      children: [
+        _metricGrid([
+          _metric('Spent', '₹${total.toStringAsFixed(0)}'),
+          _metric('Budget', '₹30,000'),
+          _metric('Saved', '₹12,500'),
+          _metric('Bills', '₹8,450'),
+        ]),
+
+        const SizedBox(height: 15),
+
+        _graphCard(
+          title: 'Cash Flow',
+          values: const [55, 62, 45, 72, 58, 78, 68],
+        ),
+
+        const SizedBox(height: 15),
+
+        _card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Money Insight',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'LifeOS will compare spending with previous periods and identify avoidable expenses.',
+              ),
+              const SizedBox(height: 15),
+              _insightLine(
+                Icons.trending_down,
+                'Potential saving opportunity',
+                '₹3,200',
+              ),
+              _insightLine(
+                Icons.warning_amber_rounded,
+                'Upcoming commitments',
+                '₹8,450',
+              ),
+            ],
           ),
         ),
-        child: Icon(
+      ],
+    );
+  }
+
+  // ==========================================================
+  // HEALTH
+  // ==========================================================
+
+  Widget _health() {
+    return Column(
+      children: [
+        _metricGrid([
+          _metric('Activity', '72%'),
+          _metric('Sleep', '7.2 h'),
+          _metric('Habits', '5/7'),
+          _metric('Visits', '1'),
+        ]),
+
+        const SizedBox(height: 15),
+
+        _graphCard(
+          title: 'Health Trend',
+          values: const [45, 60, 55, 70, 68, 80, 74],
+        ),
+
+        const SizedBox(height: 15),
+
+        _card(
+          child: Column(
+            children: [
+              _healthRow(
+                Icons.directions_walk,
+                'Daily activity',
+                'Good',
+              ),
+              _healthRow(
+                Icons.bedtime,
+                'Sleep',
+                'Needs attention',
+              ),
+              _healthRow(
+                Icons.medication,
+                'Medicine',
+                'No missed dose',
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==========================================================
+  // PRODUCTIVITY
+  // ==========================================================
+
+  Widget _productivity() {
+    return Column(
+      children: [
+        _metricGrid([
+          _metric(
+            'Done',
+            '${tasks.where((e) => e.completed).length}',
+          ),
+          _metric(
+            'Pending',
+            '${tasks.where((e) => !e.completed).length}',
+          ),
+          _metric('Focus', '78%'),
+          _metric('Streak', '6 d'),
+        ]),
+
+        const SizedBox(height: 15),
+
+        _card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Today',
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              ...tasks.map(
+                (task) => CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: task.completed,
+                  activeColor: const Color(0xFF5CFF6A),
+                  title: Text(task.title),
+                  onChanged: (value) {
+                    setState(() {
+                      task.completed = value ?? false;
+                    });
+                    widget.onChanged();
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 15),
+
+        _card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Smart Calendar',
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 15),
+              _calendarEvent(
+                'Today',
+                'Electricity bill',
+                'Due',
+              ),
+              _calendarEvent(
+                '15 Sep',
+                'Insurance payment',
+                'Upcoming',
+              ),
+              _calendarEvent(
+                '20 Sep',
+                'Important date',
+                'Reminder',
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==========================================================
+  // HOUSEHOLD
+  // ==========================================================
+
+  Widget _household() {
+    final monthly = householdItems.fold<double>(
+      0,
+      (sum, item) => sum + item.price * item.monthlyUse,
+    );
+
+    return Column(
+      children: [
+        _metricGrid([
+          _metric('Monthly', '₹${monthly.toStringAsFixed(0)}'),
+          _metric('Items', '${householdItems.length}'),
+          _metric('Bills', '₹4,200'),
+          _metric('Saving', '₹1,150'),
+        ]),
+
+        const SizedBox(height: 15),
+
+        _card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Daily Household Usage',
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              ...householdItems.map(
+                (item) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.shopping_basket_outlined,
+                    color: Color(0xFF5CFF6A),
+                  ),
+                  title: Text(item.name),
+                  subtitle: Text(
+                    '${item.monthlyUse} × ₹${item.price.toStringAsFixed(0)}',
+                  ),
+                  trailing: Text(
+                    '₹${(item.price * item.monthlyUse).toStringAsFixed(0)}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 15),
+
+        _graphCard(
+          title: 'Household Cost Trend',
+          values: const [42, 50, 47, 63, 57, 70, 64],
+        ),
+
+        const SizedBox(height: 15),
+
+        _card(
+          child: Row(
+            children: [
+              const Icon(
+                Icons.lightbulb_outline,
+                color: Color(0xFF5CFF6A),
+                size: 32,
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'AI can compare item prices and usage to identify where household spending can be reduced.',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==========================================================
+  // GOALS
+  // ==========================================================
+
+  Widget _goals() {
+    return Column(
+      children: [
+        _metricGrid([
+          _metric('Goals', '${goals.length}'),
+          _metric('Average', '48%'),
+          _metric('On track', '2'),
+          _metric('Risk', '0'),
+        ]),
+
+        const SizedBox(height: 15),
+
+        ...goals.map(
+          (goal) => Padding(
+            padding: const EdgeInsets.only(bottom: 15),
+            child: _card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    goal.name,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  LinearProgressIndicator(
+                    value: goal.progress,
+                    minHeight: 9,
+                    backgroundColor: Colors.white12,
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(
+                      Color(0xFF5CFF6A),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment:
+                        MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '₹${goal.current.toStringAsFixed(0)}',
+                      ),
+                      Text(
+                        '₹${goal.target.toStringAsFixed(0)}',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        _graphCard(
+          title: 'Progress Projection',
+          values: const [25, 31, 38, 45, 52, 61, 70],
+        ),
+      ],
+    );
+  }
+
+  // ==========================================================
+  // COMMON WIDGETS
+  // ==========================================================
+
+  Widget _metricGrid(List<Widget> metrics) {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      childAspectRatio: 2.1,
+      children: metrics,
+    );
+  }
+
+  Widget _metric(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(17),
+        color: const Color(0xFF071722),
+        border: Border.all(
+          color: const Color(0xFF00DFFF).withOpacity(.25),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white60,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF5CFF6A),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _graphCard({
+    required String title,
+    required List<double> values,
+  }) {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          SizedBox(
+            height: 150,
+            child: CustomPaint(
+              painter: GraphPainter(values),
+              child: Container(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _card({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: const Color(0xFF06131D),
+        border: Border.all(
+          color: const Color(0xFF00DFFF).withOpacity(.22),
+        ),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _insightLine(
+    IconData icon,
+    String title,
+    String value,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: const Color(0xFF5CFF6A),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Text(title)),
+          Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _healthRow(
+    IconData icon,
+    String title,
+    String value,
+  ) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        icon,
+        color: const Color(0xFF5CFF6A),
+      ),
+      title: Text(title),
+      trailing: Text(value),
+    );
+  }
+
+  Widget _calendarEvent(
+    String date,
+    String title,
+    String status,
+  ) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(
+        Icons.event_available_rounded,
+        color: Color(0xFF00DFFF),
+      ),
+      title: Text(title),
+      subtitle: Text(date),
+      trailing: Text(status),
+    );
+  }
+}
+
+// ============================================================
+// GRAPH PAINTER
+// ============================================================
+
+class GraphPainter extends CustomPainter {
+  final List<double> values;
+
+  GraphPainter(this.values);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final linePaint = Paint()
+      ..color = const Color(0xFF00DFFF)
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+
+    final dotPaint = Paint()
+      ..color = const Color(0xFF5CFF6A)
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+
+    final maxValue = values.reduce(
+      (a, b) => a > b ? a : b,
+    );
+
+    final minValue = values.reduce(
+      (a, b) => a < b ? a : b,
+    );
+
+    final range =
+        maxValue - minValue == 0 ? 1 : maxValue - minValue;
+
+    for (int i = 0; i < values.length; i++) {
+      final x = i * size.width / (values.length - 1);
+
+      final normalized =
+          (values[i] - minValue) / range;
+
+      final y = size.height -
+          normalized * (size.height - 20) -
+          10;
+
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+
+      canvas.drawCircle(
+        Offset(x, y),
+        4,
+        dotPaint,
+      );
+    }
+
+    canvas.drawPath(path, linePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant GraphPainter oldDelegate) {
+    return oldDelegate.values != values;
+  }
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  String currency = '₹ INR';
+  String design = 'Neon';
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF020812),
+      appBar: AppBar(
+        title: const Text('Settings'),
+        backgroundColor: Colors.transparent,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          _settingCard(
+            Icons.currency_exchange,
+            'Currency',
+            currency,
+            () {
+              setState(() {
+                currency =
+                    currency == '₹ INR' ? '\$ USD' : '₹ INR';
+              });
+            },
+          ),
+          _settingCard(
+            Icons.palette_outlined,
+            'Design',
+            design,
+            () {
+              setState(() {
+                design =
+                    design == 'Neon' ? 'Classic' : 'Neon';
+              });
+            },
+          ),
+          _settingCard(
+            Icons.mic_none_rounded,
+            'Microphone',
+            'Permission',
+            () {},
+          ),
+          _settingCard(
+            Icons.camera_alt_outlined,
+            'Camera',
+            'Bill scanning',
+            () {},
+          ),
+          _settingCard(
+            Icons.notifications_none_rounded,
+            'Notifications',
+            'Reminders',
+            () {},
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _settingCard(
+    IconData icon,
+    String title,
+    String value,
+    VoidCallback action,
+  ) {
+    return Card(
+      color: const Color(0xFF071722),
+      child: ListTile(
+        onTap: action,
+        leading: Icon(
           icon,
-          color: const Color(0xFF00E5A0),
-          size: 25,
+          color: const Color(0xFF5CFF6A),
+        ),
+        title: Text(title),
+        subtitle: Text(value),
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
         ),
       ),
     );
