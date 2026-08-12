@@ -25,25 +25,26 @@ class YansiConversationBridge {
     }
 
     try {
-      final response = await client.respond(
+      // YansiBackendClient exposes `ask()`, not `respond()`.
+      // Authentication is handled by the client's accessTokenProvider.
+      final response = await client.ask(
         message: text.trim(),
-        context: lifeosContext ?? const <String, dynamic>{},
-        webAccess: privacy.canUseWeb(),
-        accessToken: accessToken,
+        lifeosContext: lifeosContext ?? const <String, dynamic>{},
+        allowWeb: privacy.canUseWeb(),
       );
 
-      if (response == null) {
-        return const YansiConversationResult(
+      if (!response.ok) {
+        return YansiConversationResult(
           ok: false,
-          answer: 'I could not reach my intelligence service right now. I am still here.',
+          answer: response.error ?? 'I could not reach my intelligence service right now. I am still here.',
+          requestId: response.requestId,
         );
       }
 
       return YansiConversationResult(
         ok: true,
-        answer: response['answer']?.toString() ?? response['message']?.toString() ?? 'I am here.',
-        requestId: response['request_id']?.toString(),
-        raw: response,
+        answer: response.answer.isNotEmpty ? response.answer : 'I am here.',
+        requestId: response.requestId,
       );
     } catch (_) {
       return const YansiConversationResult(
