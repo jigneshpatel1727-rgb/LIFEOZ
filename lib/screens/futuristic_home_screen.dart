@@ -36,8 +36,7 @@ class _FuturisticHomeScreenState
     extends State<FuturisticHomeScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animation;
-
-  final FlutterTts _tts = FlutterTts();
+final YansiVoice _yansiVoice = YansiVoice();
   final stt.SpeechToText _speech = stt.SpeechToText();
 
   bool _listening = false;
@@ -65,40 +64,34 @@ class _FuturisticHomeScreenState
   }
 
   @override
-  void dispose() {
-    _animation.dispose();
-    _tts.stop();
-    _speech.stop();
-    super.dispose();
-  }
+void dispose() {
+  _animation.dispose();
+  _yansiVoice.stop();
+  _speech.stop();
+  super.dispose();
+}
 
   // ==========================================================
   // YANSI WELCOME
   // ==========================================================
 
   Future<void> _welcomeYansi() async {
-    if (_welcomeDone) return;
+  if (_welcomeDone) return;
 
-    _welcomeDone = true;
+  _welcomeDone = true;
 
-    await Future.delayed(
-      const Duration(milliseconds: 900),
-    );
+  await Future.delayed(
+    const Duration(milliseconds: 900),
+  );
 
-    final name = widget.userName.trim();
+  final name = widget.userName.trim();
 
-    final message = name.isEmpty
-        ? 'Welcome. I am Yansi, your personal LifeOS AI friend. How can I help you?'
-        : 'Welcome, $name. I am Yansi, your personal LifeOS AI friend. How can I help you?';
+  final message = name.isEmpty
+      ? 'Welcome. I am Yansi, your personal LifeOS AI friend. How can I help you?'
+      : 'Welcome, $name. I am Yansi, your personal LifeOS AI friend. How can I help you?';
 
-    try {
-      await _tts.setLanguage('en-IN');
-      await _tts.setSpeechRate(0.46);
-      await _tts.setPitch(1.0);
-      await _tts.setVolume(1.0);
-      await _tts.speak(message);
-    } catch (_) {}
-  }
+  await _yansiVoice.speak(message);
+}
 
   // ==========================================================
   // VOICE
