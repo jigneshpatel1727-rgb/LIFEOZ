@@ -55,7 +55,8 @@ class YansiReceiptScanner {
     for (final line in lines) {
       final lower = line.toLowerCase();
       final match = money.firstMatch(line);
-      final value = match == null ? null : double.tryParse(match.group(1)!.replaceAll(',', ''));
+      if (match == null) continue;
+      final value = double.tryParse(match.group(1)!.replaceAll(',', ''));
       if (value == null) continue;
 
       if (lower.contains('total') || lower.contains('amount payable') || lower.contains('grand total')) {
