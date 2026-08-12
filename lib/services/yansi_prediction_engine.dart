@@ -14,7 +14,10 @@ class YansiPredictionEngine {
     required double monthlyIncome,
     int lookbackMonths = 3,
   }) {
-    final expenses = store.read('expenses');
+    final expenses = [
+      ...store.read('expenses'),
+      ...store.read('yansi_expenses'),
+    ];
     final now = DateTime.now();
     final cutoff = DateTime(now.year, now.month - lookbackMonths + 1, 1);
 
@@ -47,7 +50,10 @@ class YansiPredictionEngine {
   List<Map<String, dynamic>> predictedHouseholdRequirements({
     int lookbackMonths = 3,
   }) {
-    final records = store.read('household');
+    final records = [
+      ...store.read('household'),
+      ...store.read('yansi_household'),
+    ];
     final now = DateTime.now();
     final cutoff = DateTime(now.year, now.month - lookbackMonths + 1, 1);
     final counts = <String, int>{};
