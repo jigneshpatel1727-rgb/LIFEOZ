@@ -14,11 +14,13 @@ class YansiWebIntelligence {
 
   YansiWebRequest prepare(String question) {
     final text = question.trim();
-    if (!isEnabled) {
+    if (!isEnabled || text.isEmpty) {
       return YansiWebRequest(
         question: text,
         allowed: false,
-        message: 'Web access is currently off. Enable web access in permissions if you want me to use current external information.',
+        message: text.isEmpty
+            ? 'Please provide a question for web research.'
+            : 'Web access is currently off. Enable web access in permissions if you want me to use current external information.',
       );
     }
 
@@ -28,6 +30,13 @@ class YansiWebIntelligence {
       message: 'Web research is permitted for this request.',
     );
   }
+
+  List<YansiWebResult> normalizeResults(Iterable<Map<String, dynamic>> results) =>
+      results.map((row) => YansiWebResult(
+            title: row['title']?.toString() ?? 'Untitled result',
+            snippet: row['snippet']?.toString() ?? '',
+            url: row['url']?.toString(),
+          )).toList();
 }
 
 class YansiWebRequest {
@@ -39,5 +48,17 @@ class YansiWebRequest {
     required this.question,
     required this.allowed,
     required this.message,
+  });
+}
+
+class YansiWebResult {
+  final String title;
+  final String snippet;
+  final String? url;
+
+  const YansiWebResult({
+    required this.title,
+    required this.snippet,
+    this.url,
   });
 }
