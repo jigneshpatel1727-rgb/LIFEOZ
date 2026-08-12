@@ -6,6 +6,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/yansi_brain.dart';
+import '../services/core_router.dart';
 
 class FuturisticHomeScreen extends StatefulWidget {
   final SharedPreferences prefs;
@@ -208,40 +209,17 @@ class _FuturisticHomeScreenState
   }
 
   // ==========================================================
-  // CORE
+  // FIVE CORE ROUTER
   // ==========================================================
 
   void _openCore(
     BuildContext context,
     int core,
   ) {
-    Navigator.push(
+    CoreRouter.open(
       context,
-      PageRouteBuilder(
-        transitionDuration:
-            const Duration(milliseconds: 350),
-        pageBuilder: (
-          context,
-          animation,
-          secondaryAnimation,
-        ) {
-          return FuturisticCoreReport(
-            core: core,
-            currency: widget.currency,
-          );
-        },
-        transitionsBuilder: (
-          context,
-          animation,
-          secondaryAnimation,
-          child,
-        ) {
-          return FadeTransition(
-            opacity: animation,
-            child: child,
-          );
-        },
-      ),
+      core,
+      widget.currency,
     );
   }
 
@@ -280,6 +258,7 @@ class _FuturisticHomeScreenState
     return Scaffold(
       backgroundColor:
           colors.background,
+
       body: Stack(
         children: [
           // ----------------------------------------------------
@@ -360,10 +339,15 @@ class _FuturisticHomeScreenState
                     color: colors.text,
                     fontSize: 13,
                     letterSpacing: 3,
-                    fontWeight: FontWeight.w500,
+                    fontWeight:
+                        FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 7),
+
+                const SizedBox(
+                  height: 7,
+                ),
+
                 Text(
                   'LifeOS',
                   style: TextStyle(
@@ -383,14 +367,17 @@ class _FuturisticHomeScreenState
 
           Positioned(
             top:
-                MediaQuery.of(context).size.height * .22,
+                MediaQuery.of(context).size.height *
+                    .22,
             left: 0,
             right: 0,
             child: Center(
               child: GestureDetector(
-                onTap: _toggleListening,
+                onTap:
+                    _toggleListening,
                 child: AnimatedBuilder(
-                  animation: _animation,
+                  animation:
+                      _animation,
                   builder: (
                     context,
                     child,
@@ -430,6 +417,7 @@ class _FuturisticHomeScreenState
                   0.02,
                   colors,
                 ),
+
                 _core(
                   context,
                   1,
@@ -438,6 +426,7 @@ class _FuturisticHomeScreenState
                   0.02,
                   colors,
                 ),
+
                 _core(
                   context,
                   2,
@@ -446,6 +435,7 @@ class _FuturisticHomeScreenState
                   0.43,
                   colors,
                 ),
+
                 _core(
                   context,
                   3,
@@ -454,6 +444,7 @@ class _FuturisticHomeScreenState
                   0.43,
                   colors,
                 ),
+
                 _core(
                   context,
                   4,
@@ -477,7 +468,8 @@ class _FuturisticHomeScreenState
               bottom: 55,
               child: Text(
                 _heardText,
-                textAlign: TextAlign.center,
+                textAlign:
+                    TextAlign.center,
                 maxLines: 2,
                 overflow:
                     TextOverflow.ellipsis,
@@ -497,9 +489,8 @@ class _FuturisticHomeScreenState
             Positioned(
               top: 66,
               left: 12,
-              child: _controlPanel(
-                colors,
-              ),
+              child:
+                  _controlPanel(colors),
             ),
         ],
       ),
@@ -522,9 +513,11 @@ class _FuturisticHomeScreenState
       left:
           MediaQuery.of(context).size.width *
               left,
+
       top:
           MediaQuery.of(context).size.height *
               top,
+
       child: GestureDetector(
         onTap: () {
           _openCore(
@@ -532,33 +525,44 @@ class _FuturisticHomeScreenState
             index,
           );
         },
+
         child: Container(
           width: 64,
           height: 64,
+
           decoration:
               BoxDecoration(
-            shape: BoxShape.circle,
+            shape:
+                BoxShape.circle,
+
             color:
-                colors.background.withOpacity(.75),
+                colors.background
+                    .withOpacity(.75),
+
             border:
                 Border.all(
               color:
-                  colors.primary.withOpacity(.55),
+                  colors.primary
+                      .withOpacity(.55),
               width: 1,
             ),
+
             boxShadow: [
               BoxShadow(
                 color:
-                    colors.primary.withOpacity(.15),
+                    colors.primary
+                        .withOpacity(.15),
                 blurRadius: 24,
                 spreadRadius: 1,
               ),
             ],
           ),
+
           child: Icon(
             icon,
             size: 25,
-            color: colors.primary,
+            color:
+                colors.primary,
           ),
         ),
       ),
@@ -576,25 +580,34 @@ class _FuturisticHomeScreenState
   ) {
     return GestureDetector(
       onTap: action,
+
       child: Container(
         width: 40,
         height: 40,
+
         decoration:
             BoxDecoration(
-          shape: BoxShape.circle,
+          shape:
+              BoxShape.circle,
+
           color:
-              colors.text.withOpacity(.035),
+              colors.text
+                  .withOpacity(.035),
+
           border:
               Border.all(
             color:
-                colors.text.withOpacity(.10),
+                colors.text
+                    .withOpacity(.10),
           ),
         ),
+
         child: Icon(
           icon,
           size: 19,
           color:
-              colors.text.withOpacity(.75),
+              colors.text
+                  .withOpacity(.75),
         ),
       ),
     );
@@ -609,30 +622,40 @@ class _FuturisticHomeScreenState
   ) {
     return Container(
       width: 225,
+
       padding:
           const EdgeInsets.all(16),
+
       decoration:
           BoxDecoration(
         color:
-            colors.background.withOpacity(.96),
+            colors.background
+                .withOpacity(.96),
+
         borderRadius:
             BorderRadius.circular(22),
+
         border:
             Border.all(
           color:
-              colors.primary.withOpacity(.25),
+              colors.primary
+                  .withOpacity(.25),
         ),
+
         boxShadow: [
           BoxShadow(
             color:
-                colors.primary.withOpacity(.12),
+                colors.primary
+                    .withOpacity(.12),
             blurRadius: 30,
           ),
         ],
       ),
+
       child: Column(
         crossAxisAlignment:
             CrossAxisAlignment.start,
+
         children: [
           Text(
             'CONTROL CENTER',
@@ -643,7 +666,11 @@ class _FuturisticHomeScreenState
               letterSpacing: 2,
             ),
           ),
-          const SizedBox(height: 14),
+
+          const SizedBox(
+            height: 14,
+          ),
+
           Text(
             widget.userName,
             style: TextStyle(
@@ -652,7 +679,11 @@ class _FuturisticHomeScreenState
               fontSize: 16,
             ),
           ),
-          const SizedBox(height: 4),
+
+          const SizedBox(
+            height: 4,
+          ),
+
           Text(
             '${widget.country} • ${widget.currency}',
             style: TextStyle(
@@ -661,7 +692,11 @@ class _FuturisticHomeScreenState
               fontSize: 11,
             ),
           ),
-          const SizedBox(height: 18),
+
+          const SizedBox(
+            height: 18,
+          ),
+
           Text(
             'DESIGN',
             style: TextStyle(
@@ -671,7 +706,11 @@ class _FuturisticHomeScreenState
               letterSpacing: 2,
             ),
           ),
-          const SizedBox(height: 8),
+
+          const SizedBox(
+            height: 8,
+          ),
+
           ...List.generate(
             5,
             (index) {
@@ -681,25 +720,32 @@ class _FuturisticHomeScreenState
               return GestureDetector(
                 onTap: () =>
                     _changeTheme(index),
+
                 child: Container(
                   margin:
                       const EdgeInsets.only(
                     bottom: 6,
                   ),
+
                   padding:
                       const EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 9,
                   ),
+
                   decoration:
                       BoxDecoration(
                     borderRadius:
-                        BorderRadius.circular(12),
+                        BorderRadius.circular(
+                      12,
+                    ),
+
                     color: selected
                         ? colors.primary
                             .withOpacity(.10)
                         : Colors.transparent,
                   ),
+
                   child: Row(
                     children: [
                       Icon(
@@ -710,10 +756,15 @@ class _FuturisticHomeScreenState
                                 ? colors.primary
                                 : colors.muted,
                       ),
-                      const SizedBox(width: 8),
+
+                      const SizedBox(
+                        width: 8,
+                      ),
+
                       Text(
                         _designName(index),
-                        style: TextStyle(
+                        style:
+                            TextStyle(
                           color:
                               selected
                                   ? colors.primary
@@ -755,44 +806,76 @@ class _FuturisticHomeScreenState
   ) {
     const themes = [
       _ThemeColors(
-        background: Color(0xFF020B0B),
-        primary: Color(0xFF00FFD5),
-        secondary: Color(0xFF35FF72),
-        text: Color(0xFFE9FFFF),
-        muted: Color(0xFF83AAA7),
+        background:
+            Color(0xFF020B0B),
+        primary:
+            Color(0xFF00FFD5),
+        secondary:
+            Color(0xFF35FF72),
+        text:
+            Color(0xFFE9FFFF),
+        muted:
+            Color(0xFF83AAA7),
       ),
+
       _ThemeColors(
-        background: Color(0xFF020611),
-        primary: Color(0xFF168CFF),
-        secondary: Color(0xFF52C7FF),
-        text: Color(0xFFEAF5FF),
-        muted: Color(0xFF7690A8),
+        background:
+            Color(0xFF020611),
+        primary:
+            Color(0xFF168CFF),
+        secondary:
+            Color(0xFF52C7FF),
+        text:
+            Color(0xFFEAF5FF),
+        muted:
+            Color(0xFF7690A8),
       ),
+
       _ThemeColors(
-        background: Color(0xFF0A0310),
-        primary: Color(0xFFD24CFF),
-        secondary: Color(0xFFFF54C8),
-        text: Color(0xFFFFEEFF),
-        muted: Color(0xFFA98EAE),
+        background:
+            Color(0xFF0A0310),
+        primary:
+            Color(0xFFD24CFF),
+        secondary:
+            Color(0xFFFF54C8),
+        text:
+            Color(0xFFFFEEFF),
+        muted:
+            Color(0xFFA98EAE),
       ),
+
       _ThemeColors(
-        background: Color(0xFF0B0802),
-        primary: Color(0xFFFFC928),
-        secondary: Color(0xFFFF8A00),
-        text: Color(0xFFFFF7D9),
-        muted: Color(0xFFAA9866),
+        background:
+            Color(0xFF0B0802),
+        primary:
+            Color(0xFFFFC928),
+        secondary:
+            Color(0xFFFF8A00),
+        text:
+            Color(0xFFFFF7D9),
+        muted:
+            Color(0xFFAA9866),
       ),
+
       _ThemeColors(
-        background: Color(0xFFF4FAFF),
-        primary: Color(0xFF147BFF),
-        secondary: Color(0xFF5AC8FF),
-        text: Color(0xFF08244A),
-        muted: Color(0xFF68819B),
+        background:
+            Color(0xFFF4FAFF),
+        primary:
+            Color(0xFF147BFF),
+        secondary:
+            Color(0xFF5AC8FF),
+        text:
+            Color(0xFF08244A),
+        muted:
+            Color(0xFF68819B),
       ),
     ];
 
     return themes[
-        index.clamp(0, themes.length - 1)];
+        index.clamp(
+      0,
+      themes.length - 1,
+    )];
   }
 }
 
@@ -839,24 +922,31 @@ class _YansiFace
     BuildContext context,
   ) {
     final rotation =
-        progress * math.pi * 2;
+        progress *
+        math.pi *
+        2;
 
     return SizedBox(
       width: 190,
       height: 190,
+
       child: Stack(
         alignment:
             Alignment.center,
+
         children: [
           Transform.rotate(
             angle: rotation,
+
             child: Container(
               width: 184,
               height: 184,
+
               decoration:
                   BoxDecoration(
                 shape:
                     BoxShape.circle,
+
                 border:
                     Border.all(
                   color:
@@ -871,20 +961,30 @@ class _YansiFace
           Container(
             width: 160,
             height: 160,
+
             decoration:
                 BoxDecoration(
               shape:
                   BoxShape.circle,
+
               boxShadow: [
                 BoxShadow(
                   color:
                       primary.withOpacity(
-                    listening ? .35 : .18,
+                    listening
+                        ? .35
+                        : .18,
                   ),
+
                   blurRadius:
-                      listening ? 55 : 38,
+                      listening
+                          ? 55
+                          : 38,
+
                   spreadRadius:
-                      listening ? 8 : 3,
+                      listening
+                          ? 8
+                          : 3,
                 ),
               ],
             ),
@@ -893,28 +993,40 @@ class _YansiFace
           Container(
             width: 128,
             height: 128,
+
             decoration:
                 BoxDecoration(
               shape:
                   BoxShape.circle,
+
               gradient:
                   RadialGradient(
                 colors: [
-                  primary.withOpacity(.30),
-                  const Color(0xFF071218),
-                  const Color(0xFF02070B),
+                  primary
+                      .withOpacity(.30),
+                  const Color(
+                      0xFF071218),
+                  const Color(
+                      0xFF02070B),
                 ],
               ),
+
               border:
                   Border.all(
                 color:
                     primary.withOpacity(
-                  listening ? .85 : .48,
+                  listening
+                      ? .85
+                      : .48,
                 ),
+
                 width:
-                    listening ? 1.7 : 1,
+                    listening
+                        ? 1.7
+                        : 1,
               ),
             ),
+
             child:
                 CustomPaint(
               painter:
@@ -932,9 +1044,11 @@ class _YansiFace
           if (listening)
             Positioned(
               bottom: 4,
+
               child: Text(
                 'LISTENING',
-                style: TextStyle(
+                style:
+                    TextStyle(
                   color:
                       primary,
                   fontSize: 8,
@@ -1132,14 +1246,38 @@ class _NeuralPainter
     );
 
     final nodes = <Offset>[
-      Offset(size.width * .08, size.height * .20),
-      Offset(size.width * .24, size.height * .12),
-      Offset(size.width * .82, size.height * .18),
-      Offset(size.width * .92, size.height * .42),
-      Offset(size.width * .10, size.height * .54),
-      Offset(size.width * .30, size.height * .78),
-      Offset(size.width * .73, size.height * .76),
-      Offset(size.width * .88, size.height * .62),
+      Offset(
+        size.width * .08,
+        size.height * .20,
+      ),
+      Offset(
+        size.width * .24,
+        size.height * .12,
+      ),
+      Offset(
+        size.width * .82,
+        size.height * .18,
+      ),
+      Offset(
+        size.width * .92,
+        size.height * .42,
+      ),
+      Offset(
+        size.width * .10,
+        size.height * .54,
+      ),
+      Offset(
+        size.width * .30,
+        size.height * .78,
+      ),
+      Offset(
+        size.width * .73,
+        size.height * .76,
+      ),
+      Offset(
+        size.width * .88,
+        size.height * .62,
+      ),
     ];
 
     final lines =
@@ -1187,263 +1325,5 @@ class _NeuralPainter
     covariant _NeuralPainter oldDelegate,
   ) {
     return true;
-  }
-}
-
-// ============================================================
-// FUTURISTIC CORE REPORT
-// ============================================================
-
-class FuturisticCoreReport
-    extends StatelessWidget {
-  final int core;
-  final String currency;
-
-  const FuturisticCoreReport({
-    super.key,
-    required this.core,
-    required this.currency,
-  });
-
-  String get title {
-    const titles = [
-      'FINANCIAL LIFE',
-      'GOALS & GROWTH',
-      'PRODUCTIVITY',
-      'HOUSEHOLD',
-      'LIFE',
-    ];
-
-    return titles[
-        core.clamp(0, 4)];
-  }
-
-  IconData get icon {
-    const icons = [
-      Icons.account_balance_wallet_outlined,
-      Icons.auto_awesome_outlined,
-      Icons.bolt_outlined,
-      Icons.home_work_outlined,
-      Icons.timeline_rounded,
-    ];
-
-    return icons[
-        core.clamp(0, 4)];
-  }
-
-  String get description {
-    const descriptions = [
-      'Your money, spending, savings and financial intelligence.',
-      'Your goals, progress and future direction.',
-      'Your tasks, priorities and completion intelligence.',
-      'Your household requirements, purchases and patterns.',
-      'Your diary, important events and personal timeline.',
-    ];
-
-    return descriptions[
-        core.clamp(0, 4)];
-  }
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return Scaffold(
-      backgroundColor:
-          const Color(0xFF02070B),
-      appBar: AppBar(
-        backgroundColor:
-            Colors.transparent,
-        elevation: 0,
-        title: Row(
-          children: [
-            Icon(
-              icon,
-              color:
-                  const Color(0xFF00F5FF),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              title,
-              style:
-                  const TextStyle(
-                fontSize: 13,
-                letterSpacing: 2,
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: Padding(
-        padding:
-            const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding:
-                  const EdgeInsets.all(24),
-              decoration:
-                  BoxDecoration(
-                borderRadius:
-                    BorderRadius.circular(28),
-                border:
-                    Border.all(
-                  color:
-                      const Color(0xFF00E5FF)
-                          .withOpacity(.18),
-                ),
-                gradient:
-                    const LinearGradient(
-                  colors: [
-                    Color(0xFF071820),
-                    Color(0xFF030B10),
-                  ],
-                  begin:
-                      Alignment.topLeft,
-                  end:
-                      Alignment.bottomRight,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'YANSI INTELLIGENCE',
-                    style:
-                        TextStyle(
-                      color:
-                          Color(0xFF76FFFF),
-                      fontSize: 9,
-                      letterSpacing: 2.5,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    description,
-                    style:
-                        const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  Row(
-                    children: [
-                      Text(
-                        core == 0 ||
-                                core == 3
-                            ? '$currency 0'
-                            : '0%',
-                        style:
-                            const TextStyle(
-                          color:
-                              Color(0xFF76FFFF),
-                          fontSize: 34,
-                          fontWeight:
-                              FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'CURRENT',
-                        style:
-                            TextStyle(
-                          color:
-                              Colors.white38,
-                          fontSize: 9,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            Expanded(
-              child: CustomPaint(
-                painter:
-                    _ReportGraphPainter(),
-                child:
-                    const SizedBox.expand(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// REPORT GRAPH
-// ============================================================
-
-class _ReportGraphPainter
-    extends CustomPainter {
-  @override
-  void paint(
-    Canvas canvas,
-    Size size,
-  ) {
-    final paint =
-        Paint()
-          ..style =
-              PaintingStyle.stroke
-          ..strokeWidth = 2
-          ..color =
-              const Color(
-        0xFF00E5FF,
-      ).withOpacity(.55);
-
-    final path =
-        Path();
-
-    path.moveTo(
-      0,
-      size.height * .72,
-    );
-
-    path.cubicTo(
-      size.width * .15,
-      size.height * .58,
-      size.width * .25,
-      size.height * .78,
-      size.width * .40,
-      size.height * .42,
-    );
-
-    path.cubicTo(
-      size.width * .53,
-      size.height * .18,
-      size.width * .62,
-      size.height * .62,
-      size.width * .75,
-      size.height * .30,
-    );
-
-    path.cubicTo(
-      size.width * .86,
-      size.height * .12,
-      size.width * .93,
-      size.height * .30,
-      size.width,
-      size.height * .18,
-    );
-
-    canvas.drawPath(
-      path,
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(
-    covariant _ReportGraphPainter oldDelegate,
-  ) {
-    return false;
   }
 }
