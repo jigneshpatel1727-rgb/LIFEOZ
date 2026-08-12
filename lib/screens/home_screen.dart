@@ -1,19 +1,43 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
-
-import 'expense_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  State<DashboardScreen> createState() =>
+      _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen>
+class _DashboardScreenState
+    extends State<DashboardScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   bool menuOpen = false;
+
+  final cores = const [
+    _CoreData(
+      'EXPENSE',
+      Icons.account_balance_wallet_outlined,
+    ),
+    _CoreData(
+      'GOAL',
+      Icons.flag_outlined,
+    ),
+    _CoreData(
+      'PRODUCTIVITY',
+      Icons.bolt_outlined,
+    ),
+    _CoreData(
+      'HOUSEHOLD',
+      Icons.shopping_bag_outlined,
+    ),
+    _CoreData(
+      'CALENDAR',
+      Icons.calendar_today_outlined,
+    ),
+  ];
 
   @override
   void initState() {
@@ -21,7 +45,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 8),
+      duration: const Duration(seconds: 12),
     )..repeat();
   }
 
@@ -31,22 +55,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     super.dispose();
   }
 
-  void openCore(String name) {
-    if (name == 'EXPENSE') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const ExpenseScreen(),
-        ),
-      );
-      return;
-    }
-
+  void openCore(_CoreData core) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: const Color(0xFF07151C),
         content: Text(
-          '$name is connected to Yansi.',
+          '${core.name} is connected to Yansi.',
           style: const TextStyle(
             color: Colors.white,
           ),
@@ -68,19 +82,19 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
             ),
 
-            // TOP CONTROL BAR
+            // SMALL SMART TOP BAR
             Positioned(
-              top: 8,
-              left: 8,
-              right: 8,
+              top: 7,
+              left: 7,
+              right: 7,
               child: Row(
                 children: [
-                  _smallButton(
+                  _topButton(
                     Icons.menu_rounded,
                     () {
-                      setState(
-                        () => menuOpen = !menuOpen,
-                      );
+                      setState(() {
+                        menuOpen = !menuOpen;
+                      });
                     },
                   ),
 
@@ -90,7 +104,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     'L I F E O S',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 12,
+                      fontSize: 11,
                       letterSpacing: 5,
                       fontWeight: FontWeight.w600,
                     ),
@@ -98,7 +112,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                   const Spacer(),
 
-                  _smallButton(
+                  _topButton(
                     Icons.notifications_none_rounded,
                     () {},
                   ),
@@ -106,170 +120,139 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
             ),
 
-            // MAIN INTELLIGENCE
             Positioned.fill(
-              top: 55,
+              top: 42,
               child: Column(
                 children: [
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 10),
 
                   const Text(
                     'LIFE INTELLIGENCE',
                     style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 8,
+                      color: Colors.white38,
+                      fontSize: 7,
                       letterSpacing: 3,
                     ),
                   ),
 
-                  const SizedBox(height: 18),
-
                   Expanded(
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        AnimatedBuilder(
-                          animation: _controller,
-                          builder: (_, __) {
-                            return Transform.rotate(
-                              angle:
-                                  _controller.value *
-                                      6.28318,
-                              child: CustomPaint(
-                                size: const Size(
-                                  290,
-                                  290,
-                                ),
-                                painter:
-                                    _NeuralRingPainter(),
+                    child: LayoutBuilder(
+                      builder: (context, box) {
+                        final diameter =
+                            math.min(
+                              box.maxWidth,
+                              box.maxHeight,
+                            ) *
+                            .78;
+
+                        return Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            AnimatedBuilder(
+                              animation:
+                                  _controller,
+                              builder:
+                                  (_, child) {
+                                return Transform.rotate(
+                                  angle:
+                                      _controller.value *
+                                          math.pi *
+                                          2,
+                                  child: CustomPaint(
+                                    size: Size(
+                                      diameter,
+                                      diameter,
+                                    ),
+                                    painter:
+                                        _NeuralPainter(),
+                                  ),
+                                );
+                              },
+                            ),
+
+                            // YANSI — HEART OF LIFEOS
+                            GestureDetector(
+                              onTap: () {
+                                ScaffoldMessenger
+                                    .of(context)
+                                    .showSnackBar(
+                                  const SnackBar(
+                                    backgroundColor:
+                                        Color(
+                                      0xFF07151C,
+                                    ),
+                                    content: Text(
+                                      'Yansi is ready. Speak naturally.',
+                                    ),
+                                  ),
+                                );
+                              },
+                              child:
+                                  const _YansiCore(),
+                            ),
+
+                            // FIVE CORES
+                            for (int i = 0;
+                                i < cores.length;
+                                i++)
+                              _positionedCore(
+                                i,
+                                cores[i],
                               ),
-                            );
-                          },
-                        ),
-
-                        // YANSI
-                        GestureDetector(
-                          onTap: () {
-                            ScaffoldMessenger.of(
-                              context,
-                            ).showSnackBar(
-                              const SnackBar(
-                                backgroundColor:
-                                    Color(0xFF07151C),
-                                content: Text(
-                                  'Yansi is listening. Speak naturally.',
-                                ),
-                              ),
-                            );
-                          },
-                          child: const _YansiCore(),
-                        ),
-
-                        // FIVE INTELLIGENCE NODES
-                        _node(
-                          alignment:
-                              const Alignment(
-                            0,
-                            -0.82,
-                          ),
-                          icon: Icons
-                              .account_balance_wallet_outlined,
-                          onTap: () =>
-                              openCore('EXPENSE'),
-                        ),
-
-                        _node(
-                          alignment:
-                              const Alignment(
-                            .82,
-                            -.25,
-                          ),
-                          icon: Icons.flag_outlined,
-                          onTap: () =>
-                              openCore('GOALS'),
-                        ),
-
-                        _node(
-                          alignment:
-                              const Alignment(
-                            .55,
-                            .70,
-                          ),
-                          icon: Icons.bolt_outlined,
-                          onTap: () =>
-                              openCore('PRODUCTIVITY'),
-                        ),
-
-                        _node(
-                          alignment:
-                              const Alignment(
-                            -.55,
-                            .70,
-                          ),
-                          icon: Icons
-                              .shopping_bag_outlined,
-                          onTap: () =>
-                              openCore('HOUSEHOLD'),
-                        ),
-
-                        _node(
-                          alignment:
-                              const Alignment(
-                            -.82,
-                            -.25,
-                          ),
-                          icon: Icons
-                              .calendar_today_outlined,
-                          onTap: () =>
-                              openCore('CALENDAR'),
-                        ),
-                      ],
+                          ],
+                        );
+                      },
                     ),
                   ),
 
-                  // YANSI STATUS
+                  // AMBIENT YANSI STATUS
                   Container(
                     margin:
                         const EdgeInsets.symmetric(
-                      horizontal: 22,
+                      horizontal: 18,
                     ),
                     padding:
                         const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
+                      horizontal: 12,
+                      vertical: 9,
                     ),
-                    decoration: BoxDecoration(
+                    decoration:
+                        BoxDecoration(
                       color:
                           const Color(0xCC061219),
                       borderRadius:
-                          BorderRadius.circular(10),
+                          BorderRadius.circular(9),
                       border: Border.all(
-                        color: const Color(
-                          0x3300E5FF,
-                        ),
+                        color:
+                            const Color(0x2200E5FF),
                       ),
                     ),
                     child: const Row(
                       children: [
                         Icon(
                           Icons.auto_awesome,
-                          size: 15,
+                          size: 13,
                           color:
                               Color(0xFF55FF88),
                         ),
-                        SizedBox(width: 10),
+                        SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Yansi is quietly watching your LifeOS patterns.',
+                            'Yansi is quietly connecting your life systems.',
+                            maxLines: 1,
+                            overflow:
+                                TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: Colors.white60,
-                              fontSize: 9,
+                              color:
+                                  Colors.white54,
+                              fontSize: 8,
                             ),
                           ),
                         ),
+                        SizedBox(width: 6),
                         Icon(
                           Icons.circle,
-                          size: 6,
+                          size: 5,
                           color:
                               Color(0xFF55FF88),
                         ),
@@ -277,16 +260,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ),
                   ),
 
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                 ],
               ),
             ),
 
-            // HIDDEN CONTROL CENTER
             if (menuOpen)
               Positioned(
-                top: 47,
-                left: 8,
+                top: 42,
+                left: 7,
                 child: _controlCenter(),
               ),
           ],
@@ -295,28 +277,27 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _smallButton(
+  Widget _topButton(
     IconData icon,
     VoidCallback action,
   ) {
     return GestureDetector(
       onTap: action,
       child: Container(
-        width: 31,
-        height: 28,
+        width: 27,
+        height: 25,
         decoration: BoxDecoration(
-          color:
-              const Color(0xDD061219),
+          color: const Color(0xDD061219),
           borderRadius:
-              BorderRadius.circular(7),
+              BorderRadius.circular(6),
           border: Border.all(
             color:
-                const Color(0x3300E5FF),
+                const Color(0x3000E5FF),
           ),
         ),
         child: Icon(
           icon,
-          size: 15,
+          size: 13,
           color:
               const Color(0xFF55FF88),
         ),
@@ -324,38 +305,45 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _node({
-    required Alignment alignment,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
+  Widget _positionedCore(
+    int index,
+    _CoreData core,
+  ) {
+    final positions = [
+      const Alignment(0, -.80),
+      const Alignment(.78, -.25),
+      const Alignment(.52, .66),
+      const Alignment(-.52, .66),
+      const Alignment(-.78, -.25),
+    ];
+
     return Align(
-      alignment: alignment,
+      alignment: positions[index],
       child: GestureDetector(
-        onTap: onTap,
+        onTap: () => openCore(core),
         child: Container(
-          width: 56,
-          height: 56,
+          width: 50,
+          height: 50,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color:
-                const Color(0xDD07151C),
+                const Color(0xEE07151C),
             border: Border.all(
               color:
-                  const Color(0x7700E5FF),
-              width: 1,
+                  const Color(0x6600E5FF),
             ),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x3300E5FF),
-                blurRadius: 18,
-                spreadRadius: 2,
+                color:
+                    Color(0x2200E5FF),
+                blurRadius: 14,
+                spreadRadius: 1,
               ),
             ],
           ),
           child: Icon(
-            icon,
-            size: 22,
+            core.icon,
+            size: 19,
             color:
                 const Color(0xFF55FF88),
           ),
@@ -366,22 +354,23 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _controlCenter() {
     return Container(
-      width: 225,
+      width: 215,
       padding:
-          const EdgeInsets.all(15),
+          const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color:
             const Color(0xFF061219),
         borderRadius:
-            BorderRadius.circular(12),
+            BorderRadius.circular(11),
         border: Border.all(
           color:
-              const Color(0x6600E5FF),
+              const Color(0x5500E5FF),
         ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x5500E5FF),
-            blurRadius: 25,
+            color:
+                Color(0x4400E5FF),
+            blurRadius: 22,
           ),
         ],
       ),
@@ -394,34 +383,28 @@ class _DashboardScreenState extends State<DashboardScreen>
             style: TextStyle(
               color:
                   Color(0xFF00E5FF),
-              fontSize: 9,
+              fontSize: 8,
               letterSpacing: 2,
             ),
           ),
-
-          const SizedBox(height: 12),
-
-          _menuItem(
+          const SizedBox(height: 8),
+          _menuRow(
             Icons.auto_awesome,
             'YANSI',
           ),
-
-          _menuItem(
+          _menuRow(
             Icons.insights_outlined,
             'LIFE REPORT',
           ),
-
-          _menuItem(
+          _menuRow(
             Icons.person_outline,
             'PROFILE',
           ),
-
-          _menuItem(
+          _menuRow(
             Icons.security_outlined,
             'PRIVACY',
           ),
-
-          _menuItem(
+          _menuRow(
             Icons.settings_outlined,
             'SETTINGS',
           ),
@@ -430,29 +413,30 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _menuItem(
+  Widget _menuRow(
     IconData icon,
     String title,
   ) {
     return Padding(
       padding:
           const EdgeInsets.symmetric(
-        vertical: 8,
+        vertical: 7,
       ),
       child: Row(
         children: [
           Icon(
             icon,
-            size: 16,
+            size: 15,
             color:
                 const Color(0xFF55FF88),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 11),
           Text(
             title,
             style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 9,
+              color:
+                  Colors.white70,
+              fontSize: 8,
               letterSpacing: 1,
             ),
           ),
@@ -462,8 +446,18 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 }
 
+class _CoreData {
+  final String name;
+  final IconData icon;
+
+  const _CoreData(
+    this.name,
+    this.icon,
+  );
+}
+
 // ============================================================
-// YANSI CENTRAL CORE
+// YANSI
 // ============================================================
 
 class _YansiCore extends StatelessWidget {
@@ -472,8 +466,8 @@ class _YansiCore extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 125,
-      height: 125,
+      width: 118,
+      height: 118,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient:
@@ -485,30 +479,26 @@ class _YansiCore extends StatelessWidget {
             Color(0xFF01060A),
           ],
           stops: [
-            0.0,
-            0.25,
-            0.60,
-            1.0,
+            0,
+            .25,
+            .60,
+            1,
           ],
         ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x7700E5FF),
-            blurRadius: 45,
-            spreadRadius: 8,
-          ),
-          BoxShadow(
-            color: Color(0x4455FF88),
-            blurRadius: 75,
-            spreadRadius: 12,
+            color:
+                Color(0x6600E5FF),
+            blurRadius: 38,
+            spreadRadius: 6,
           ),
         ],
       ),
       child: const Center(
         child: Icon(
           Icons.auto_awesome,
-          size: 30,
           color: Colors.white,
+          size: 28,
         ),
       ),
     );
@@ -516,10 +506,10 @@ class _YansiCore extends StatelessWidget {
 }
 
 // ============================================================
-// NEURAL RINGS
+// NEURAL NETWORK
 // ============================================================
 
-class _NeuralRingPainter
+class _NeuralPainter
     extends CustomPainter {
   @override
   void paint(
@@ -531,53 +521,54 @@ class _NeuralRingPainter
       size.height / 2,
     );
 
-    final paint = Paint()
+    final ring = Paint()
       ..style =
           PaintingStyle.stroke
-      ..strokeWidth = 0.8;
+      ..strokeWidth = .7;
 
     for (int i = 0; i < 8; i++) {
-      paint.color = i.isEven
-          ? const Color(0x5500E5FF)
-          : const Color(0x4455FF88);
+      ring.color = i.isEven
+          ? const Color(0x4400E5FF)
+          : const Color(0x3355FF88);
 
       canvas.drawOval(
         Rect.fromCenter(
           center: center,
           width:
-              150 + i * 18,
+              size.width *
+              (.48 + i * .055),
           height:
-              90 + i * 13,
+              size.height *
+              (.28 + i * .04),
         ),
-        paint,
+        ring,
       );
     }
 
-    final nodePaint = Paint()
-      ..color =
-          const Color(0xFF55FF88);
+    final node =
+        Paint()
+          ..color =
+              const Color(0xFF55FF88);
 
-    for (int i = 0; i < 18; i++) {
-      final angle =
-          i * 6.28318 / 18;
+    for (int i = 0; i < 24; i++) {
+      final a =
+          i * math.pi * 2 / 24;
 
-      final radius =
-          115 + (i % 3) * 12;
-
-      final point = Offset(
+      final p = Offset(
         center.dx +
-            radius *
-                math.cos(angle),
+            size.width *
+                .42 *
+                math.cos(a),
         center.dy +
-            radius *
-                math.sin(angle) *
-                .6,
+            size.height *
+                .25 *
+                math.sin(a),
       );
 
       canvas.drawCircle(
-        point,
-        1.5,
-        nodePaint,
+        p,
+        1.2,
+        node,
       );
     }
   }
@@ -609,13 +600,13 @@ class _LifeBackgroundPainter
 
     final grid = Paint()
       ..color =
-          const Color(0x1200E5FF)
-      ..strokeWidth = .5;
+          const Color(0x1000E5FF)
+      ..strokeWidth = .4;
 
     for (
       double x = 0;
       x < size.width;
-      x += 32
+      x += 30
     ) {
       canvas.drawLine(
         Offset(x, 0),
@@ -627,7 +618,7 @@ class _LifeBackgroundPainter
     for (
       double y = 0;
       y < size.height;
-      y += 32
+      y += 30
     ) {
       canvas.drawLine(
         Offset(0, y),
@@ -636,43 +627,38 @@ class _LifeBackgroundPainter
       );
     }
 
-    final center = Offset(
-      size.width / 2,
-      size.height * .48,
+    final glow =
+        Paint()
+          ..shader =
+              const RadialGradient(
+            colors: [
+              Color(0x1800E5FF),
+              Colors.transparent,
+            ],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(
+                size.width / 2,
+                size.height * .48,
+              ),
+              radius:
+                  size.width * .65,
+            ),
+          );
+
+    canvas.drawCircle(
+      Offset(
+        size.width / 2,
+        size.height * .48,
+      ),
+      size.width * .65,
+      glow,
     );
-
-    final neural = Paint()
-      ..color =
-          const Color(0x1600E5FF)
-      ..strokeWidth = .6;
-
-    for (int i = 0; i < 22; i++) {
-      final angle =
-          i * 6.28318 / 22;
-
-      final end = Offset(
-        center.dx +
-            size.width *
-                .45 *
-                math.cos(angle),
-        center.dy +
-            size.height *
-                .35 *
-                math.sin(angle),
-      );
-
-      canvas.drawLine(
-        center,
-        end,
-        neural,
-      );
-    }
   }
 
   @override
   bool shouldRepaint(
-    covariant _LifeBackgroundPainter
-        oldDelegate,
+    covariant CustomPainter oldDelegate,
   ) =>
       false;
 }
