@@ -6,13 +6,13 @@ part of 'yansi_brain.dart';
 extension YansiReportApi on YansiBrain {
   Future<List<Map<String, dynamic>>> getMemory() async {
     const keys = [
-      _expenseKey,
-      _incomeKey,
-      _taskKey,
-      _reminderKey,
-      _householdKey,
-      _goalKey,
-      _diaryKey,
+      YansiBrain._expenseKey,
+      YansiBrain._incomeKey,
+      YansiBrain._taskKey,
+      YansiBrain._reminderKey,
+      YansiBrain._householdKey,
+      YansiBrain._goalKey,
+      YansiBrain._diaryKey,
     ];
 
     final records = <Map<String, dynamic>>[];
