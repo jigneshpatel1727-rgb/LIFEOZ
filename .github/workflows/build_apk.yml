@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout LifeOS
         uses: actions/checkout@v4
 
@@ -34,58 +33,33 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
-          path = Path(
-              "android/app/src/main/AndroidManifest.xml"
-          )
-
+          path = Path('android/app/src/main/AndroidManifest.xml')
           text = path.read_text()
-
-          permission = (
-              '<uses-permission '
-              'android:name="android.permission.RECORD_AUDIO"/>'
-          )
-
+          permission = '<uses-permission android:name="android.permission.RECORD_AUDIO"/>'
           if permission not in text:
               marker = '<manifest '
               index = text.find(marker)
-
               if index >= 0:
                   end = text.find('>', index)
-
-                  text = (
-                      text[:end + 1]
-                      + '\n    '
-                      + permission
-                      + text[end + 1:]
-                  )
-
-          queries = '''
-          <queries>
-              <intent>
-                  <action android:name="android.speech.RecognitionService"/>
-              </intent>
-          </queries>
-          '''
-
+                  text = text[:end + 1] + '\n    ' + permission + text[end + 1:]
+          queries = '''\n    <queries>\n        <intent>\n            <action android:name="android.speech.RecognitionService"/>\n        </intent>\n    </queries>'''
           if 'android.speech.RecognitionService' not in text:
-              text = text.replace(
-                  '</manifest>',
-                  queries + '\n</manifest>'
-              )
-
+              text = text.replace('</manifest>', queries + '\n</manifest>')
           path.write_text(text)
           PY
 
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Remove generated placeholder test
+        run: rm -f test/widget_test.dart
+
       - name: Analyze Flutter project
         run: flutter analyze
         continue-on-error: true
 
       - name: Build LifeOS APK
-        run: flutter build apk --release
+        run: flutter build apk --release --no-shrink
 
       - name: Upload LifeOS APK
         uses: actions/upload-artifact@v4
