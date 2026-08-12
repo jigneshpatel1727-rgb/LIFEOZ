@@ -1,15 +1,15 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/budget_engine.dart';
+
 class ReceiptScannerScreen extends StatefulWidget {
-  const ReceiptScannerScreen({
-    super.key,
-  });
+  const ReceiptScannerScreen({super.key});
 
   @override
   State<ReceiptScannerScreen> createState() =>
@@ -28,9 +28,9 @@ class _ReceiptScannerScreenState
   File? _image;
 
   bool _processing = false;
+  bool _saved = false;
 
   String _status = 'READY';
-
   String _recognizedText = '';
 
   List<Map<String, dynamic>> _items = [];
@@ -48,17 +48,14 @@ class _ReceiptScannerScreenState
   // ==========================================================
 
   Future<void> _scanReceipt() async {
-    final image =
-        await _picker.pickImage(
+    final image = await _picker.pickImage(
       source: ImageSource.camera,
       imageQuality: 95,
     );
 
     if (image == null) return;
 
-    await _analyseImage(
-      File(image.path),
-    );
+    await _analyseImage(File(image.path));
   }
 
   // ==========================================================
@@ -66,29 +63,25 @@ class _ReceiptScannerScreenState
   // ==========================================================
 
   Future<void> _chooseFromGallery() async {
-    final image =
-        await _picker.pickImage(
+    final image = await _picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 95,
     );
 
     if (image == null) return;
 
-    await _analyseImage(
-      File(image.path),
-    );
+    await _analyseImage(File(image.path));
   }
 
   // ==========================================================
   // OCR
   // ==========================================================
 
-  Future<void> _analyseImage(
-    File image,
-  ) async {
+  Future<void> _analyseImage(File image) async {
     setState(() {
       _image = image;
       _processing = true;
+      _saved = false;
       _status = 'YANSI IS READING';
       _recognizedText = '';
       _items = [];
@@ -97,26 +90,19 @@ class _ReceiptScannerScreenState
 
     try {
       final inputImage =
-          InputImage.fromFile(
-        image,
-      );
+          InputImage.fromFile(image);
 
       final result =
           await _recognizer.processImage(
         inputImage,
       );
 
-      final text =
-          result.text.trim();
+      final text = result.text.trim();
 
-      final items =
-          _extractItems(text);
+      final items = _extractItems(text);
 
       final total =
-          _extractTotal(
-        text,
-        items,
-      );
+          _extractTotal(text, items);
 
       if (!mounted) return;
 
@@ -129,7 +115,7 @@ class _ReceiptScannerScreenState
             ? 'TEXT CAPTURED'
             : 'BILL UNDERSTOOD';
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
@@ -149,22 +135,18 @@ class _ReceiptScannerScreenState
     final result =
         <Map<String, dynamic>>[];
 
-    final lines =
-        text.split('\n');
+    final lines = text.split('\n');
 
     for (final rawLine in lines) {
-      final line =
-          rawLine.trim();
+      final line = rawLine.trim();
 
       if (line.isEmpty) continue;
 
-      final price =
-          _extractPrice(line);
+      final price = _extractPrice(line);
 
       if (price == null) continue;
 
-      final cleaned =
-          _cleanItemName(line);
+      final cleaned = _cleanItemName(line);
 
       if (cleaned.isEmpty) continue;
 
@@ -175,8 +157,7 @@ class _ReceiptScannerScreenState
       result.add({
         'name': cleaned,
         'price': price,
-        'category':
-            _categoryFor(cleaned),
+        'category': _categoryFor(cleaned),
       });
     }
 
@@ -184,44 +165,30 @@ class _ReceiptScannerScreenState
   }
 
   // ==========================================================
-  // PRICE EXTRACTION
+  // PRICE
   // ==========================================================
 
-  double? _extractPrice(
-    String line,
-  ) {
-    final cleaned =
-        line
-            .replaceAll(
-              ',',
-              '',
-            )
-            .replaceAll(
-              '₹',
-              '',
-            );
+  double? _extractPrice(String line) {
+    final cleaned = line
+        .replaceAll(',', '')
+        .replaceAll('₹', '');
 
-    final matches =
-        RegExp(
+    final matches = RegExp(
       r'(\d+(?:\.\d{1,2})?)',
-    ).allMatches(
-      cleaned,
-    );
+    ).allMatches(cleaned);
 
     if (matches.isEmpty) {
       return null;
     }
 
-    final values =
-        matches
-            .map(
-              (m) =>
-                  double.tryParse(
-                m.group(1)!,
-              ),
-            )
-            .whereType<double>()
-            .toList();
+    final values = matches
+        .map(
+          (m) => double.tryParse(
+            m.group(1)!,
+          ),
+        )
+        .whereType<double>()
+        .toList();
 
     if (values.isEmpty) {
       return null;
@@ -234,26 +201,19 @@ class _ReceiptScannerScreenState
   // ITEM NAME
   // ==========================================================
 
-  String _cleanItemName(
-    String line,
-  ) {
-    final value =
-        line
-            .replaceAll(
-              RegExp(
-                r'₹?\s*\d+(?:,\d{3})*(?:\.\d{1,2})?',
-              ),
-              '',
-            )
-            .replaceAll(
-              RegExp(
-                r'\s+',
-              ),
-              ' ',
-            )
-            .trim();
-
-    return value;
+  String _cleanItemName(String line) {
+    return line
+        .replaceAll(
+          RegExp(
+            r'₹?\s*\d+(?:,\d{3})*(?:\.\d{1,2})?',
+          ),
+          '',
+        )
+        .replaceAll(
+          RegExp(r'\s+'),
+          ' ',
+        )
+        .trim();
   }
 
   // ==========================================================
@@ -264,10 +224,7 @@ class _ReceiptScannerScreenState
     String text,
     List<Map<String, dynamic>> items,
   ) {
-    final lines =
-        text.split('\n');
-
-    for (final line in lines) {
+    for (final line in text.split('\n')) {
       final lower =
           line.toLowerCase();
 
@@ -288,25 +245,16 @@ class _ReceiptScannerScreenState
     double sum = 0;
 
     for (final item in items) {
-      final price =
+      sum +=
           (item['price'] as num?)
-              ?.toDouble();
-
-      if (price != null) {
-        sum += price;
-      }
+                  ?.toDouble() ??
+              0;
     }
 
     return sum;
   }
 
-  // ==========================================================
-  // TOTAL LINE CHECK
-  // ==========================================================
-
-  bool _looksLikeTotal(
-    String text,
-  ) {
+  bool _looksLikeTotal(String text) {
     final lower =
         text.toLowerCase();
 
@@ -323,75 +271,61 @@ class _ReceiptScannerScreenState
   // CATEGORY
   // ==========================================================
 
-  String _categoryFor(
-    String item,
-  ) {
+  String _categoryFor(String item) {
     final lower =
         item.toLowerCase();
 
-    if (_containsAny(
-      lower,
-      [
-        'milk',
-        'bread',
-        'rice',
-        'flour',
-        'sugar',
-        'oil',
-        'dal',
-        'atta',
-        'vegetable',
-        'fruit',
-        'grocery',
-        'biscuit',
-      ],
-    )) {
+    if (_containsAny(lower, [
+      'milk',
+      'bread',
+      'rice',
+      'flour',
+      'sugar',
+      'oil',
+      'dal',
+      'atta',
+      'vegetable',
+      'fruit',
+      'grocery',
+      'biscuit',
+    ])) {
       return 'Grocery';
     }
 
-    if (_containsAny(
-      lower,
-      [
-        'shirt',
-        'tshirt',
-        't-shirt',
-        'pant',
-        'jeans',
-        'dress',
-        'kurta',
-        'shoe',
-        'sandal',
-        'clothing',
-      ],
-    )) {
+    if (_containsAny(lower, [
+      'shirt',
+      'tshirt',
+      't-shirt',
+      'pant',
+      'jeans',
+      'dress',
+      'kurta',
+      'shoe',
+      'sandal',
+      'clothing',
+    ])) {
       return 'Clothing';
     }
 
-    if (_containsAny(
-      lower,
-      [
-        'soap',
-        'shampoo',
-        'toothpaste',
-        'detergent',
-        'cleaner',
-        'tissue',
-      ],
-    )) {
+    if (_containsAny(lower, [
+      'soap',
+      'shampoo',
+      'toothpaste',
+      'detergent',
+      'cleaner',
+      'tissue',
+    ])) {
       return 'Household';
     }
 
-    if (_containsAny(
-      lower,
-      [
-        'phone',
-        'charger',
-        'headphone',
-        'earphone',
-        'laptop',
-        'electronics',
-      ],
-    )) {
+    if (_containsAny(lower, [
+      'phone',
+      'charger',
+      'headphone',
+      'earphone',
+      'laptop',
+      'electronics',
+    ])) {
       return 'Electronics';
     }
 
@@ -402,91 +336,75 @@ class _ReceiptScannerScreenState
     String text,
     List<String> words,
   ) {
-    for (final word in words) {
-      if (text.contains(word)) {
-        return true;
-      }
-    }
-
-    return false;
+    return words.any(
+      (word) => text.contains(word),
+    );
   }
 
   // ==========================================================
-  // SAVE TO YANSI MEMORY
+  // SAVE TO YANSI + BUDGET ENGINE
   // ==========================================================
 
   Future<void> _saveToYansi() async {
-    if (_items.isEmpty &&
-        _recognizedText.isEmpty) {
+    if (_items.isEmpty && _total <= 0) {
       return;
     }
 
     final prefs =
         await SharedPreferences.getInstance();
 
-    final record = {
-      'id':
-          DateTime.now()
-              .microsecondsSinceEpoch
-              .toString(),
-      'type':
-          'receipt',
-      'date':
-          DateTime.now()
-              .toIso8601String(),
-      'total':
-          _total,
-      'items':
-          _items,
-      'rawText':
-          _recognizedText,
-      'source':
-          'camera',
+    final budgetEngine =
+        BudgetEngine(
+      prefs: prefs,
+    );
+
+    // Financial expense.
+    await budgetEngine.saveReceiptAsExpense(
+      total: _total,
+      items: _items,
+      source: 'bill_scanner',
+    );
+
+    // Keep a dedicated receipt history too.
+    final receipt = {
+      'id': DateTime.now()
+          .microsecondsSinceEpoch
+          .toString(),
+      'type': 'receipt',
+      'date': DateTime.now()
+          .toIso8601String(),
+      'total': _total,
+      'items': _items,
+      'rawText': _recognizedText,
+      'source': 'camera',
     };
 
-    final existing =
+    final receipts =
         prefs.getStringList(
               'yansi_receipts',
             ) ??
             <String>[];
 
-    existing.add(
-      jsonEncode(record),
+    receipts.add(
+      jsonEncode(receipt),
     );
 
     await prefs.setStringList(
       'yansi_receipts',
-      existing,
-    );
-
-    final memory =
-        prefs.getStringList(
-              'yansi_memory',
-            ) ??
-            <String>[];
-
-    memory.add(
-      jsonEncode(record),
-    );
-
-    await prefs.setStringList(
-      'yansi_memory',
-      memory,
+      receipts,
     );
 
     if (!mounted) return;
 
     setState(() {
-      _status =
-          'SAVED TO YANSI';
+      _saved = true;
+      _status = 'SAVED • YANSI LEARNED';
     });
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Bill saved to Yansi memory.',
+          'Bill added to Yansi financial memory.',
         ),
       ),
     );
@@ -497,9 +415,7 @@ class _ReceiptScannerScreenState
   // ==========================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor:
           const Color(0xFF02070B),
@@ -510,8 +426,7 @@ class _ReceiptScannerScreenState
         elevation: 0,
         title: const Text(
           'YANSI SCAN',
-          style:
-              TextStyle(
+          style: TextStyle(
             fontSize: 13,
             letterSpacing: 2.5,
           ),
@@ -522,17 +437,14 @@ class _ReceiptScannerScreenState
         child: Column(
           children: [
             Expanded(
-              child:
-                  SingleChildScrollView(
+              child: SingleChildScrollView(
                 padding:
                     const EdgeInsets.all(18),
                 child: Column(
                   children: [
                     _imageBox(),
 
-                    const SizedBox(
-                      height: 14,
-                    ),
+                    const SizedBox(height: 14),
 
                     Text(
                       _status,
@@ -546,22 +458,10 @@ class _ReceiptScannerScreenState
                     ),
 
                     if (_items.isNotEmpty) ...[
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
                       _summaryCard(),
-                      const SizedBox(
-                        height: 14,
-                      ),
+                      const SizedBox(height: 14),
                       _itemsCard(),
-                    ],
-
-                    if (_recognizedText
-                        .isNotEmpty) ...[
-                      const SizedBox(
-                        height: 14,
-                      ),
-                      _rawTextCard(),
                     ],
                   ],
                 ),
@@ -604,11 +504,9 @@ class _ReceiptScannerScreenState
           : ClipRRect(
               borderRadius:
                   BorderRadius.circular(28),
-              child:
-                  Image.file(
+              child: Image.file(
                 _image!,
-                fit:
-                    BoxFit.cover,
+                fit: BoxFit.cover,
               ),
             ),
     );
@@ -649,9 +547,7 @@ class _ReceiptScannerScreenState
                   letterSpacing: 2,
                 ),
               ),
-              const SizedBox(
-                height: 8,
-              ),
+              const SizedBox(height: 8),
               Text(
                 '${_items.length} ITEMS',
                 style:
@@ -712,9 +608,7 @@ class _ReceiptScannerScreenState
                     color:
                         Color(0xFF00E5FF),
                   ),
-                  const SizedBox(
-                    width: 10,
-                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       '${item['name']} • ${item['category']}',
@@ -744,40 +638,6 @@ class _ReceiptScannerScreenState
     );
   }
 
-  Widget _rawTextCard() {
-    return ExpansionTile(
-      collapsedIconColor:
-          Colors.white38,
-      iconColor:
-          const Color(0xFF00E5FF),
-      title: const Text(
-        'OCR TEXT',
-        style:
-            TextStyle(
-          color:
-              Colors.white54,
-          fontSize: 10,
-          letterSpacing: 1.5,
-        ),
-      ),
-      children: [
-        Padding(
-          padding:
-              const EdgeInsets.all(16),
-          child: Text(
-            _recognizedText,
-            style:
-                const TextStyle(
-              color:
-                  Colors.white54,
-              fontSize: 11,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _bottomButtons() {
     return Padding(
       padding:
@@ -792,8 +652,7 @@ class _ReceiptScannerScreenState
           Row(
             children: [
               Expanded(
-                child:
-                    _button(
+                child: _button(
                   Icons.camera_alt_outlined,
                   'SCAN',
                   _processing
@@ -801,12 +660,9 @@ class _ReceiptScannerScreenState
                       : _scanReceipt,
                 ),
               ),
-              const SizedBox(
-                width: 10,
-              ),
+              const SizedBox(width: 10),
               Expanded(
-                child:
-                    _button(
+                child: _button(
                   Icons.photo_library_outlined,
                   'GALLERY',
                   _processing
@@ -818,18 +674,18 @@ class _ReceiptScannerScreenState
           ),
 
           if (_items.isNotEmpty) ...[
-            const SizedBox(
-              height: 10,
-            ),
+            const SizedBox(height: 10),
+
             SizedBox(
               width: double.infinity,
               height: 52,
-              child:
-                  ElevatedButton(
+
+              child: ElevatedButton(
                 onPressed:
-                    _processing
+                    _processing || _saved
                         ? null
                         : _saveToYansi,
+
                 style:
                     ElevatedButton.styleFrom(
                   backgroundColor:
@@ -848,15 +704,16 @@ class _ReceiptScannerScreenState
                     ),
                   ),
                 ),
-                child:
-                    const Text(
-                  'SAVE TO YANSI MEMORY',
+
+                child: Text(
+                  _saved
+                      ? 'SAVED TO YANSI'
+                      : 'SAVE TO YANSI MEMORY',
                   style:
-                      TextStyle(
+                      const TextStyle(
                     fontWeight:
                         FontWeight.bold,
-                    letterSpacing:
-                        1.2,
+                    letterSpacing: 1.2,
                   ),
                 ),
               ),
@@ -874,15 +731,13 @@ class _ReceiptScannerScreenState
   ) {
     return SizedBox(
       height: 52,
-      child:
-          OutlinedButton.icon(
+      child: OutlinedButton.icon(
         onPressed: action,
         icon: Icon(
           icon,
           size: 18,
         ),
-        label:
-            Text(
+        label: Text(
           text,
           style:
               const TextStyle(
@@ -893,22 +748,17 @@ class _ReceiptScannerScreenState
         style:
             OutlinedButton.styleFrom(
           foregroundColor:
-              const Color(
-            0xFF00E5FF,
-          ),
+              const Color(0xFF00E5FF),
           side:
               BorderSide(
             color:
-                const Color(
-              0xFF00E5FF,
-            ).withOpacity(.35),
+                const Color(0xFF00E5FF)
+                    .withOpacity(.35),
           ),
           shape:
               RoundedRectangleBorder(
             borderRadius:
-                BorderRadius.circular(
-              16,
-            ),
+                BorderRadius.circular(16),
           ),
         ),
       ),
