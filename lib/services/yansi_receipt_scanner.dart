@@ -51,24 +51,45 @@ class YansiReceiptScanner {
 
     if (lines.isNotEmpty) merchant = lines.first;
 
-    final money = RegExp(r'(?:₹|rs\.?|inr)?\s*([0-9]+(?:[.,][0-9]{1,2})?)', caseSensitive: false);
+    final money = RegExp(
+      r'(?:₹|rs\.?|inr)?\s*([0-9]+(?:[.,][0-9]{1,2})?)',
+      caseSensitive: false,
+    );
+
     for (final line in lines) {
       final lower = line.toLowerCase();
       final match = money.firstMatch(line);
       if (match == null) continue;
-      final value = double.tryParse(match.group(1)!.replaceAll(',', ''));
+
+      final valueText = match.group(1);
+      final start = match.start;
+      if (valueText == null || start < 0) continue;
+
+      final value = double.tryParse(valueText.replaceAll(',', ''));
       if (value == null) continue;
 
-      if (lower.contains('total') || lower.contains('amount payable') || lower.contains('grand total')) {
+      if (lower.contains('total') ||
+          lower.contains('amount payable') ||
+          lower.contains('grand total')) {
         total = value;
-      } else if (!lower.contains('tax') && !lower.contains('discount') && !lower.contains('subtotal')) {
-        final name = line.substring(0, match.start).trim().replaceAll(RegExp(r'[-:]+$'), '').trim();
+      } else if (!lower.contains('tax') &&
+          !lower.contains('discount') &&
+          !lower.contains('subtotal')) {
+        final name = line
+            .substring(0, start)
+            .trim()
+            .replaceAll(RegExp(r'[-:]+$'), '')
+            .trim();
         if (name.isNotEmpty && name.toLowerCase() != merchant?.toLowerCase()) {
           items.add(YansiReceiptItem(name: name, price: value));
         }
       }
     }
 
-    return YansiReceiptResult(items: items, total: total, merchant: merchant);
+    return YansiReceiptResult(
+      items: items,
+      total: total,
+      merchant: merchant,
+    );
   }
 }
