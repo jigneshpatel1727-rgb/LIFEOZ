@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+part 'yansi_brain_compat.dart';
+
 /// Yansi's local-first intelligence gateway.
 ///
 /// The UI talks to this class instead of knowing how LifeOS data is stored.
