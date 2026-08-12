@@ -11,13 +11,17 @@ void main() async {
 
   final prefs = await SharedPreferences.getInstance();
 
-  runApp(LifeOSApp(prefs: prefs));
+  runApp(LifeOS(prefs: prefs));
 }
 
-class LifeOSApp extends StatelessWidget {
+// ============================================================
+// LIFEOS APP
+// ============================================================
+
+class LifeOS extends StatelessWidget {
   final SharedPreferences prefs;
 
-  const LifeOSApp({
+  const LifeOS({
     super.key,
     required this.prefs,
   });
@@ -29,1773 +33,59 @@ class LifeOSApp extends StatelessWidget {
       title: 'LifeOS',
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF02070D),
+        scaffoldBackgroundColor:
+            const Color(0xFF01060A),
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF00E5FF),
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
       ),
-      home: LifeOSRouter(prefs: prefs),
+      home: RouterScreen(prefs: prefs),
     );
   }
 }
 
-class LifeOSRouter extends StatefulWidget {
+// ============================================================
+// ROUTER
+// ============================================================
+
+class RouterScreen extends StatefulWidget {
   final SharedPreferences prefs;
 
-  const LifeOSRouter({
+  const RouterScreen({
     super.key,
     required this.prefs,
   });
 
   @override
-  State<LifeOSRouter> createState() => _LifeOSRouterState();
+  State<RouterScreen> createState() =>
+      _RouterScreenState();
 }
 
-class _LifeOSRouterState extends State<LifeOSRouter> {
-  bool get loggedIn =>
-      widget.prefs.getBool('logged_in') ?? false;
-
+class _RouterScreenState
+    extends State<RouterScreen> {
   @override
   Widget build(BuildContext context) {
-    if (!loggedIn) {
+    if (!(widget.prefs.getBool('logged_in') ??
+        false)) {
       return LoginScreen(
         prefs: widget.prefs,
-        onLogin: () => setState(() {}),
+        refresh: () => setState(() {}),
       );
     }
 
-    return OnboardingScreen(
-      prefs: widget.prefs,
-      onComplete: () => setState(() {}),
-    );
-  }
-}
-
-// ============================================================
-// LOGIN
-// ============================================================
-
-class LoginScreen extends StatefulWidget {
-  final SharedPreferences prefs;
-  final VoidCallback onLogin;
-
-  const LoginScreen({
-    super.key,
-    required this.prefs,
-    required this.onLogin,
-  });
-
-  @override
-  State<LoginScreen> createState() => _LoginScreenState();
-}
-
-class _LoginScreenState extends State<LoginScreen> {
-  final email = TextEditingController();
-  final phone = TextEditingController();
-  final password = TextEditingController();
-  final otp = TextEditingController();
-
-  bool phoneMode = false;
-  bool otpMode = false;
-  bool obscure = true;
-
-  void login() {
-    final identifier =
-        phoneMode ? phone.text.trim() : email.text.trim();
-
-    if (identifier.isEmpty) {
-      snack('Enter your email or mobile number.');
-      return;
-    }
-
-    if (!otpMode && password.text.isEmpty) {
-      snack('Enter your password.');
-      return;
-    }
-
-    if (otpMode && otp.text.length < 4) {
-      snack('Enter the OTP.');
-      return;
-    }
-
-    widget.prefs.setBool('logged_in', true);
-    widget.onLogin();
-  }
-
-  void snack(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(text)),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          const FutureBackground(),
-
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(25),
-                child: Column(
-                  children: [
-                    const YansiOrb(size: 170),
-
-                    const SizedBox(height: 20),
-
-                    const Text(
-                      'L I F E O S',
-                      style: TextStyle(
-                        fontSize: 20,
-                        letterSpacing: 8,
-                      ),
-                    ),
-
-                    const SizedBox(height: 7),
-
-                    const Text(
-                      'ONE LIFE • ONE INTELLIGENCE',
-                      style: TextStyle(
-                        color: Color(0xFF55FF88),
-                        fontSize: 9,
-                        letterSpacing: 2,
-                      ),
-                    ),
-
-                    const SizedBox(height: 35),
-
-                    Row(
-                      children: [
-                        Expanded(
-                          child: modeButton(
-                            'EMAIL',
-                            !phoneMode,
-                            () => setState(
-                              () => phoneMode = false,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: modeButton(
-                            'PHONE',
-                            phoneMode,
-                            () => setState(
-                              () => phoneMode = true,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 15),
-
-                    TextField(
-                      controller:
-                          phoneMode ? phone : email,
-                      keyboardType: phoneMode
-                          ? TextInputType.phone
-                          : TextInputType.emailAddress,
-                      decoration: InputDecoration(
-                        hintText: phoneMode
-                            ? 'Mobile number'
-                            : 'Email address',
-                        prefixIcon: Icon(
-                          phoneMode
-                              ? Icons.phone_outlined
-                              : Icons.alternate_email,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    if (!otpMode)
-                      TextField(
-                        controller: password,
-                        obscureText: obscure,
-                        decoration: InputDecoration(
-                          hintText: 'Password',
-                          prefixIcon:
-                              const Icon(Icons.lock_outline),
-                          suffixIcon: IconButton(
-                            onPressed: () {
-                              setState(
-                                () => obscure = !obscure,
-                              );
-                            },
-                            icon: Icon(
-                              obscure
-                                  ? Icons.visibility_outlined
-                                  : Icons
-                                      .visibility_off_outlined,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                    if (otpMode)
-                      TextField(
-                        controller: otp,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          hintText: 'OTP',
-                          prefixIcon:
-                              Icon(Icons.password_outlined),
-                        ),
-                      ),
-
-                    const SizedBox(height: 8),
-
-                    TextButton(
-                      onPressed: () {
-                        setState(
-                          () => otpMode = !otpMode,
-                        );
-                      },
-                      child: Text(
-                        otpMode
-                            ? 'USE PASSWORD'
-                            : 'LOGIN WITH OTP',
-                        style: const TextStyle(
-                          color: Color(0xFF00E5FF),
-                          fontSize: 10,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: login,
-                        child: Text(
-                          otpMode
-                              ? 'VERIFY OTP'
-                              : 'ENTER LIFEOS',
-                          style: const TextStyle(
-                            letterSpacing: 2,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    TextButton(
-                      onPressed: () {
-                        snack(
-                          'Password recovery will use secure authentication.',
-                        );
-                      },
-                      child: const Text(
-                        'FORGOT PASSWORD?',
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: Colors.white54,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget modeButton(
-    String text,
-    bool selected,
-    VoidCallback action,
-  ) {
-    return GestureDetector(
-      onTap: action,
-      child: Container(
-        height: 43,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected
-              ? const Color(0x2200E5FF)
-              : const Color(0xAA07131D),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected
-                ? const Color(0xAA00E5FF)
-                : const Color(0x2200E5FF),
-          ),
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontSize: 9,
-            letterSpacing: 2,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// ONBOARDING
-// ============================================================
-
-class OnboardingScreen extends StatefulWidget {
-  final SharedPreferences prefs;
-  final VoidCallback onComplete;
-
-  const OnboardingScreen({
-    super.key,
-    required this.prefs,
-    required this.onComplete,
-  });
-
-  @override
-  State<OnboardingScreen> createState() =>
-      _OnboardingScreenState();
-}
-
-class _OnboardingScreenState extends State<OnboardingScreen> {
-  final name = TextEditingController();
-
-  int step = 0;
-
-  String country = 'India';
-  String currency = 'INR ₹';
-  String language = 'English';
-
-  bool mic = false;
-  bool notifications = false;
-  bool calendar = false;
-  bool camera = false;
-
-  final countries = [
-    'India',
-    'United States',
-    'United Kingdom',
-    'Canada',
-    'Australia',
-    'United Arab Emirates',
-    'Singapore',
-    'Germany',
-    'France',
-    'Japan',
-  ];
-
-  String getCurrency(String country) {
-    switch (country) {
-      case 'United States':
-        return 'USD \$';
-      case 'United Kingdom':
-        return 'GBP £';
-      case 'Canada':
-        return 'CAD \$';
-      case 'Australia':
-        return 'AUD \$';
-      case 'United Arab Emirates':
-        return 'AED د.إ';
-      case 'Singapore':
-        return 'SGD \$';
-      case 'Germany':
-      case 'France':
-        return 'EUR €';
-      case 'Japan':
-        return 'JPY ¥';
-      default:
-        return 'INR ₹';
-    }
-  }
-
-  Future<void> finish() async {
-    if (name.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enter your name.'),
-        ),
-      );
-      return;
-    }
-
-    await widget.prefs.setString(
-      'name',
-      name.text.trim(),
-    );
-
-    await widget.prefs.setString(
-      'country',
-      country,
-    );
-
-    await widget.prefs.setString(
-      'currency',
-      currency,
-    );
-
-    await widget.prefs.setString(
-      'language',
-      language,
-    );
-
-    await widget.prefs.setBool(
-      'onboarding_complete',
-      true,
-    );
-
-    widget.onComplete();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.prefs.getBool('onboarding_complete') ??
-        false) {
-      return LifeOSHome(
+    if (!(widget.prefs
+            .getBool('onboarding_complete') ??
+        false)) {
+      return OnboardingScreen(
         prefs: widget.prefs,
+        refresh: () => setState(() {}),
       );
     }
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          const FutureBackground(),
-
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(22),
-              child: Column(
-                children: [
-                  const SizedBox(height: 20),
-
-                  const YansiOrb(size: 115),
-
-                  const SizedBox(height: 15),
-
-                  Text(
-                    step == 0
-                        ? 'WHO ARE YOU?'
-                        : step == 1
-                            ? 'YOUR WORLD'
-                            : step == 2
-                                ? 'MAKE IT YOURS'
-                                : 'YANSI PERMISSIONS',
-                    style: const TextStyle(
-                      fontSize: 19,
-                      letterSpacing: 3,
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  Expanded(
-                    child: page(),
-                  ),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (step < 3) {
-                          setState(() => step++);
-                        } else {
-                          finish();
-                        }
-                      },
-                      child: Text(
-                        step == 3
-                            ? 'ENTER LIFEOS'
-                            : 'CONTINUE',
-                        style: const TextStyle(
-                          letterSpacing: 2,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget page() {
-    if (step == 0) {
-      return Center(
-        child: TextField(
-          controller: name,
-          decoration: const InputDecoration(
-            hintText: 'Your name',
-            prefixIcon:
-                Icon(Icons.person_outline),
-          ),
-        ),
-      );
-    }
-
-    if (step == 1) {
-      return Center(
-        child: Column(
-          mainAxisAlignment:
-              MainAxisAlignment.center,
-          children: [
-            DropdownButtonFormField<String>(
-              value: country,
-              decoration: const InputDecoration(
-                labelText: 'COUNTRY',
-                prefixIcon:
-                    Icon(Icons.public),
-              ),
-              items: countries.map((c) {
-                return DropdownMenuItem(
-                  value: c,
-                  child: Text(c),
-                );
-              }).toList(),
-              onChanged: (v) {
-                if (v != null) {
-                  setState(() {
-                    country = v;
-                    currency =
-                        getCurrency(v);
-                  });
-                }
-              },
-            ),
-
-            const SizedBox(height: 20),
-
-            Container(
-              padding:
-                  const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color:
-                    const Color(0xCC07131D),
-                borderRadius:
-                    BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons
-                        .account_balance_wallet_outlined,
-                    color:
-                        Color(0xFF55FF88),
-                  ),
-                  const SizedBox(width: 14),
-                  Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'AUTOMATIC CURRENCY',
-                        style: TextStyle(
-                          fontSize: 8,
-                          color:
-                              Colors.white38,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        currency,
-                        style:
-                            const TextStyle(
-                          fontSize: 19,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (step == 2) {
-      return ListView(
-        padding:
-            const EdgeInsets.only(top: 20),
-        children: [
-          setting(
-            Icons.translate,
-            'LANGUAGE',
-            language,
-            () {
-              setState(() {
-                language =
-                    language == 'English'
-                        ? 'Hindi'
-                        : language == 'Hindi'
-                            ? 'Gujarati'
-                            : 'English';
-              });
-            },
-          ),
-          setting(
-            Icons.palette_outlined,
-            'DESIGN',
-            'Futuristic',
-            () {},
-          ),
-          setting(
-            Icons.graphic_eq,
-            'YANSI',
-            'Ambient AI',
-            () {},
-          ),
-          setting(
-            Icons.notifications_none,
-            'REMINDERS',
-            'Smart',
-            () {},
-          ),
-        ],
-      );
-    }
-
-    return ListView(
-      padding:
-          const EdgeInsets.only(top: 15),
-      children: [
-        permission(
-          Icons.mic_none,
-          'MICROPHONE',
-          'Voice interaction with Yansi',
-          mic,
-          (v) => setState(() => mic = v),
-        ),
-        permission(
-          Icons.notifications_none,
-          'NOTIFICATIONS',
-          'Permitted notification intelligence',
-          notifications,
-          (v) =>
-              setState(() => notifications = v),
-        ),
-        permission(
-          Icons.calendar_today_outlined,
-          'CALENDAR',
-          'Bills and important dates',
-          calendar,
-          (v) =>
-              setState(() => calendar = v),
-        ),
-        permission(
-          Icons.camera_alt_outlined,
-          'CAMERA',
-          'Receipt scanning',
-          camera,
-          (v) =>
-              setState(() => camera = v),
-        ),
-      ],
-    );
-  }
-
-  Widget setting(
-    IconData icon,
-    String title,
-    String value,
-    VoidCallback action,
-  ) {
-    return ListTile(
-      onTap: action,
-      leading: Icon(
-        icon,
-        color: const Color(0xFF55FF88),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 9,
-          letterSpacing: 1,
-        ),
-      ),
-      subtitle: Text(
-        value,
-        style: const TextStyle(
-          fontSize: 12,
-        ),
-      ),
-      trailing:
-          const Icon(Icons.chevron_right),
-    );
-  }
-
-  Widget permission(
-    IconData icon,
-    String title,
-    String subtitle,
-    bool value,
-    ValueChanged<bool> changed,
-  ) {
-    return Container(
-      margin:
-          const EdgeInsets.only(bottom: 9),
-      decoration: BoxDecoration(
-        color: const Color(0xCC07131D),
-        borderRadius:
-            BorderRadius.circular(10),
-      ),
-      child: SwitchListTile(
-        value: value,
-        onChanged: changed,
-        secondary: Icon(
-          icon,
-          color:
-              const Color(0xFF55FF88),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 9,
-            letterSpacing: 1,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(
-            fontSize: 8,
-            color: Colors.white38,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// LIFEOS HOME
-// ============================================================
-
-class LifeOSHome extends StatefulWidget {
-  final SharedPreferences prefs;
-
-  const LifeOSHome({
-    super.key,
-    required this.prefs,
-  });
-
-  @override
-  State<LifeOSHome> createState() =>
-      _LifeOSHomeState();
-}
-
-class _LifeOSHomeState extends State<LifeOSHome> {
-  final tts = FlutterTts();
-  final speech = SpeechToText();
-
-  String yansiText =
-      'Yansi is here whenever you need me.';
-
-  bool listening = false;
-  bool menu = false;
-
-  String get userName =>
-      widget.prefs.getString('name') ?? 'User';
-
-  String get currency =>
-      widget.prefs.getString('currency') ?? 'INR ₹';
-
-  @override
-  void initState() {
-    super.initState();
-
-    Future.delayed(
-      const Duration(milliseconds: 800),
-      welcome,
-    );
-  }
-
-  Future<void> welcome() async {
-    final text =
-        'Welcome, $userName. I’m Yansi, your personal LifeOS AI agent. I’m here whenever you need me.';
-
-    setState(() => yansiText = text);
-
-    await tts.setLanguage('en-IN');
-    await tts.setSpeechRate(.47);
-    await tts.speak(text);
-  }
-
-  Future<void> listen() async {
-    if (listening) return;
-
-    final available =
-        await speech.initialize();
-
-    if (!available) {
-      setState(() {
-        yansiText =
-            'Microphone permission is required.';
-      });
-      return;
-    }
-
-    setState(() {
-      listening = true;
-      yansiText =
-          'Yansi is listening...';
-    });
-
-    String words = '';
-
-    await speech.listen(
-      onResult: (result) {
-        words = result.recognizedWords;
-      },
-    );
-
-    await Future.delayed(
-      const Duration(seconds: 5),
-    );
-
-    await speech.stop();
-
-    setState(() => listening = false);
-
-    if (words.isNotEmpty) {
-      await process(words);
-    }
-  }
-
-  Future<void> process(
-    String text,
-  ) async {
-    final lower = text.toLowerCase();
-
-    String type = 'other';
-    String category = 'Other';
-    double amount = 0;
-
-    final match =
-        RegExp(r'(\d+(?:\.\d+)?)')
-            .firstMatch(lower);
-
-    if (match != null) {
-      amount =
-          double.tryParse(
-                match.group(1)!,
-              ) ??
-              0;
-    }
-
-    if (has(
-      lower,
-      ['petrol', 'fuel', 'diesel'],
-    )) {
-      type = 'expense';
-      category = 'Fuel';
-    } else if (has(
-      lower,
-      ['food', 'lunch', 'dinner', 'restaurant'],
-    )) {
-      type = 'expense';
-      category = 'Food';
-    } else if (has(
-      lower,
-      ['medicine', 'doctor', 'hospital'],
-    )) {
-      type = 'expense';
-      category = 'Medical';
-    } else if (has(
-      lower,
-      ['task', 'todo', 'to do', 'finish', 'need to'],
-    )) {
-      type = 'productivity';
-    } else if (has(
-      lower,
-      ['goal', 'target', 'achieve'],
-    )) {
-      type = 'goal';
-    } else if (has(
-      lower,
-      ['grocery', 'shopping', 'milk', 'vegetables'],
-    )) {
-      type = 'household';
-    } else if (has(
-      lower,
-      [
-        'remind',
-        'appointment',
-        'birthday',
-        'anniversary',
-        'tomorrow',
-        'due'
-      ],
-    )) {
-      type = 'calendar';
-    }
-
-    final data =
-        widget.prefs.getString(
-      'lifeos_entries',
-    );
-
-    List list = [];
-
-    if (data != null) {
-      try {
-        list = jsonDecode(data);
-      } catch (_) {}
-    }
-
-    list.insert(
-      0,
-      {
-        'type': type,
-        'category': category,
-        'text': text,
-        'amount': amount,
-        'date':
-            DateTime.now()
-                .toIso8601String(),
-      },
-    );
-
-    await widget.prefs.setString(
-      'lifeos_entries',
-      jsonEncode(list),
-    );
-
-    String response;
-
-    if (type == 'expense' && amount > 0) {
-      response =
-          'Got it. I added ${currency}${amount.toStringAsFixed(0)} to $category for today.';
-    } else if (type == 'productivity') {
-      response =
-          'Done. I added that to your productivity.';
-    } else if (type == 'goal') {
-      response =
-          'Done. I added that to your goals.';
-    } else if (type == 'household') {
-      response =
-          'Done. I added that to your household list.';
-    } else if (type == 'calendar') {
-      response =
-          'Done. I added that to your calendar intelligence.';
-    } else {
-      response =
-          'I heard you. I’ll keep that in your LifeOS data.';
-    }
-
-    setState(() => yansiText = response);
-
-    await tts.speak(response);
-  }
-
-  bool has(
-    String text,
-    List<String> words,
-  ) =>
-      words.any(text.contains);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          const FutureBackground(),
-
-          SafeArea(
-            child: Column(
-              children: [
-                header(),
-
-                Expanded(
-                  child: LayoutBuilder(
-                    builder:
-                        (context, box) {
-                      return Stack(
-                        children: [
-                          Positioned(
-                            top: 18,
-                            left: 0,
-                            right: 0,
-                            child: Column(
-                              children: [
-                                Text(
-                                  userName
-                                      .toUpperCase(),
-                                  style:
-                                      const TextStyle(
-                                    fontSize: 8,
-                                    letterSpacing:
-                                        3,
-                                    color:
-                                        Colors.white38,
-                                  ),
-                                ),
-                                const SizedBox(
-                                    height: 5),
-                                const Text(
-                                  'LIFE INTELLIGENCE',
-                                  style:
-                                      TextStyle(
-                                    fontSize: 16,
-                                    letterSpacing:
-                                        2,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          Positioned(
-                            top: box.maxHeight * .22,
-                            left: box.maxWidth / 2 - 90,
-                            child: GestureDetector(
-                              onTap: listen,
-                              child:
-                                  const YansiOrb(
-                                size: 180,
-                              ),
-                            ),
-                          ),
-
-                          core(
-                            7,
-                            box.maxHeight * .20,
-                            Icons
-                                .account_balance_wallet_outlined,
-                            'MONEY',
-                            'expense',
-                          ),
-
-                          core(
-                            null,
-                            box.maxHeight * .20,
-                            Icons.flag_outlined,
-                            'GOALS',
-                            'goal',
-                            right: 7,
-                          ),
-
-                          core(
-                            7,
-                            box.maxHeight * .56,
-                            Icons.bolt_outlined,
-                            'PRODUCTIVITY',
-                            'productivity',
-                          ),
-
-                          core(
-                            null,
-                            box.maxHeight * .56,
-                            Icons.shopping_bag_outlined,
-                            'HOUSEHOLD',
-                            'household',
-                            right: 7,
-                          ),
-
-                          Positioned(
-                            bottom: 20,
-                            left: box.maxWidth / 2 - 54,
-                            child: coreButton(
-                              Icons.calendar_today_outlined,
-                              'CALENDAR',
-                              'calendar',
-                            ),
-                          ),
-
-                          Positioned(
-                            bottom: 77,
-                            left: 18,
-                            right: 18,
-                            child: Container(
-                              padding:
-                                  const EdgeInsets.all(11),
-                              decoration:
-                                  BoxDecoration(
-                                color:
-                                    const Color(0xDD07131D),
-                                borderRadius:
-                                    BorderRadius.circular(10),
-                                border: Border.all(
-                                  color:
-                                      const Color(0x3300E5FF),
-                                ),
-                              ),
-                              child: Text(
-                                yansiText,
-                                textAlign:
-                                    TextAlign.center,
-                                maxLines: 3,
-                                overflow:
-                                    TextOverflow.ellipsis,
-                                style:
-                                    const TextStyle(
-                                  fontSize: 9,
-                                  height: 1.4,
-                                  color:
-                                      Colors.white70,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          if (menu) controlMenu(),
-
-          if (listening)
-            Positioned(
-              bottom: 15,
-              left: 25,
-              right: 25,
-              child: Container(
-                padding:
-                    const EdgeInsets.all(12),
-                decoration:
-                    BoxDecoration(
-                  color:
-                      const Color(0xFF07131D),
-                  borderRadius:
-                      BorderRadius.circular(10),
-                  border: Border.all(
-                    color:
-                        const Color(0xFF55FF88),
-                  ),
-                ),
-                child: const Text(
-                  'YANSI • LISTENING',
-                  textAlign:
-                      TextAlign.center,
-                  style: TextStyle(
-                    color:
-                        Color(0xFF55FF88),
-                    fontSize: 9,
-                    letterSpacing: 2,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget header() {
-    return Padding(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 4,
-      ),
-      child: Row(
-        children: [
-          smallIcon(
-            Icons.menu_rounded,
-            () => setState(
-              () => menu = !menu,
-            ),
-          ),
-          const Spacer(),
-          const Text(
-            'L I F E O S',
-            style: TextStyle(
-              fontSize: 12,
-              letterSpacing: 5,
-            ),
-          ),
-          const Spacer(),
-          smallIcon(
-            Icons.notifications_none,
-            () {},
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget smallIcon(
-    IconData icon,
-    VoidCallback action,
-  ) {
-    return GestureDetector(
-      onTap: action,
-      child: Container(
-        width: 30,
-        height: 27,
-        decoration: BoxDecoration(
-          color:
-              const Color(0xDD07131D),
-          borderRadius:
-              BorderRadius.circular(7),
-          border: Border.all(
-            color:
-                const Color(0x3300E5FF),
-          ),
-        ),
-        child: Icon(
-          icon,
-          size: 15,
-          color:
-              const Color(0xFF55FF88),
-        ),
-      ),
-    );
-  }
-
-  Widget core(
-    double? left,
-    double top,
-    IconData icon,
-    String title,
-    String type, {
-    double? right,
-  }) {
-    return Positioned(
-      left: left,
-      right: right,
-      top: top,
-      child:
-          coreButton(icon, title, type),
-    );
-  }
-
-  Widget coreButton(
-    IconData icon,
-    String title,
-    String type,
-  ) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => CoreScreen(
-              prefs: widget.prefs,
-              title: title,
-              type: type,
-              icon: icon,
-            ),
-          ),
-        );
-      },
-      child: Container(
-        width: 108,
-        padding:
-            const EdgeInsets.symmetric(
-          horizontal: 7,
-          vertical: 10,
-        ),
-        decoration:
-            BoxDecoration(
-          color:
-              const Color(0xDD07131D),
-          borderRadius:
-              BorderRadius.circular(9),
-          border: Border.all(
-            color:
-                const Color(0x3300E5FF),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 15,
-              color:
-                  const Color(0xFF55FF88),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                title,
-                style:
-                    const TextStyle(
-                  fontSize: 7,
-                  letterSpacing: 1,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget controlMenu() {
-    return Positioned(
-      top: 40,
-      left: 7,
-      child: Container(
-        width: 235,
-        padding:
-            const EdgeInsets.all(15),
-        decoration:
-            BoxDecoration(
-          color:
-              const Color(0xFF07131D),
-          borderRadius:
-              BorderRadius.circular(12),
-          border: Border.all(
-            color:
-                const Color(0x5500E5FF),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'CONTROL CENTER',
-              style: TextStyle(
-                color:
-                    Color(0xFF00E5FF),
-                fontSize: 9,
-                letterSpacing: 2,
-              ),
-            ),
-            const SizedBox(height: 12),
-            menuItem(
-              Icons.insights_outlined,
-              'LIFE REPORT',
-              () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        LifeReport(
-                      prefs: widget.prefs,
-                    ),
-                  ),
-                );
-              },
-            ),
-            menuItem(
-              Icons.person_outline,
-              'PROFILE',
-              () {},
-            ),
-            menuItem(
-              Icons.security,
-              'PRIVACY',
-              () {},
-            ),
-            menuItem(
-              Icons.settings_outlined,
-              'SETTINGS',
-              () {},
-            ),
-            menuItem(
-              Icons.logout,
-              'LOG OUT',
-              () {
-                widget.prefs
-                    .setBool(
-                  'logged_in',
-                  false,
-                );
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        LoginScreen(
-                      prefs:
-                          widget.prefs,
-                      onLogin: () {},
-                    ),
-                  ),
-                  (_) => false,
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget menuItem(
-    IconData icon,
-    String title,
-    VoidCallback action,
-  ) {
-    return GestureDetector(
-      onTap: action,
-      child: Padding(
-        padding:
-            const EdgeInsets.symmetric(
-          vertical: 9,
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color:
-                  const Color(0xFF55FF88),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              title,
-              style:
-                  const TextStyle(
-                fontSize: 9,
-                letterSpacing: 1,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// CORE SCREEN
-// ============================================================
-
-class CoreScreen extends StatelessWidget {
-  final SharedPreferences prefs;
-  final String title;
-  final String type;
-  final IconData icon;
-
-  const CoreScreen({
-    super.key,
-    required this.prefs,
-    required this.title,
-    required this.type,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final raw =
-        prefs.getString(
-      'lifeos_entries',
-    );
-
-    List items = [];
-
-    if (raw != null) {
-      try {
-        items = jsonDecode(raw);
-      } catch (_) {}
-    }
-
-    final filtered = items
-        .where(
-          (e) => e['type'] == type,
-        )
-        .toList();
-
-    double total = 0;
-
-    for (final e in filtered) {
-      if (e['amount'] is num) {
-        total +=
-            (e['amount'] as num)
-                .toDouble();
-      }
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-      ),
-      body: Stack(
-        children: [
-          const FutureBackground(),
-
-          ListView(
-            padding:
-                const EdgeInsets.all(18),
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.all(15),
-                decoration:
-                    BoxDecoration(
-                  color:
-                      const Color(0xDD07131D),
-                  borderRadius:
-                      BorderRadius.circular(12),
-                  border: Border.all(
-                    color:
-                        const Color(0x3300E5FF),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      icon,
-                      color:
-                          const Color(
-                        0xFF55FF88,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'Yansi is analyzing this area of your life.',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color:
-                              Colors.white60,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 15),
-
-              if (type == 'expense')
-                Container(
-                  padding:
-                      const EdgeInsets.all(18),
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        const Color(0xDD07131D),
-                    borderRadius:
-                        BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'TOTAL  ₹${total.toStringAsFixed(0)}',
-                    style:
-                        const TextStyle(
-                      color:
-                          Color(0xFF55FF88),
-                      fontSize: 18,
-                    ),
-                  ),
-                ),
-
-              const SizedBox(height: 12),
-
-              if (filtered.isEmpty)
-                const Padding(
-                  padding:
-                      EdgeInsets.all(30),
-                  child: Text(
-                    'No data yet.\n\nSpeak naturally to Yansi and the information will appear here.',
-                    textAlign:
-                        TextAlign.center,
-                    style: TextStyle(
-                      color:
-                          Colors.white38,
-                      fontSize: 10,
-                    ),
-                  ),
-                ),
-
-              ...filtered.map(
-                (item) => Container(
-                  margin:
-                      const EdgeInsets.only(
-                    bottom: 8,
-                  ),
-                  padding:
-                      const EdgeInsets.all(14),
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        const Color(0xCC07131D),
-                    borderRadius:
-                        BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    item['text']
-                            ?.toString() ??
-                        item['category']
-                            ?.toString() ??
-                        '',
-                    style:
-                        const TextStyle(
-                      fontSize: 10,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================
-// LIFE REPORT
-// ============================================================
-
-class LifeReport extends StatelessWidget {
-  final SharedPreferences prefs;
-
-  const LifeReport({
-    super.key,
-    required this.prefs,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final raw =
-        prefs.getString(
-      'lifeos_entries',
-    );
-
-    List items = [];
-
-    if (raw != null) {
-      try {
-        items = jsonDecode(raw);
-      } catch (_) {}
-    }
-
-    double expenses = 0;
-    int goals = 0;
-    int tasks = 0;
-    int household = 0;
-    int calendar = 0;
-
-    for (final e in items) {
-      if (e['type'] == 'expense' &&
-          e['amount'] is num) {
-        expenses +=
-            (e['amount'] as num)
-                .toDouble();
-      }
-
-      if (e['type'] == 'goal') goals++;
-      if (e['type'] == 'productivity') tasks++;
-      if (e['type'] == 'household') household++;
-      if (e['type'] == 'calendar') calendar++;
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title:
-            const Text('LIFE REPORT'),
-      ),
-      body: Stack(
-        children: [
-          const FutureBackground(),
-
-          ListView(
-            padding:
-                const EdgeInsets.all(18),
-            children: [
-              const Center(
-                child: YansiOrb(size: 110),
-              ),
-              const SizedBox(height: 15),
-              const Center(
-                child: Text(
-                  'LIFEOS SNAPSHOT',
-                  style: TextStyle(
-                    color:
-                        Color(0xFF00E5FF),
-                    letterSpacing: 3,
-                    fontSize: 10,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              report(
-                'MONEY',
-                '₹${expenses.toStringAsFixed(0)}',
-                Icons
-                    .account_balance_wallet_outlined,
-              ),
-              report(
-                'GOALS',
-                '$goals',
-                Icons.flag_outlined,
-              ),
-              report(
-                'PRODUCTIVITY',
-                '$tasks',
-                Icons.bolt_outlined,
-              ),
-              report(
-                'HOUSEHOLD',
-                '$household',
-                Icons.shopping_bag_outlined,
-              ),
-              report(
-                'CALENDAR',
-                '$calendar',
-                Icons.calendar_today_outlined,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget report(
-    String title,
-    String value,
-    IconData icon,
-  ) {
-    return Container(
-      margin:
-          const EdgeInsets.only(
-        bottom: 9,
-      ),
-      padding:
-          const EdgeInsets.all(15),
-      decoration:
-          BoxDecoration(
-        color:
-            const Color(0xCC07131D),
-        borderRadius:
-            BorderRadius.circular(11),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color:
-                const Color(0xFF55FF88),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              title,
-              style:
-                  const TextStyle(
-                fontSize: 9,
-                color:
-                    Colors.white38,
-                letterSpacing: 1,
-              ),
-            ),
-          ),
-          Text(
-            value,
-            style:
-                const TextStyle(
-              fontSize: 15,
-            ),
-          ),
-        ],
-      ),
+    return HomeScreen(
+      prefs: widget.prefs,
     );
   }
 }
@@ -1804,42 +94,39 @@ class LifeReport extends StatelessWidget {
 // FUTURISTIC BACKGROUND
 // ============================================================
 
-class FutureBackground extends StatelessWidget {
-  const FutureBackground({
-    super.key,
-  });
+class FutureBackground
+    extends StatelessWidget {
+  const FutureBackground({super.key});
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
+      painter: BackgroundPainter(),
       size: Size.infinite,
-      painter: FuturePainter(),
     );
   }
 }
 
-class FuturePainter extends CustomPainter {
+class BackgroundPainter
+    extends CustomPainter {
   @override
-  void paint(
-    Canvas canvas,
-    Size size,
-  ) {
+  void paint(Canvas canvas, Size size) {
     canvas.drawRect(
       Offset.zero & size,
       Paint()
         ..color =
-            const Color(0xFF02070D),
+            const Color(0xFF01060A),
     );
 
     final grid = Paint()
       ..color =
-          const Color(0x1000E5FF)
+          const Color(0x1200E5FF)
       ..strokeWidth = .5;
 
     for (
       double x = 0;
       x < size.width;
-      x += 30
+      x += 32
     ) {
       canvas.drawLine(
         Offset(x, 0),
@@ -1851,7 +138,7 @@ class FuturePainter extends CustomPainter {
     for (
       double y = 0;
       y < size.height;
-      y += 30
+      y += 32
     ) {
       canvas.drawLine(
         Offset(0, y),
@@ -1864,7 +151,7 @@ class FuturePainter extends CustomPainter {
       ..shader =
           const RadialGradient(
         colors: [
-          Color(0x2500E5FF),
+          Color(0x2800E5FF),
           Colors.transparent,
         ],
       ).createShader(
@@ -1873,8 +160,7 @@ class FuturePainter extends CustomPainter {
             size.width / 2,
             size.height / 2,
           ),
-          radius:
-              size.width * .7,
+          radius: size.width * .7,
         ),
       );
 
@@ -1909,17 +195,18 @@ class YansiOrb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: CustomPaint(
-        painter: YansiPainter(),
+    return CustomPaint(
+      size: Size(size, size),
+      painter: YansiPainter(),
+      child: SizedBox(
+        width: size,
+        height: size,
         child: Center(
           child: Icon(
             Icons.auto_awesome,
-            size: size * .23,
             color:
                 const Color(0xFF55FF88),
+            size: size * .22,
           ),
         ),
       ),
@@ -1927,28 +214,25 @@ class YansiOrb extends StatelessWidget {
   }
 }
 
-class YansiPainter extends CustomPainter {
+class YansiPainter
+    extends CustomPainter {
   @override
-  void paint(
-    Canvas canvas,
-    Size size,
-  ) {
+  void paint(Canvas canvas, Size size) {
     final center = Offset(
       size.width / 2,
       size.height / 2,
     );
 
-    final radius =
-        size.width / 2;
+    final radius = size.width / 2;
 
-    final paint = Paint()
+    final ring = Paint()
       ..style =
           PaintingStyle.stroke
       ..strokeWidth = 1;
 
     for (int i = 0; i < 9; i++) {
-      paint.color = i.isEven
-          ? const Color(0x6600E5FF)
+      ring.color = i.isEven
+          ? const Color(0x5500E5FF)
           : const Color(0x4455FF88);
 
       canvas.drawOval(
@@ -1956,47 +240,46 @@ class YansiPainter extends CustomPainter {
           center: center,
           width:
               radius *
-              (1 + i * .12),
+              (1 + i * .13),
           height:
               radius *
-              (.5 + i * .08),
+              (.55 + i * .08),
         ),
-        paint,
+        ring,
       );
     }
 
-    final nodes = Paint()
+    final node = Paint()
       ..color =
-          const Color(0xAA00E5FF);
+          const Color(0xFF55FF88);
 
     for (int i = 0; i < 24; i++) {
-      final angle =
+      final a =
           i * math.pi * 2 / 24;
 
-      final point =
-          center +
+      final p = center +
           Offset(
             radius *
                 .82 *
-                math.cos(angle),
+                math.cos(a),
             radius *
                 .55 *
-                math.sin(angle),
+                math.sin(a),
           );
 
       canvas.drawCircle(
-        point,
-        1.6,
-        nodes,
+        p,
+        1.5,
+        node,
       );
 
-      paint.color =
+      ring.color =
           const Color(0x2200E5FF);
 
       canvas.drawLine(
         center,
-        point,
-        paint,
+        p,
+        ring,
       );
     }
 
@@ -2011,8 +294,7 @@ class YansiPainter extends CustomPainter {
       ).createShader(
         Rect.fromCircle(
           center: center,
-          radius:
-              radius * .7,
+          radius: radius * .7,
         ),
       );
 
@@ -2029,3 +311,1752 @@ class YansiPainter extends CustomPainter {
   ) =>
       false;
 }
+
+// ============================================================
+// LOGIN
+// ============================================================
+
+class LoginScreen
+    extends StatefulWidget {
+  final SharedPreferences prefs;
+  final VoidCallback refresh;
+
+  const LoginScreen({
+    super.key,
+    required this.prefs,
+    required this.refresh,
+  });
+
+  @override
+  State<LoginScreen> createState() =>
+      _LoginScreenState();
+}
+
+class _LoginScreenState
+    extends State<LoginScreen> {
+  final identifier =
+      TextEditingController();
+
+  final password =
+      TextEditingController();
+
+  final otp =
+      TextEditingController();
+
+  bool phone = false;
+  bool useOtp = false;
+  bool hidePassword = true;
+
+  void login() {
+    if (identifier.text.trim().isEmpty) {
+      message(
+        'Enter your email or mobile number.',
+      );
+      return;
+    }
+
+    if (useOtp) {
+      if (otp.text.length < 4) {
+        message('Enter the OTP.');
+        return;
+      }
+    } else {
+      if (password.text.isEmpty) {
+        message('Enter your password.');
+        return;
+      }
+    }
+
+    widget.prefs.setBool(
+      'logged_in',
+      true,
+    );
+
+    widget.refresh();
+  }
+
+  void message(String text) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      SnackBar(
+        content: Text(text),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          const FutureBackground(),
+
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding:
+                    const EdgeInsets.all(25),
+                child: Column(
+                  children: [
+                    const YansiOrb(
+                      size: 175,
+                    ),
+
+                    const SizedBox(
+                      height: 18,
+                    ),
+
+                    const Text(
+                      'L I F E O S',
+                      style: TextStyle(
+                        fontSize: 21,
+                        letterSpacing: 8,
+                      ),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    const Text(
+                      'YOUR LIFE • YOUR INTELLIGENCE',
+                      style: TextStyle(
+                        color:
+                            Color(0xFF55FF88),
+                        fontSize: 8,
+                        letterSpacing: 2,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height: 32,
+                    ),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: loginMode(
+                            'EMAIL',
+                            !phone,
+                            () {
+                              setState(
+                                () => phone =
+                                    false,
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(
+                          width: 8,
+                        ),
+                        Expanded(
+                          child: loginMode(
+                            'PHONE',
+                            phone,
+                            () {
+                              setState(
+                                () => phone =
+                                    true,
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(
+                      height: 12,
+                    ),
+
+                    TextField(
+                      controller:
+                          identifier,
+                      keyboardType: phone
+                          ? TextInputType.phone
+                          : TextInputType
+                              .emailAddress,
+                      decoration:
+                          InputDecoration(
+                        hintText: phone
+                            ? 'Mobile number'
+                            : 'Email address',
+                        prefixIcon: Icon(
+                          phone
+                              ? Icons
+                                  .phone_outlined
+                              : Icons
+                                  .alternate_email,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height: 12,
+                    ),
+
+                    if (!useOtp)
+                      TextField(
+                        controller:
+                            password,
+                        obscureText:
+                            hidePassword,
+                        decoration:
+                            InputDecoration(
+                          hintText:
+                              'Password',
+                          prefixIcon:
+                              const Icon(
+                            Icons
+                                .lock_outline,
+                          ),
+                          suffixIcon:
+                              IconButton(
+                            onPressed: () {
+                              setState(
+                                () =>
+                                    hidePassword =
+                                        !hidePassword,
+                              );
+                            },
+                            icon: Icon(
+                              hidePassword
+                                  ? Icons
+                                      .visibility_outlined
+                                  : Icons
+                                      .visibility_off_outlined,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    if (useOtp)
+                      TextField(
+                        controller: otp,
+                        keyboardType:
+                            TextInputType.number,
+                        decoration:
+                            const InputDecoration(
+                          hintText: 'OTP',
+                          prefixIcon:
+                              Icon(
+                            Icons
+                                .password_outlined,
+                          ),
+                        ),
+                      ),
+
+                    TextButton(
+                      onPressed: () {
+                        setState(
+                          () => useOtp =
+                              !useOtp,
+                        );
+                      },
+                      child: Text(
+                        useOtp
+                            ? 'USE PASSWORD'
+                            : 'LOGIN WITH OTP',
+                        style:
+                            const TextStyle(
+                          color:
+                              Color(0xFF00E5FF),
+                          fontSize: 9,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: login,
+                        child: Text(
+                          useOtp
+                              ? 'VERIFY OTP'
+                              : 'ENTER LIFEOS',
+                          style:
+                              const TextStyle(
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height: 8,
+                    ),
+
+                    TextButton(
+                      onPressed: () {
+                        message(
+                          'Secure password recovery will be connected to the authentication service.',
+                        );
+                      },
+                      child:
+                          const Text(
+                        'FORGOT PASSWORD?',
+                        style:
+                            TextStyle(
+                          fontSize: 8,
+                          color:
+                              Colors.white38,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget loginMode(
+    String text,
+    bool active,
+    VoidCallback action,
+  ) {
+    return GestureDetector(
+      onTap: action,
+      child: Container(
+        height: 42,
+        alignment:
+            Alignment.center,
+        decoration:
+            BoxDecoration(
+          color: active
+              ? const Color(
+                  0x2200E5FF,
+                )
+              : const Color(
+                  0xAA07131D,
+                ),
+          borderRadius:
+              BorderRadius.circular(8),
+          border: Border.all(
+            color: active
+                ? const Color(
+                    0x9900E5FF,
+                  )
+                : const Color(
+                    0x2200E5FF,
+                  ),
+          ),
+        ),
+        child: Text(
+          text,
+          style:
+              const TextStyle(
+            fontSize: 8,
+            letterSpacing: 2,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// ONBOARDING
+// ============================================================
+
+class OnboardingScreen
+    extends StatefulWidget {
+  final SharedPreferences prefs;
+  final VoidCallback refresh;
+
+  const OnboardingScreen({
+    super.key,
+    required this.prefs,
+    required this.refresh,
+  });
+
+  @override
+  State<OnboardingScreen> createState() =>
+      _OnboardingScreenState();
+}
+
+class _OnboardingScreenState
+    extends State<OnboardingScreen> {
+  final name =
+      TextEditingController();
+
+  int step = 0;
+
+  String country = 'India';
+  String currency = 'INR ₹';
+  String language = 'English';
+  String theme = 'Futuristic';
+
+  bool microphone = false;
+  bool notification = false;
+  bool calendar = false;
+  bool camera = false;
+
+  final countries = [
+    'India',
+    'United States',
+    'United Kingdom',
+    'Canada',
+    'Australia',
+    'United Arab Emirates',
+    'Singapore',
+    'Germany',
+    'France',
+    'Japan',
+  ];
+
+  String currencyFor(
+    String value,
+  ) {
+    switch (value) {
+      case 'United States':
+        return 'USD \$';
+      case 'United Kingdom':
+        return 'GBP £';
+      case 'Canada':
+        return 'CAD \$';
+      case 'Australia':
+        return 'AUD \$';
+      case 'United Arab Emirates':
+        return 'AED د.إ';
+      case 'Singapore':
+        return 'SGD \$';
+      case 'Germany':
+      case 'France':
+        return 'EUR €';
+      case 'Japan':
+        return 'JPY ¥';
+      default:
+        return 'INR ₹';
+    }
+  }
+
+  Future<void> finish() async {
+    if (name.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        const SnackBar(
+          content:
+              Text('Enter your name.'),
+        ),
+      );
+      return;
+    }
+
+    await widget.prefs.setString(
+      'name',
+      name.text.trim(),
+    );
+
+    await widget.prefs.setString(
+      'country',
+      country,
+    );
+
+    await widget.prefs.setString(
+      'currency',
+      currency,
+    );
+
+    await widget.prefs.setString(
+      'language',
+      language,
+    );
+
+    await widget.prefs.setString(
+      'theme',
+      theme,
+    );
+
+    await widget.prefs.setBool(
+      'permission_microphone',
+      microphone,
+    );
+
+    await widget.prefs.setBool(
+      'permission_notification',
+      notification,
+    );
+
+    await widget.prefs.setBool(
+      'permission_calendar',
+      calendar,
+    );
+
+    await widget.prefs.setBool(
+      'permission_camera',
+      camera,
+    );
+
+    await widget.prefs.setBool(
+      'onboarding_complete',
+      true,
+    );
+
+    widget.refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          const FutureBackground(),
+
+          SafeArea(
+            child: Padding(
+              padding:
+                  const EdgeInsets.all(22),
+              child: Column(
+                children: [
+                  const YansiOrb(
+                    size: 110,
+                  ),
+
+                  const SizedBox(
+                    height: 12,
+                  ),
+
+                  Text(
+                    step == 0
+                        ? 'YOUR IDENTITY'
+                        : step == 1
+                            ? 'YOUR WORLD'
+                            : step == 2
+                                ? 'YOUR STYLE'
+                                : 'YANSI ACCESS',
+                    style:
+                        const TextStyle(
+                      fontSize: 17,
+                      letterSpacing: 3,
+                    ),
+                  ),
+
+                  const SizedBox(
+                    height: 8,
+                  ),
+
+                  Expanded(
+                    child:
+                        onboardingPage(),
+                  ),
+
+                  SizedBox(
+                    width:
+                        double.infinity,
+                    height: 50,
+                    child:
+                        ElevatedButton(
+                      onPressed: () {
+                        if (step < 3) {
+                          setState(
+                            () => step++,
+                          );
+                        } else {
+                          finish();
+                        }
+                      },
+                      child: Text(
+                        step == 3
+                            ? 'ENTER LIFEOS'
+                            : 'CONTINUE',
+                        style:
+                            const TextStyle(
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget onboardingPage() {
+    if (step == 0) {
+      return Center(
+        child: TextField(
+          controller: name,
+          decoration:
+              const InputDecoration(
+            hintText:
+                'What should Yansi call you?',
+            prefixIcon:
+                Icon(
+              Icons.person_outline,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (step == 1) {
+      return Center(
+        child: Column(
+          mainAxisAlignment:
+              MainAxisAlignment.center,
+          children: [
+            DropdownButtonFormField<
+                String>(
+              value: country,
+              decoration:
+                  const InputDecoration(
+                labelText: 'COUNTRY',
+                prefixIcon:
+                    Icon(
+                  Icons.public,
+                ),
+              ),
+              items:
+                  countries.map(
+                (item) {
+                  return DropdownMenuItem(
+                    value: item,
+                    child:
+                        Text(item),
+                  );
+                },
+              ).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    country =
+                        value;
+                    currency =
+                        currencyFor(
+                            value);
+                  });
+                }
+              },
+            ),
+
+            const SizedBox(
+              height: 18,
+            ),
+
+            Container(
+              width:
+                  double.infinity,
+              padding:
+                  const EdgeInsets.all(
+                17,
+              ),
+              decoration:
+                  BoxDecoration(
+                color:
+                    const Color(
+                  0xCC07131D,
+                ),
+                borderRadius:
+                    BorderRadius.circular(
+                  11,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons
+                        .account_balance_wallet_outlined,
+                    color:
+                        Color(0xFF55FF88),
+                  ),
+                  const SizedBox(
+                    width: 12,
+                  ),
+                  Text(
+                    'Currency: $currency',
+                    style:
+                        const TextStyle(
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (step == 2) {
+      return ListView(
+        padding:
+            const EdgeInsets.only(
+          top: 20,
+        ),
+        children: [
+          choice(
+            Icons.palette_outlined,
+            'DESIGN',
+            theme,
+            () {
+              setState(() {
+                theme =
+                    theme == 'Futuristic'
+                        ? 'Midnight'
+                        : 'Futuristic';
+              });
+            },
+          ),
+          choice(
+            Icons.translate,
+            'LANGUAGE',
+            language,
+            () {
+              setState(() {
+                language =
+                    language == 'English'
+                        ? 'Hindi'
+                        : language == 'Hindi'
+                            ? 'Gujarati'
+                            : 'English';
+              });
+            },
+          ),
+          choice(
+            Icons.auto_awesome,
+            'YANSI',
+            'Ambient Ghost AI',
+            () {},
+          ),
+        ],
+      );
+    }
+
+    return ListView(
+      padding:
+          const EdgeInsets.only(
+        top: 12,
+      ),
+      children: [
+        permission(
+          Icons.mic_none,
+          'MICROPHONE',
+          'Voice interaction with Yansi',
+          microphone,
+          (v) => setState(
+            () => microphone = v,
+          ),
+        ),
+        permission(
+          Icons.notifications_none,
+          'NOTIFICATIONS',
+          'Read permitted useful notifications',
+          notification,
+          (v) => setState(
+            () => notification = v,
+          ),
+        ),
+        permission(
+          Icons.calendar_today_outlined,
+          'CALENDAR',
+          'Bills, renewals and important dates',
+          calendar,
+          (v) => setState(
+            () => calendar = v,
+          ),
+        ),
+        permission(
+          Icons.camera_alt_outlined,
+          'CAMERA',
+          'Receipt and bill scanning',
+          camera,
+          (v) => setState(
+            () => camera = v,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget choice(
+    IconData icon,
+    String title,
+    String value,
+    VoidCallback action,
+  ) {
+    return GestureDetector(
+      onTap: action,
+      child: Container(
+        margin:
+            const EdgeInsets.only(
+          bottom: 10,
+        ),
+        padding:
+            const EdgeInsets.all(15),
+        decoration:
+            BoxDecoration(
+          color:
+              const Color(0xCC07131D),
+          borderRadius:
+              BorderRadius.circular(10),
+          border: Border.all(
+            color:
+                const Color(0x2200E5FF),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color:
+                  const Color(0xFF55FF88),
+            ),
+            const SizedBox(
+              width: 12,
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style:
+                        const TextStyle(
+                      fontSize: 8,
+                      color:
+                          Colors.white38,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(
+                    height: 4,
+                  ),
+                  Text(
+                    value,
+                    style:
+                        const TextStyle(
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              size: 18,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget permission(
+    IconData icon,
+    String title,
+    String subtitle,
+    bool value,
+    ValueChanged<bool> change,
+  ) {
+    return Container(
+      margin:
+          const EdgeInsets.only(
+        bottom: 9,
+      ),
+      decoration:
+          BoxDecoration(
+        color:
+            const Color(0xCC07131D),
+        borderRadius:
+            BorderRadius.circular(10),
+      ),
+      child:
+          SwitchListTile(
+        value: value,
+        onChanged: change,
+        secondary: Icon(
+          icon,
+          color:
+              const Color(0xFF55FF88),
+        ),
+        title: Text(
+          title,
+          style:
+              const TextStyle(
+            fontSize: 9,
+            letterSpacing: 1,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style:
+              const TextStyle(
+            fontSize: 8,
+            color:
+                Colors.white38,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// HOME
+// ============================================================
+
+class HomeScreen
+    extends StatefulWidget {
+  final SharedPreferences prefs;
+
+  const HomeScreen({
+    super.key,
+    required this.prefs,
+  });
+
+  @override
+  State<HomeScreen> createState() =>
+      _HomeScreenState();
+}
+
+class _HomeScreenState
+    extends State<HomeScreen>
+    with
+        SingleTickerProviderStateMixin {
+  late AnimationController
+      animation;
+
+  final tts = FlutterTts();
+  final speech =
+      SpeechToText();
+
+  bool listening = false;
+  bool menuOpen = false;
+
+  String yansiMessage =
+      'Yansi is here whenever you need me.';
+
+  String get name =>
+      widget.prefs.getString(
+        'name',
+      ) ??
+      'User';
+
+  String get currency =>
+      widget.prefs.getString(
+        'currency',
+      ) ??
+      'INR ₹';
+
+  @override
+  void initState() {
+    super.initState();
+
+    animation = AnimationController(
+      vsync: this,
+      duration:
+          const Duration(
+        seconds: 10,
+      ),
+    )..repeat();
+
+    Future.delayed(
+      const Duration(
+        milliseconds: 900,
+      ),
+      welcome,
+    );
+  }
+
+  @override
+  void dispose() {
+    animation.dispose();
+    tts.stop();
+    speech.stop();
+    super.dispose();
+  }
+
+  Future<void> welcome() async {
+    final message =
+        'Welcome, $name. I’m Yansi, your personal LifeOS AI agent. I’m here whenever you need me.';
+
+    setState(() {
+      yansiMessage = message;
+    });
+
+    await tts.setLanguage(
+      'en-IN',
+    );
+
+    await tts.setSpeechRate(
+      .45,
+    );
+
+    await tts.speak(
+      message,
+    );
+  }
+
+  Future<void> listen() async {
+    if (listening) return;
+
+    final available =
+        await speech.initialize();
+
+    if (!available) {
+      setState(() {
+        yansiMessage =
+            'Microphone permission is required before Yansi can listen.';
+      });
+      return;
+    }
+
+    setState(() {
+      listening = true;
+      yansiMessage =
+          'Yansi is listening...';
+    });
+
+    String words = '';
+
+    await speech.listen(
+      onResult: (result) {
+        words =
+            result.recognizedWords;
+      },
+    );
+
+    await Future.delayed(
+      const Duration(
+        seconds: 5,
+      ),
+    );
+
+    await speech.stop();
+
+    setState(() {
+      listening = false;
+    });
+
+    if (words.trim().isNotEmpty) {
+      await understand(words);
+    }
+  }
+
+  Future<void> understand(
+    String text,
+  ) async {
+    final lower =
+        text.toLowerCase();
+
+    final number =
+        RegExp(
+      r'(\d+(?:\.\d+)?)',
+    ).firstMatch(lower);
+
+    double amount = 0;
+
+    if (number != null) {
+      amount =
+          double.tryParse(
+                number.group(1)!,
+              ) ??
+              0;
+    }
+
+    String type = 'note';
+    String category = 'Other';
+
+    if (contains(
+      lower,
+      [
+        'petrol',
+        'fuel',
+        'diesel',
+      ],
+    )) {
+      type = 'expense';
+      category = 'Fuel';
+    } else if (contains(
+      lower,
+      [
+        'food',
+        'lunch',
+        'dinner',
+        'restaurant',
+      ],
+    )) {
+      type = 'expense';
+      category = 'Food';
+    } else if (contains(
+      lower,
+      [
+        'medicine',
+        'doctor',
+        'hospital',
+      ],
+    )) {
+      type = 'expense';
+      category = 'Medical';
+    } else if (contains(
+      lower,
+      [
+        'grocery',
+        'milk',
+        'vegetable',
+        'shopping',
+      ],
+    )) {
+      type = 'household';
+      category =
+          'Household';
+    } else if (contains(
+      lower,
+      [
+        'goal',
+        'target',
+        'achieve',
+      ],
+    )) {
+      type = 'goal';
+      category = 'Goal';
+    } else if (contains(
+      lower,
+      [
+        'task',
+        'todo',
+        'to do',
+        'finish',
+        'complete',
+      ],
+    )) {
+      type = 'productivity';
+      category =
+          'Task';
+    } else if (contains(
+      lower,
+      [
+        'remind',
+        'birthday',
+        'anniversary',
+        'appointment',
+        'bill',
+        'tomorrow',
+        'due',
+      ],
+    )) {
+      type = 'calendar';
+      category =
+          'Calendar';
+    }
+
+    await saveEntry(
+      type,
+      category,
+      text,
+      amount,
+    );
+
+    String response;
+
+    if (type == 'expense' &&
+        amount > 0) {
+      response =
+          'Got it. I added $currency${amount.toStringAsFixed(0)} to $category for today.';
+    } else if (type == 'productivity') {
+      response =
+          'Done. I added that to your productivity.';
+    } else if (type == 'goal') {
+      response =
+          'Done. I added that to your goals.';
+    } else if (type == 'household') {
+      response =
+          'Done. I added that to your household list.';
+    } else if (type == 'calendar') {
+      response =
+          'Done. I added that to your calendar.';
+    } else {
+      response =
+          'I heard you and saved that in LifeOS.';
+    }
+
+    setState(() {
+      yansiMessage = response;
+    });
+
+    await tts.speak(
+      response,
+    );
+  }
+
+  bool contains(
+    String text,
+    List<String> words,
+  ) {
+    return words.any(
+      text.contains,
+    );
+  }
+
+  Future<void> saveEntry(
+    String type,
+    String category,
+    String text,
+    double amount,
+  ) async {
+    final raw =
+        widget.prefs.getString(
+      'lifeos_entries',
+    );
+
+    List entries = [];
+
+    if (raw != null) {
+      try {
+        entries =
+            jsonDecode(raw);
+      } catch (_) {}
+    }
+
+    entries.insert(
+      0,
+      {
+        'type': type,
+        'category': category,
+        'text': text,
+        'amount': amount,
+        'date':
+            DateTime.now()
+                .toIso8601String(),
+      },
+    );
+
+    await widget.prefs.setString(
+      'lifeos_entries',
+      jsonEncode(entries),
+    );
+  }
+
+  void openCore(
+    String title,
+    String type,
+    IconData icon,
+  ) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            CoreScreen(
+          prefs:
+              widget.prefs,
+          title: title,
+          type: type,
+          icon: icon,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          const FutureBackground(),
+
+          SafeArea(
+            child: Column(
+              children: [
+                header(),
+
+                Expanded(
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Column(
+                          children: [
+                            const SizedBox(
+                              height: 14,
+                            ),
+
+                            Text(
+                              name
+                                  .toUpperCase(),
+                              style:
+                                  const TextStyle(
+                                fontSize: 8,
+                                color:
+                                    Colors.white38,
+                                letterSpacing:
+                                    3,
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height: 4,
+                            ),
+
+                            const Text(
+                              'LIFE INTELLIGENCE',
+                              style:
+                                  TextStyle(
+                                fontSize: 15,
+                                letterSpacing:
+                                    2,
+                              ),
+                            ),
+
+                            Expanded(
+                              child:
+                                  LayoutBuilder(
+                                builder:
+                                    (
+                                  context,
+                                  box,
+                                ) {
+                                  return Stack(
+                                    alignment:
+                                        Alignment.center,
+                                    children: [
+                                      AnimatedBuilder(
+                                        animation:
+                                            animation,
+                                        builder:
+                                            (
+                                          context,
+                                          child,
+                                        ) {
+                                          return Transform.rotate(
+                                            angle:
+                                                animation.value *
+                                                    math.pi *
+                                                    2,
+                                            child:
+                                                CustomPaint(
+                                              size:
+                                                  const Size(
+                                                310,
+                                                310,
+                                              ),
+                                              painter:
+                                                  NeuralPainter(),
+                                            ),
+                                          );
+                                        },
+                                      ),
+
+                                      GestureDetector(
+                                        onTap:
+                                            listen,
+                                        child:
+                                            const YansiOrb(
+                                          size:
+                                              145,
+                                        ),
+                                      ),
+
+                                      node(
+                                        alignment:
+                                            const Alignment(
+                                          0,
+                                          -.78,
+                                        ),
+                                        icon:
+                                            Icons.account_balance_wallet_outlined,
+                                        action:
+                                            () => openCore(
+                                          'EXPENSE',
+                                          'expense',
+                                          Icons.account_balance_wallet_outlined,
+                                        ),
+                                      ),
+
+                                      node(
+                                        alignment:
+                                            const Alignment(
+                                          .82,
+                                          -.20,
+                                        ),
+                                        icon:
+                                            Icons.flag_outlined,
+                                        action:
+                                            () => openCore(
+                                          'GOALS',
+                                          'goal',
+                                          Icons.flag_outlined,
+                                        ),
+                                      ),
+
+                                      node(
+                                        alignment:
+                                            const Alignment(
+                                          .56,
+                                          .67,
+                                        ),
+                                        icon:
+                                            Icons.bolt_outlined,
+                                        action:
+                                            () => openCore(
+                                          'PRODUCTIVITY',
+                                          'productivity',
+                                          Icons.bolt_outlined,
+                                        ),
+                                      ),
+
+                                      node(
+                                        alignment:
+                                            const Alignment(
+                                          -.56,
+                                          .67,
+                                        ),
+                                        icon:
+                                            Icons.shopping_bag_outlined,
+                                        action:
+                                            () => openCore(
+                                          'HOUSEHOLD',
+                                          'household',
+                                          Icons.shopping_bag_outlined,
+                                        ),
+                                      ),
+
+                                      node(
+                                        alignment:
+                                            const Alignment(
+                                          -.82,
+                                          -.20,
+                                        ),
+                                        icon:
+                                            Icons.calendar_today_outlined,
+                                        action:
+                                            () => openCore(
+                                          'CALENDAR',
+                                          'calendar',
+                                          Icons.calendar_today_outlined,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+
+                            Container(
+                              margin:
+                                  const EdgeInsets
+                                      .symmetric(
+                                horizontal:
+                                    18,
+                              ),
+                              padding:
+                                  const EdgeInsets
+                                      .symmetric(
+                                horizontal:
+                                    13,
+                                vertical:
+                                    11,
+                              ),
+                              decoration:
+                                  BoxDecoration(
+                                color:
+                                    const Color(
+                                  0xCC07131D,
+                                ),
+                                borderRadius:
+                                    BorderRadius
+                                        .circular(
+                                  10,
+                                ),
+                                border:
+                                    Border.all(
+                                  color:
+                                      const Color(
+                                    0x3300E5FF,
+                                  ),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons
+                                        .auto_awesome,
+                                    size: 14,
+                                    color:
+                                        Color(
+                                      0xFF55FF88,
+                                    ),
+                                  ),
+                                  const SizedBox(
+                                    width: 9,
+                                  ),
+                                  Expanded(
+                                    child:
+                                        Text(
+                                      yansiMessage,
+                                      maxLines:
+                                          2,
+                                      overflow:
+                                          TextOverflow
+                                              .ellipsis,
+                                      style:
+                                          const TextStyle(
+                                        fontSize:
+                                            8,
+                                        color:
+                                            Colors.white60,
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.circle,
+                                    size: 5,
+                                    color:
+                                        Color(
+                                      0xFF55FF88,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height: 12,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          if (menuOpen)
+            controlCenter(),
+        ],
+      ),
+    );
+  }
+
+  Widget header() {
+    return Padding(
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 5,
+      ),
+      child: Row(
+        children: [
+          topButton(
+            Icons.menu_rounded,
+            () {
+              setState(
+                () => menuOpen =
+                    !menuOpen,
+              );
+            },
+          ),
+          const Spacer(),
+          const Text(
+            'L I F E O S',
+            style:
+                TextStyle(
+              fontSize: 12,
+              letterSpacing: 5,
+            ),
+          ),
+          const Spacer(),
+          topButton(
+            Icons.notifications_none_rounded,
+            () {},
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget topButton(
+    IconData icon,
+    VoidCallback action,
+  ) {
+    return GestureDetector(
+      onTap: action,
+      child: Container(
+        width: 30,
+        height: 27,
+        decoration:
+            BoxDecoration(
+          color:
+              const Color(0xDD061219),
+          borderRadius:
+              BorderRadius.circular(7),
+          border:
+              Border.all(
+            color:
+                const Color(0x3300E5FF),
+          ),
+        ),
+        child: Icon(
+          icon,
+          size: 15,
+          color:
+              const Color(0xFF55FF88),
+        ),
+      ),
+    );
+  }
+
+  Widget node({
+    required Alignment alignment,
+    required IconData icon,
+    required VoidCallback action,
+  }) {
+    return Align(
+      alignment: alignment,
+      child: GestureDetector(
+        onTap: action,
+        child: Container(
+          width: 55,
+          height: 55,
+          decoration:
+              BoxDecoration(
+            shape: BoxShape.circle,
+            color:
+                const Color(0xDD07151C),
+            border:
+                Border.all(
+              color:
+                  const Color(0x7700E5FF),
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color:
+                    Color(0x3300E5FF),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Icon(
+            icon,
+            size: 21,
+            color:
+                const Color(0xFF55FF88),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget controlCenter() {
+    return Positioned(
+      top: 45,
+      left: 7,
+      child: Container(
+        width: 225,
+        padding:
+            const EdgeInsets.all(
+          15,
+        ),
+        decoration:
+            BoxDecoration(
+          color:
+              const Color(0xFF061219),
+          borderRadius:
+              BorderRadius.circular(
+            12,
+          ),
+          border:
+              Border.all(
+            color:
+                const Color(0x6600E5FF),
+          ),
+          boxShadow:
+              const [
+            BoxShadow(
+              color:
+                  Color(0x5500E5FF),
+              blurRadius: 25,
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'CONTROL CENTER',
+              style:
+                  TextStyle(
+                color:
+                    Color(0xFF00E5FF),
+                fontSize: 9,
+                letterSpacing: 2,
+              ),
+            ),
+
+            const SizedBox(
+              height: 10,
+            ),
+
+            menuItem(
+              Icons.auto_awesome,
+              'YANSI',
+            ),
+
+            menuItem(
+              Icons.insights_outlined,
+              'LIFE REPORT',
+            ),
+
+            menuItem(
+              Icons.person_outline,
+              'PROFILE',
+            ),
+
+            menuItem(
+              Icons.security_outlined,
+              'PRIVACY',
+            ),
+
+            menuItem(
+              Icons.settings_outlined,
+              'SETTINGS',
+            ),
+
+            menuItem(
+              Icons.logout,
+              'LOG OUT',
+              logout: true,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget menuItem(
+    IconData icon,
+    String text, {
+    bool logout = false,
+  }) {
+    return GestureDetector(
+      onTap: logout
+          ? () {
+              widget.prefs
+                  .setBool(
+                'logged_in',
+                false,
+              );
+
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      LifeOS(
+                    prefs:
+                        widget.prefs,
+                  ),
+                ),
+                (_) => false,
+              );
+            }
+          : null,
