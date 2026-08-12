@@ -3,6 +3,8 @@
 /// Read-only analysis can proceed immediately. Mutating or sensitive actions
 /// require an explicit confirmation token from the UI/voice layer.
 class YansiActionExecutionGuard {
+  const YansiActionExecutionGuard();
+
   static const Set<String> _mutatingActions = {
     'add_expense',
     'delete_expense',
