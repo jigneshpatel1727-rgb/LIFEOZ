@@ -27,6 +27,16 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Cache Gradle
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('android/**/gradle-wrapper.properties', 'android/**/build.gradle*', 'android/**/settings.gradle*') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
       - name: Generate Android project
         run: flutter create --platforms=android .
 
@@ -81,7 +91,22 @@ jobs:
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Build LifeOS APK
-        run: flutter build apk --release --no-shrink
+        run: |
+          set -e
+          for attempt in 1 2 3; do
+            echo "APK build attempt $attempt of 3"
+            if flutter build apk --release --no-shrink; then
+              echo "APK build succeeded"
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Gradle/network failure. Waiting before retry..."
+              rm -rf ~/.gradle/wrapper/dists
+              sleep 15
+            fi
+          done
+          echo "APK build failed after 3 attempts"
+          exit 1
 
       - name: Upload LifeOS APK
         uses: actions/upload-artifact@v4
