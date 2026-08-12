@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ReceiptScannerScreen extends StatefulWidget {
@@ -18,135 +20,470 @@ class _ReceiptScannerScreenState
     extends State<ReceiptScannerScreen> {
   final ImagePicker _picker = ImagePicker();
 
+  final TextRecognizer _recognizer =
+      TextRecognizer(
+    script: TextRecognitionScript.latin,
+  );
+
   File? _image;
 
   bool _processing = false;
 
   String _status = 'READY';
 
+  String _recognizedText = '';
+
+  List<Map<String, dynamic>> _items = [];
+
+  double _total = 0;
+
+  @override
+  void dispose() {
+    _recognizer.close();
+    super.dispose();
+  }
+
+  // ==========================================================
+  // CAMERA
+  // ==========================================================
+
   Future<void> _scanReceipt() async {
+    final image =
+        await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 95,
+    );
+
+    if (image == null) return;
+
+    await _analyseImage(
+      File(image.path),
+    );
+  }
+
+  // ==========================================================
+  // GALLERY
+  // ==========================================================
+
+  Future<void> _chooseFromGallery() async {
+    final image =
+        await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 95,
+    );
+
+    if (image == null) return;
+
+    await _analyseImage(
+      File(image.path),
+    );
+  }
+
+  // ==========================================================
+  // OCR
+  // ==========================================================
+
+  Future<void> _analyseImage(
+    File image,
+  ) async {
+    setState(() {
+      _image = image;
+      _processing = true;
+      _status = 'YANSI IS READING';
+      _recognizedText = '';
+      _items = [];
+      _total = 0;
+    });
+
     try {
-      final image = await _picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 90,
+      final inputImage =
+          InputImage.fromFile(
+        image,
       );
 
-      if (image == null) return;
+      final result =
+          await _recognizer.processImage(
+        inputImage,
+      );
 
-      setState(() {
-        _image = File(image.path);
-        _processing = true;
-        _status = 'ANALYSING BILL';
-      });
+      final text =
+          result.text.trim();
 
-      /*
-       * STEP 6 FOUNDATION
-       *
-       * The photograph is now captured.
-       *
-       * The next intelligence layer will:
-       *
-       * IMAGE
-       *   ↓
-       * OCR
-       *   ↓
-       * STORE NAME
-       *   ↓
-       * ITEMS
-       *   ↓
-       * PRICES
-       *   ↓
-       * CATEGORY
-       *   ↓
-       * YANSI MEMORY
-       *
-       * We deliberately don't pretend OCR has happened yet.
-       */
+      final items =
+          _extractItems(text);
 
-      await Future.delayed(
-        const Duration(
-          milliseconds: 700,
-        ),
+      final total =
+          _extractTotal(
+        text,
+        items,
       );
 
       if (!mounted) return;
 
       setState(() {
+        _recognizedText = text;
+        _items = items;
+        _total = total;
         _processing = false;
-        _status = 'BILL CAPTURED';
+        _status = items.isEmpty
+            ? 'TEXT CAPTURED'
+            : 'BILL UNDERSTOOD';
       });
     } catch (e) {
       if (!mounted) return;
 
       setState(() {
         _processing = false;
-        _status = 'CAMERA ERROR';
+        _status = 'SCAN FAILED';
       });
     }
   }
 
-  Future<void> _chooseFromGallery() async {
-    try {
-      final image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 90,
-      );
+  // ==========================================================
+  // ITEM EXTRACTION
+  // ==========================================================
 
-      if (image == null) return;
+  List<Map<String, dynamic>> _extractItems(
+    String text,
+  ) {
+    final result =
+        <Map<String, dynamic>>[];
 
-      setState(() {
-        _image = File(image.path);
-        _processing = true;
-        _status = 'ANALYSING BILL';
-      });
+    final lines =
+        text.split('\n');
 
-      await Future.delayed(
-        const Duration(
-          milliseconds: 700,
-        ),
-      );
+    for (final rawLine in lines) {
+      final line =
+          rawLine.trim();
 
-      if (!mounted) return;
+      if (line.isEmpty) continue;
 
-      setState(() {
-        _processing = false;
-        _status = 'BILL CAPTURED';
-      });
-    } catch (_) {
-      if (!mounted) return;
+      final price =
+          _extractPrice(line);
 
-      setState(() {
-        _processing = false;
-        _status = 'IMAGE ERROR';
+      if (price == null) continue;
+
+      final cleaned =
+          _cleanItemName(line);
+
+      if (cleaned.isEmpty) continue;
+
+      if (_looksLikeTotal(cleaned)) {
+        continue;
+      }
+
+      result.add({
+        'name': cleaned,
+        'price': price,
+        'category':
+            _categoryFor(cleaned),
       });
     }
+
+    return result;
   }
 
-  Future<void> _saveScanRecord() async {
-    if (_image == null) return;
+  // ==========================================================
+  // PRICE EXTRACTION
+  // ==========================================================
+
+  double? _extractPrice(
+    String line,
+  ) {
+    final cleaned =
+        line
+            .replaceAll(
+              ',',
+              '',
+            )
+            .replaceAll(
+              '₹',
+              '',
+            );
+
+    final matches =
+        RegExp(
+      r'(\d+(?:\.\d{1,2})?)',
+    ).allMatches(
+      cleaned,
+    );
+
+    if (matches.isEmpty) {
+      return null;
+    }
+
+    final values =
+        matches
+            .map(
+              (m) =>
+                  double.tryParse(
+                m.group(1)!,
+              ),
+            )
+            .whereType<double>()
+            .toList();
+
+    if (values.isEmpty) {
+      return null;
+    }
+
+    return values.last;
+  }
+
+  // ==========================================================
+  // ITEM NAME
+  // ==========================================================
+
+  String _cleanItemName(
+    String line,
+  ) {
+    final value =
+        line
+            .replaceAll(
+              RegExp(
+                r'₹?\s*\d+(?:,\d{3})*(?:\.\d{1,2})?',
+              ),
+              '',
+            )
+            .replaceAll(
+              RegExp(
+                r'\s+',
+              ),
+              ' ',
+            )
+            .trim();
+
+    return value;
+  }
+
+  // ==========================================================
+  // TOTAL
+  // ==========================================================
+
+  double _extractTotal(
+    String text,
+    List<Map<String, dynamic>> items,
+  ) {
+    final lines =
+        text.split('\n');
+
+    for (final line in lines) {
+      final lower =
+          line.toLowerCase();
+
+      if (lower.contains('grand total') ||
+          lower.contains('net total') ||
+          lower.contains('total amount') ||
+          lower == 'total' ||
+          lower.startsWith('total ')) {
+        final value =
+            _extractPrice(line);
+
+        if (value != null) {
+          return value;
+        }
+      }
+    }
+
+    double sum = 0;
+
+    for (final item in items) {
+      final price =
+          (item['price'] as num?)
+              ?.toDouble();
+
+      if (price != null) {
+        sum += price;
+      }
+    }
+
+    return sum;
+  }
+
+  // ==========================================================
+  // TOTAL LINE CHECK
+  // ==========================================================
+
+  bool _looksLikeTotal(
+    String text,
+  ) {
+    final lower =
+        text.toLowerCase();
+
+    return lower.contains('total') ||
+        lower.contains('subtotal') ||
+        lower.contains('tax') ||
+        lower.contains('gst') ||
+        lower.contains('discount') ||
+        lower.contains('cash') ||
+        lower.contains('change');
+  }
+
+  // ==========================================================
+  // CATEGORY
+  // ==========================================================
+
+  String _categoryFor(
+    String item,
+  ) {
+    final lower =
+        item.toLowerCase();
+
+    if (_containsAny(
+      lower,
+      [
+        'milk',
+        'bread',
+        'rice',
+        'flour',
+        'sugar',
+        'oil',
+        'dal',
+        'atta',
+        'vegetable',
+        'fruit',
+        'grocery',
+        'biscuit',
+      ],
+    )) {
+      return 'Grocery';
+    }
+
+    if (_containsAny(
+      lower,
+      [
+        'shirt',
+        'tshirt',
+        't-shirt',
+        'pant',
+        'jeans',
+        'dress',
+        'kurta',
+        'shoe',
+        'sandal',
+        'clothing',
+      ],
+    )) {
+      return 'Clothing';
+    }
+
+    if (_containsAny(
+      lower,
+      [
+        'soap',
+        'shampoo',
+        'toothpaste',
+        'detergent',
+        'cleaner',
+        'tissue',
+      ],
+    )) {
+      return 'Household';
+    }
+
+    if (_containsAny(
+      lower,
+      [
+        'phone',
+        'charger',
+        'headphone',
+        'earphone',
+        'laptop',
+        'electronics',
+      ],
+    )) {
+      return 'Electronics';
+    }
+
+    return 'Other';
+  }
+
+  bool _containsAny(
+    String text,
+    List<String> words,
+  ) {
+    for (final word in words) {
+      if (text.contains(word)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // ==========================================================
+  // SAVE TO YANSI MEMORY
+  // ==========================================================
+
+  Future<void> _saveToYansi() async {
+    if (_items.isEmpty &&
+        _recognizedText.isEmpty) {
+      return;
+    }
 
     final prefs =
         await SharedPreferences.getInstance();
 
-    final scans =
+    final record = {
+      'id':
+          DateTime.now()
+              .microsecondsSinceEpoch
+              .toString(),
+      'type':
+          'receipt',
+      'date':
+          DateTime.now()
+              .toIso8601String(),
+      'total':
+          _total,
+      'items':
+          _items,
+      'rawText':
+          _recognizedText,
+      'source':
+          'camera',
+    };
+
+    final existing =
         prefs.getStringList(
-              'yansi_receipt_scans',
+              'yansi_receipts',
             ) ??
             <String>[];
 
-    scans.add(
-      DateTime.now()
-          .toIso8601String(),
+    existing.add(
+      jsonEncode(record),
     );
 
     await prefs.setStringList(
-      'yansi_receipt_scans',
-      scans,
+      'yansi_receipts',
+      existing,
+    );
+
+    final memory =
+        prefs.getStringList(
+              'yansi_memory',
+            ) ??
+            <String>[];
+
+    memory.add(
+      jsonEncode(record),
+    );
+
+    await prefs.setStringList(
+      'yansi_memory',
+      memory,
     );
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    setState(() {
+      _status =
+          'SAVED TO YANSI';
+    });
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(
       const SnackBar(
         content: Text(
           'Bill saved to Yansi memory.',
@@ -154,6 +491,10 @@ class _ReceiptScannerScreenState
       ),
     );
   }
+
+  // ==========================================================
+  // UI
+  // ==========================================================
 
   @override
   Widget build(
@@ -167,10 +508,10 @@ class _ReceiptScannerScreenState
         backgroundColor:
             Colors.transparent,
         elevation: 0,
-
         title: const Text(
           'YANSI SCAN',
-          style: TextStyle(
+          style:
+              TextStyle(
             fontSize: 13,
             letterSpacing: 2.5,
           ),
@@ -178,266 +519,368 @@ class _ReceiptScannerScreenState
       ),
 
       body: SafeArea(
-        child: Padding(
-          padding:
-              const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Expanded(
+              child:
+                  SingleChildScrollView(
+                padding:
+                    const EdgeInsets.all(18),
+                child: Column(
+                  children: [
+                    _imageBox(),
 
-          child: Column(
-            children: [
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-
-                  decoration:
-                      BoxDecoration(
-                    borderRadius:
-                        BorderRadius.circular(30),
-
-                    border:
-                        Border.all(
-                      color:
-                          const Color(
-                        0xFF00E5FF,
-                      ).withOpacity(.25),
+                    const SizedBox(
+                      height: 14,
                     ),
 
-                    color:
-                        const Color(
-                      0xFF061118,
-                    ),
-                  ),
-
-                  child:
-                      _image == null
-                          ? _emptyScanner()
-                          : ClipRRect(
-                              borderRadius:
-                                  BorderRadius.circular(
-                                30,
-                              ),
-                              child:
-                                  Image.file(
-                                _image!,
-                                fit:
-                                    BoxFit.cover,
-                              ),
-                            ),
-                ),
-              ),
-
-              const SizedBox(
-                height: 16,
-              ),
-
-              Text(
-                _status,
-                style:
-                    const TextStyle(
-                  color:
-                      Color(0xFF76FFFF),
-                  fontSize: 10,
-                  letterSpacing: 2,
-                ),
-              ),
-
-              const SizedBox(
-                height: 16,
-              ),
-
-              if (_processing)
-                const Padding(
-                  padding:
-                      EdgeInsets.only(
-                    bottom: 16,
-                  ),
-                  child:
-                      LinearProgressIndicator(
-                    color:
-                        Color(0xFF00E5FF),
-                    backgroundColor:
-                        Color(0xFF10252B),
-                  ),
-                ),
-
-              Row(
-                children: [
-                  Expanded(
-                    child:
-                        _actionButton(
-                      icon:
-                          Icons.camera_alt_outlined,
-                      text:
-                          'SCAN',
-                      onTap:
-                          _scanReceipt,
-                    ),
-                  ),
-
-                  const SizedBox(
-                    width: 12,
-                  ),
-
-                  Expanded(
-                    child:
-                        _actionButton(
-                      icon:
-                          Icons.photo_library_outlined,
-                      text:
-                          'GALLERY',
-                      onTap:
-                          _chooseFromGallery,
-                    ),
-                  ),
-                ],
-              ),
-
-              if (_image != null) ...[
-                const SizedBox(
-                  height: 12,
-                ),
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-
-                  child:
-                      ElevatedButton(
-                    onPressed:
-                        _processing
-                            ? null
-                            : _saveScanRecord,
-
-                    style:
-                        ElevatedButton.styleFrom(
-                      backgroundColor:
-                          const Color(
-                        0xFF00E5FF,
-                      ),
-                      foregroundColor:
-                          const Color(
-                        0xFF02070B,
-                      ),
-                      shape:
-                          RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(
-                          16,
-                        ),
-                      ),
-                    ),
-
-                    child:
-                        const Text(
-                      'SAVE TO YANSI',
+                    Text(
+                      _status,
                       style:
-                          TextStyle(
-                        fontWeight:
-                            FontWeight.bold,
-                        letterSpacing:
-                            1.5,
+                          const TextStyle(
+                        color:
+                            Color(0xFF76FFFF),
+                        fontSize: 10,
+                        letterSpacing: 2,
                       ),
                     ),
-                  ),
+
+                    if (_items.isNotEmpty) ...[
+                      const SizedBox(
+                        height: 18,
+                      ),
+                      _summaryCard(),
+                      const SizedBox(
+                        height: 14,
+                      ),
+                      _itemsCard(),
+                    ],
+
+                    if (_recognizedText
+                        .isNotEmpty) ...[
+                      const SizedBox(
+                        height: 14,
+                      ),
+                      _rawTextCard(),
+                    ],
+                  ],
                 ),
-              ],
-            ],
-          ),
+              ),
+            ),
+
+            _bottomButtons(),
+          ],
         ),
       ),
     );
   }
 
-  Widget _emptyScanner() {
-    return Column(
-      mainAxisAlignment:
-          MainAxisAlignment.center,
+  Widget _imageBox() {
+    return Container(
+      height: 270,
+      width: double.infinity,
+      decoration:
+          BoxDecoration(
+        borderRadius:
+            BorderRadius.circular(28),
+        color:
+            const Color(0xFF061118),
+        border:
+            Border.all(
+          color:
+              const Color(0xFF00E5FF)
+                  .withOpacity(.20),
+        ),
+      ),
+      child: _image == null
+          ? const Center(
+              child: Icon(
+                Icons.document_scanner_outlined,
+                size: 55,
+                color:
+                    Color(0xFF00E5FF),
+              ),
+            )
+          : ClipRRect(
+              borderRadius:
+                  BorderRadius.circular(28),
+              child:
+                  Image.file(
+                _image!,
+                fit:
+                    BoxFit.cover,
+              ),
+            ),
+    );
+  }
 
-      children: [
-        Container(
-          width: 90,
-          height: 90,
-
-          decoration:
-              BoxDecoration(
-            shape:
-                BoxShape.circle,
-
-            color:
-                const Color(
-              0xFF00E5FF,
-            ).withOpacity(.06),
-
-            border:
-                Border.all(
+  Widget _summaryCard() {
+    return Container(
+      padding:
+          const EdgeInsets.all(20),
+      decoration:
+          BoxDecoration(
+        borderRadius:
+            BorderRadius.circular(22),
+        color:
+            const Color(0xFF061118),
+        border:
+            Border.all(
+          color:
+              const Color(0xFF00E5FF)
+                  .withOpacity(.12),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment:
+            MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'YANSI ANALYSIS',
+                style:
+                    TextStyle(
+                  color:
+                      Color(0xFF76FFFF),
+                  fontSize: 9,
+                  letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(
+                height: 8,
+              ),
+              Text(
+                '${_items.length} ITEMS',
+                style:
+                    const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            '₹${_total.toStringAsFixed(2)}',
+            style:
+                const TextStyle(
               color:
-                  const Color(
-                0xFF00E5FF,
-              ).withOpacity(.25),
+                  Color(0xFF76FFFF),
+              fontSize: 24,
+              fontWeight:
+                  FontWeight.bold,
             ),
           ),
+        ],
+      ),
+    );
+  }
 
-          child: const Icon(
-            Icons.document_scanner_outlined,
-            color:
-                Color(0xFF00E5FF),
-            size: 38,
-          ),
+  Widget _itemsCard() {
+    return Container(
+      padding:
+          const EdgeInsets.all(16),
+      decoration:
+          BoxDecoration(
+        borderRadius:
+            BorderRadius.circular(22),
+        color:
+            const Color(0xFF061118),
+        border:
+            Border.all(
+          color:
+              const Color(0xFF00E5FF)
+                  .withOpacity(.10),
         ),
+      ),
+      child: Column(
+        children:
+            _items.map(
+          (item) {
+            return Padding(
+              padding:
+                  const EdgeInsets.only(
+                bottom: 10,
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.auto_awesome,
+                    size: 16,
+                    color:
+                        Color(0xFF00E5FF),
+                  ),
+                  const SizedBox(
+                    width: 10,
+                  ),
+                  Expanded(
+                    child: Text(
+                      '${item['name']} • ${item['category']}',
+                      style:
+                          const TextStyle(
+                        color:
+                            Colors.white70,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '₹${(item['price'] as num).toStringAsFixed(2)}',
+                    style:
+                        const TextStyle(
+                      color:
+                          Color(0xFF76FFFF),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ).toList(),
+      ),
+    );
+  }
 
-        const SizedBox(
-          height: 20,
+  Widget _rawTextCard() {
+    return ExpansionTile(
+      collapsedIconColor:
+          Colors.white38,
+      iconColor:
+          const Color(0xFF00E5FF),
+      title: const Text(
+        'OCR TEXT',
+        style:
+            TextStyle(
+          color:
+              Colors.white54,
+          fontSize: 10,
+          letterSpacing: 1.5,
         ),
-
-        const Text(
-          'SHOW YANSI THE BILL',
-          style:
-              TextStyle(
-            color:
-                Colors.white,
-            fontSize: 15,
-            letterSpacing: 1.5,
-          ),
-        ),
-
-        const SizedBox(
-          height: 8,
-        ),
-
-        const Text(
-          'Grocery • Clothing • Mall • Household',
-          textAlign:
-              TextAlign.center,
-          style:
-              TextStyle(
-            color:
-                Colors.white38,
-            fontSize: 11,
+      ),
+      children: [
+        Padding(
+          padding:
+              const EdgeInsets.all(16),
+          child: Text(
+            _recognizedText,
+            style:
+                const TextStyle(
+              color:
+                  Colors.white54,
+              fontSize: 11,
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _actionButton({
-    required IconData icon,
-    required String text,
-    required VoidCallback onTap,
-  }) {
+  Widget _bottomButtons() {
+    return Padding(
+      padding:
+          const EdgeInsets.fromLTRB(
+        18,
+        8,
+        18,
+        18,
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child:
+                    _button(
+                  Icons.camera_alt_outlined,
+                  'SCAN',
+                  _processing
+                      ? null
+                      : _scanReceipt,
+                ),
+              ),
+              const SizedBox(
+                width: 10,
+              ),
+              Expanded(
+                child:
+                    _button(
+                  Icons.photo_library_outlined,
+                  'GALLERY',
+                  _processing
+                      ? null
+                      : _chooseFromGallery,
+                ),
+              ),
+            ],
+          ),
+
+          if (_items.isNotEmpty) ...[
+            const SizedBox(
+              height: 10,
+            ),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child:
+                  ElevatedButton(
+                onPressed:
+                    _processing
+                        ? null
+                        : _saveToYansi,
+                style:
+                    ElevatedButton.styleFrom(
+                  backgroundColor:
+                      const Color(
+                    0xFF00E5FF,
+                  ),
+                  foregroundColor:
+                      const Color(
+                    0xFF02070B,
+                  ),
+                  shape:
+                      RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(
+                      16,
+                    ),
+                  ),
+                ),
+                child:
+                    const Text(
+                  'SAVE TO YANSI MEMORY',
+                  style:
+                      TextStyle(
+                    fontWeight:
+                        FontWeight.bold,
+                    letterSpacing:
+                        1.2,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _button(
+    IconData icon,
+    String text,
+    VoidCallback? action,
+  ) {
     return SizedBox(
       height: 52,
-
       child:
           OutlinedButton.icon(
-        onPressed:
-            _processing
-                ? null
-                : onTap,
-
+        onPressed: action,
         icon: Icon(
           icon,
           size: 18,
         ),
-
         label:
             Text(
           text,
@@ -447,14 +890,12 @@ class _ReceiptScannerScreenState
             letterSpacing: 1.2,
           ),
         ),
-
         style:
             OutlinedButton.styleFrom(
           foregroundColor:
               const Color(
             0xFF00E5FF,
           ),
-
           side:
               BorderSide(
             color:
@@ -462,7 +903,6 @@ class _ReceiptScannerScreenState
               0xFF00E5FF,
             ).withOpacity(.35),
           ),
-
           shape:
               RoundedRectangleBorder(
             borderRadius:
