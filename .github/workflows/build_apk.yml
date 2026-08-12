@@ -35,16 +35,19 @@ jobs:
           from pathlib import Path
           path = Path('android/app/build.gradle.kts')
           text = path.read_text()
-
-          # Keep release builds reliable for ML Kit and avoid R8 missing-class failures.
-          text = text.replace(
-              'isMinifyEnabled = true',
-              'isMinifyEnabled = false'
-          )
-          text = text.replace(
-              'isShrinkResources = true',
-              'isShrinkResources = false'
-          )
+          text = text.replace('isMinifyEnabled = true', 'isMinifyEnabled = false')
+          text = text.replace('isShrinkResources = true', 'isShrinkResources = false')
+          deps = '''
+          
+          dependencies {
+              implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+              implementation("com.google.mlkit:text-recognition-devanagari:16.0.1")
+              implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
+              implementation("com.google.mlkit:text-recognition-korean:16.0.1")
+          }
+          '''
+          if 'text-recognition-chinese:16.0.1' not in text:
+              text += deps
           path.write_text(text)
           PY
 
