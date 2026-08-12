@@ -1,264 +1,387 @@
-import '../models/life_memory.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// ============================================================
-/// YANSI BRAIN V2
+/// YANSI BRAIN
 /// ============================================================
 ///
 /// Local intelligence layer for LifeOS.
 ///
-/// Responsibilities:
-/// - Understand natural language
-/// - Identify LifeOS core
-/// - Detect category
-/// - Extract money
-/// - Detect common household items
-/// - Detect tasks
-/// - Detect goals
-/// - Detect diary/emotional signals
-/// - Detect calendar/date signals
-/// - Produce a natural Yansi response
+/// Voice/text
+///     ↓
+/// Intent detection
+///     ↓
+/// Structured LifeOS record
+///     ↓
+/// Persistent memory
 ///
-/// This is intentionally a local foundation.
-/// Later, a real AI model will be connected above this layer
-/// for deeper reasoning and complex conversations.
+/// This is the first local intelligence layer.
+/// Later this same interface can be connected to a more powerful
+/// AI model without changing the LifeOS UI.
 /// ============================================================
 
-class YansiDecision {
-  final MemoryCore core;
-  final MemorySource source;
+enum YansiIntent {
+  expense,
+  income,
+  task,
+  reminder,
+  household,
+  diary,
+  goal,
+  question,
+  unknown,
+}
+
+class YansiResult {
+  final YansiIntent intent;
+
+  final String originalText;
 
   final String category;
 
   final double? amount;
 
-  final String? entity;
-
-  final DateTime? relatedDate;
-
-  final String summary;
+  final String? item;
 
   final String response;
 
-  final bool actionRequired;
+  final Map<String, dynamic> data;
 
-  final Map<String, dynamic> extractedData;
-
-  const YansiDecision({
-    required this.core,
-    required this.source,
+  const YansiResult({
+    required this.intent,
+    required this.originalText,
     required this.category,
-    required this.summary,
+    required this.amount,
+    required this.item,
     required this.response,
-    required this.actionRequired,
-    required this.extractedData,
-    this.amount,
-    this.entity,
-    this.relatedDate,
+    required this.data,
   });
 }
 
 class YansiBrain {
+  final SharedPreferences prefs;
+
+  YansiBrain({
+    required this.prefs,
+  });
+
   // ==========================================================
-  // MAIN UNDERSTANDING FUNCTION
+  // MAIN PROCESSOR
   // ==========================================================
 
-  YansiDecision understand({
-    required String text,
-    required String currency,
-    MemorySource source = MemorySource.voice,
-  }) {
-    final original = text.trim();
+  Future<YansiResult> process(
+    String input,
+  ) async {
+    final text =
+        input.trim();
 
-    final lower = original.toLowerCase();
-
-    if (lower.isEmpty) {
-      return const YansiDecision(
-        core: MemoryCore.general,
-        source: MemorySource.voice,
-        category: 'Conversation',
-        summary: 'Empty input.',
-        response: 'I am listening.',
-        actionRequired: false,
-        extractedData: {},
+    if (text.isEmpty) {
+      return const YansiResult(
+        intent:
+            YansiIntent.unknown,
+        originalText: '',
+        category: 'Unknown',
+        amount: null,
+        item: null,
+        response:
+            'I did not hear anything.',
+        data: {},
       );
     }
 
-    // ========================================================
-    // EXTRACT COMMON INFORMATION
-    // ========================================================
+    final lower =
+        text.toLowerCase();
 
-    final amount = _extractAmount(lower);
+    // --------------------------------------------------------
+    // EXPENSE
+    // --------------------------------------------------------
 
-    final relatedDate =
-        _extractRelatedDate(lower);
-
-    // ========================================================
-    // FINANCE
-    // ========================================================
-
-    if (_isFinance(lower)) {
-      return _financeDecision(
-        text: original,
-        lower: lower,
-        currency: currency,
-        amount: amount,
-        relatedDate: relatedDate,
-        source: source,
+    if (_isExpense(lower)) {
+      return _processExpense(
+        text,
+        lower,
       );
     }
 
-    // ========================================================
+    // --------------------------------------------------------
+    // INCOME
+    // --------------------------------------------------------
+
+    if (_isIncome(lower)) {
+      return _processIncome(
+        text,
+        lower,
+      );
+    }
+
+    // --------------------------------------------------------
+    // TASK
+    // --------------------------------------------------------
+
+    if (_isTask(lower)) {
+      return _processTask(
+        text,
+      );
+    }
+
+    // --------------------------------------------------------
+    // REMINDER
+    // --------------------------------------------------------
+
+    if (_isReminder(lower)) {
+      return _processReminder(
+        text,
+      );
+    }
+
+    // --------------------------------------------------------
     // HOUSEHOLD
-    // ========================================================
+    // --------------------------------------------------------
 
     if (_isHousehold(lower)) {
-      return _householdDecision(
-        text: original,
-        lower: lower,
-        currency: currency,
-        amount: amount,
-        relatedDate: relatedDate,
-        source: source,
+      return _processHousehold(
+        text,
       );
     }
 
-    // ========================================================
-    // PRODUCTIVITY
-    // ========================================================
-
-    if (_isProductivity(lower)) {
-      return _productivityDecision(
-        text: original,
-        lower: lower,
-        relatedDate: relatedDate,
-        source: source,
-      );
-    }
-
-    // ========================================================
-    // GOALS
-    // ========================================================
+    // --------------------------------------------------------
+    // GOAL
+    // --------------------------------------------------------
 
     if (_isGoal(lower)) {
-      return _goalDecision(
-        text: original,
-        lower: lower,
-        amount: amount,
-        source: source,
+      return _processGoal(
+        text,
       );
     }
 
-    // ========================================================
-    // CALENDAR
-    // ========================================================
-
-    if (_isCalendar(lower)) {
-      return _calendarDecision(
-        text: original,
-        lower: lower,
-        relatedDate: relatedDate,
-        source: source,
-      );
-    }
-
-    // ========================================================
-    // EMOTIONAL / DIARY
-    // ========================================================
+    // --------------------------------------------------------
+    // DIARY
+    // --------------------------------------------------------
 
     if (_isDiary(lower)) {
-      return _diaryDecision(
-        text: original,
-        lower: lower,
-        source: source,
+      return _processDiary(
+        text,
       );
     }
 
-    // ========================================================
-    // GENERAL CONVERSATION
-    // ========================================================
+    // --------------------------------------------------------
+    // QUESTION
+    // --------------------------------------------------------
 
-    return YansiDecision(
-      core: MemoryCore.general,
-      source: source,
+    return YansiResult(
+      intent:
+          YansiIntent.question,
+      originalText: text,
       category: 'Conversation',
-      summary:
-          'General conversation with Yansi.',
+      amount: null,
+      item: null,
       response:
-          _generalResponse(original),
-      actionRequired: false,
-      extractedData: {
-        'type': 'conversation',
-        'originalText': original,
+          'I heard you. I can help you think through that, and I will keep the conversation connected to your LifeOS context.',
+      data: {
+        'text': text,
       },
     );
   }
 
   // ==========================================================
-  // FINANCE
+  // EXPENSE
   // ==========================================================
 
-  YansiDecision _financeDecision({
-    required String text,
-    required String lower,
-    required String currency,
-    required double? amount,
-    required DateTime? relatedDate,
-    required MemorySource source,
-  }) {
+  Future<YansiResult> _processExpense(
+    String text,
+    String lower,
+  ) async {
+    final amount =
+        _extractAmount(text);
+
     final category =
-        _financeCategory(lower);
+        _detectExpenseCategory(
+      lower,
+    );
 
-    final entity =
-        _financeEntity(lower, category);
+    final record = {
+      'id':
+          DateTime.now()
+              .microsecondsSinceEpoch
+              .toString(),
+      'type': 'expense',
+      'amount':
+          amount ?? 0,
+      'category':
+          category,
+      'text':
+          text,
+      'date':
+          DateTime.now()
+              .toIso8601String(),
+      'source':
+          'voice',
+    };
 
-    final isIncome =
-        _isIncome(lower);
+    await _saveRecord(
+      'yansi_expenses',
+      record,
+    );
 
-    final action =
-        amount != null;
+    final amountText =
+        amount == null
+            ? 'that expense'
+            : _money(amount);
 
-    String response;
-
-    if (amount != null) {
-      final formatted =
-          '$currency${amount.toStringAsFixed(0)}';
-
-      if (isIncome) {
-        response =
-            'Got it. I recorded $formatted as $category income.';
-      } else {
-        response =
-            'Got it. I recorded $formatted under $category.';
-      }
-    } else {
-      response =
-          'I understood that this is related to your finances. I have saved it in your Financial Life.';
-    }
-
-    return YansiDecision(
-      core: MemoryCore.finance,
-      source: source,
+    return YansiResult(
+      intent:
+          YansiIntent.expense,
+      originalText: text,
       category: category,
       amount: amount,
-      entity: entity,
-      relatedDate: relatedDate,
-      summary: amount == null
-          ? 'Financial information detected.'
-          : '${isIncome ? 'Income' : 'Expense'} of '
-              '$currency${amount.toStringAsFixed(0)} '
-              'under $category.',
-      response: response,
-      actionRequired: false,
-      extractedData: {
-        'type':
-            isIncome ? 'income' : 'expense',
-        'amount': amount,
-        'category': category,
-        'entity': entity,
-        'date':
-            relatedDate?.toIso8601String(),
-        'originalText': text,
-      },
+      item: category,
+      response:
+          'Got it. I added $amountText to $category for today.',
+      data: record,
+    );
+  }
+
+  // ==========================================================
+  // INCOME
+  // ==========================================================
+
+  Future<YansiResult> _processIncome(
+    String text,
+    String lower,
+  ) async {
+    final amount =
+        _extractAmount(text);
+
+    final record = {
+      'id':
+          DateTime.now()
+              .microsecondsSinceEpoch
+              .toString(),
+      'type': 'income',
+      'amount':
+          amount ?? 0,
+      'category':
+          _detectIncomeCategory(
+        lower,
+      ),
+      'text':
+          text,
+      'date':
+          DateTime.now()
+              .toIso8601String(),
+      'source':
+          'voice',
+    };
+
+    await _saveRecord(
+      'yansi_income',
+      record,
+    );
+
+    final amountText =
+        amount == null
+            ? 'the income'
+            : _money(amount);
+
+    return YansiResult(
+      intent:
+          YansiIntent.income,
+      originalText: text,
+      category:
+          record['category']
+              .toString(),
+      amount: amount,
+      item: null,
+      response:
+          'Got it. I recorded $amountText as income.',
+      data: record,
+    );
+  }
+
+  // ==========================================================
+  // TASK
+  // ==========================================================
+
+  Future<YansiResult> _processTask(
+    String text,
+  ) async {
+    final record = {
+      'id':
+          DateTime.now()
+              .microsecondsSinceEpoch
+              .toString(),
+      'type': 'task',
+      'task':
+          _cleanTaskText(text),
+      'completed':
+          false,
+      'date':
+          DateTime.now()
+              .toIso8601String(),
+      'source':
+          'voice',
+    };
+
+    await _saveRecord(
+      'yansi_tasks',
+      record,
+    );
+
+    return YansiResult(
+      intent:
+          YansiIntent.task,
+      originalText: text,
+      category:
+          'Productivity',
+      amount: null,
+      item:
+          record['task']
+              .toString(),
+      response:
+          'Got it. I added that to your tasks.',
+      data: record,
+    );
+  }
+
+  // ==========================================================
+  // REMINDER
+  // ==========================================================
+
+  Future<YansiResult> _processReminder(
+    String text,
+  ) async {
+    final record = {
+      'id':
+          DateTime.now()
+              .microsecondsSinceEpoch
+              .toString(),
+      'type':
+          'reminder',
+      'text':
+          text,
+      'date':
+          DateTime.now()
+              .toIso8601String(),
+      'source':
+          'voice',
+    };
+
+    await _saveRecord(
+      'yansi_reminders',
+      record,
+    );
+
+    return YansiResult(
+      intent:
+          YansiIntent.reminder,
+      originalText: text,
+      category:
+          'Calendar',
+      amount: null,
+      item: text,
+      response:
+          'Understood. I saved that as a reminder.',
+      data: record,
     );
   }
 
@@ -266,90 +389,48 @@ class YansiBrain {
   // HOUSEHOLD
   // ==========================================================
 
-  YansiDecision _householdDecision({
-    required String text,
-    required String lower,
-    required String currency,
-    required double? amount,
-    required DateTime? relatedDate,
-    required MemorySource source,
-  }) {
+  Future<YansiResult> _processHousehold(
+    String text,
+  ) async {
     final item =
-        _householdItem(lower);
-
-    final category =
-        item == null
-            ? 'Household'
-            : 'Household Requirement';
-
-    String response;
-
-    if (item != null) {
-      response =
-          'Got it. I added $item to your Household intelligence.';
-    } else {
-      response =
-          'Got it. I saved this as a household requirement.';
-    }
-
-    return YansiDecision(
-      core: MemoryCore.household,
-      source: source,
-      category: category,
-      amount: amount,
-      entity: item,
-      relatedDate: relatedDate,
-      summary: item == null
-          ? 'Household requirement detected.'
-          : 'Household requirement: $item.',
-      response: response,
-      actionRequired: false,
-      extractedData: {
-        'type': 'household',
-        'item': item,
-        'amount': amount,
-        'date':
-            relatedDate?.toIso8601String(),
-        'originalText': text,
-      },
+        _extractHouseholdItem(
+      text,
     );
-  }
 
-  // ==========================================================
-  // PRODUCTIVITY
-  // ==========================================================
+    final record = {
+      'id':
+          DateTime.now()
+              .microsecondsSinceEpoch
+              .toString(),
+      'type':
+          'household',
+      'item':
+          item,
+      'text':
+          text,
+      'date':
+          DateTime.now()
+              .toIso8601String(),
+      'source':
+          'voice',
+    };
 
-  YansiDecision _productivityDecision({
-    required String text,
-    required String lower,
-    required DateTime? relatedDate,
-    required MemorySource source,
-  }) {
-    final task =
-        _cleanTask(text);
+    await _saveRecord(
+      'yansi_household',
+      record,
+    );
 
-    final response =
-        relatedDate == null
-            ? 'Got it. I saved this as a task.'
-            : 'Got it. I saved this as a task for ${_dateName(relatedDate)}.';
-
-    return YansiDecision(
-      core: MemoryCore.productivity,
-      source: source,
-      category: 'Task',
-      entity: task,
-      relatedDate: relatedDate,
-      summary:
-          'Productivity task detected.',
-      response: response,
-      actionRequired: false,
-      extractedData: {
-        'type': 'task',
-        'task': task,
-        'date':
-            relatedDate?.toIso8601String(),
-        'originalText': text,
-      },
+    return YansiResult(
+      intent:
+          YansiIntent.household,
+      originalText: text,
+      category:
+          'Household',
+      amount: null,
+      item: item,
+      response:
+          'Got it. I added $item to your household list.',
+      data: record,
     );
   }
 
@@ -357,71 +438,41 @@ class YansiBrain {
   // GOAL
   // ==========================================================
 
-  YansiDecision _goalDecision({
-    required String text,
-    required String lower,
-    required double? amount,
-    required MemorySource source,
-  }) {
-    final goal =
-        text.trim();
+  Future<YansiResult> _processGoal(
+    String text,
+  ) async {
+    final record = {
+      'id':
+          DateTime.now()
+              .microsecondsSinceEpoch
+              .toString(),
+      'type':
+          'goal',
+      'goal':
+          text,
+      'date':
+          DateTime.now()
+              .toIso8601String(),
+      'source':
+          'voice',
+    };
 
-    final response =
-        amount == null
-            ? 'I understand. I have saved this as one of your goals.'
-            : 'I understand. I have saved this goal with a target of ${amount.toStringAsFixed(0)}.';
-
-    return YansiDecision(
-      core: MemoryCore.goals,
-      source: source,
-      category: 'Goal',
-      amount: amount,
-      entity: goal,
-      summary:
-          'Personal goal or future target detected.',
-      response: response,
-      actionRequired: false,
-      extractedData: {
-        'type': 'goal',
-        'goal': goal,
-        'targetAmount': amount,
-        'originalText': text,
-      },
+    await _saveRecord(
+      'yansi_goals',
+      record,
     );
-  }
 
-  // ==========================================================
-  // CALENDAR
-  // ==========================================================
-
-  YansiDecision _calendarDecision({
-    required String text,
-    required String lower,
-    required DateTime? relatedDate,
-    required MemorySource source,
-  }) {
-    final response =
-        relatedDate == null
-            ? 'Got it. I saved this for your Life Calendar.'
-            : 'Got it. I saved this for ${_dateName(relatedDate)}.';
-
-    return YansiDecision(
-      core: MemoryCore.calendar,
-      source: source,
-      category: 'Event',
-      entity: text,
-      relatedDate: relatedDate,
-      summary:
-          'Calendar or important date detected.',
-      response: response,
-      actionRequired: false,
-      extractedData: {
-        'type': 'calendar',
-        'event': text,
-        'date':
-            relatedDate?.toIso8601String(),
-        'originalText': text,
-      },
+    return YansiResult(
+      intent:
+          YansiIntent.goal,
+      originalText: text,
+      category:
+          'Goals',
+      amount: null,
+      item: text,
+      response:
+          'Got it. I saved that as one of your goals.',
+      data: record,
     );
   }
 
@@ -429,48 +480,49 @@ class YansiBrain {
   // DIARY
   // ==========================================================
 
-  YansiDecision _diaryDecision({
-    required String text,
-    required String lower,
-    required MemorySource source,
-  }) {
-    final emotion =
-        _detectEmotion(lower);
+  Future<YansiResult> _processDiary(
+    String text,
+  ) async {
+    final record = {
+      'id':
+          DateTime.now()
+              .microsecondsSinceEpoch
+              .toString(),
+      'type':
+          'diary',
+      'text':
+          text,
+      'date':
+          DateTime.now()
+              .toIso8601String(),
+      'source':
+          'voice',
+    };
 
-    String response;
+    await _saveRecord(
+      'yansi_diary',
+      record,
+    );
 
-    if (emotion == null) {
-      response =
-          'I understand. I have saved this in your Life Diary.';
-    } else {
-      response =
-          'I understand. It sounds like you may be feeling $emotion. I have saved this in your Life Diary.';
-    }
-
-    return YansiDecision(
-      core: MemoryCore.diary,
-      source: source,
-      category: 'Personal Reflection',
-      entity: emotion,
-      summary:
-          emotion == null
-              ? 'Personal reflection detected.'
-              : 'Personal reflection with possible $emotion emotional signal.',
-      response: response,
-      actionRequired: false,
-      extractedData: {
-        'type': 'diary',
-        'possibleEmotion': emotion,
-        'originalText': text,
-      },
+    return YansiResult(
+      intent:
+          YansiIntent.diary,
+      originalText: text,
+      category:
+          'Diary',
+      amount: null,
+      item: text,
+      response:
+          'I saved that in your personal diary.',
+      data: record,
     );
   }
 
   // ==========================================================
-  // FINANCE DETECTION
+  // INTENT DETECTION
   // ==========================================================
 
-  bool _isFinance(
+  bool _isExpense(
     String text,
   ) {
     return _containsAny(
@@ -479,32 +531,12 @@ class YansiBrain {
         'spent',
         'spend',
         'paid',
-        'pay',
+        'payment',
         'bought',
         'purchase',
-        'purchased',
-        'cost',
         'expense',
-        'income',
-        'salary',
-        'received',
-        'earned',
-        'money',
-        'saving',
-        'savings',
-        'investment',
-        'invest',
-        'sip',
-        'mutual fund',
-        'stock',
-        'share',
-        'petrol',
-        'fuel',
-        'diesel',
-        'electricity bill',
-        'water bill',
-        'mobile bill',
-        'internet bill',
+        'cost me',
+        'bill paid',
       ],
     );
   }
@@ -515,150 +547,50 @@ class YansiBrain {
     return _containsAny(
       text,
       [
+        'received',
         'salary',
         'income',
         'earned',
-        'received',
         'got paid',
+        'commission',
+        'bonus',
       ],
     );
   }
 
-  String _financeCategory(
+  bool _isTask(
     String text,
   ) {
-    if (_containsAny(
+    return _containsAny(
       text,
       [
-        'petrol',
-        'fuel',
-        'diesel',
-        'gas',
+        'task',
+        'need to',
+        'have to',
+        'must do',
+        'do today',
+        'finish',
+        'complete',
+        'work on',
       ],
-    )) {
-      return 'Fuel';
-    }
-
-    if (_containsAny(
-      text,
-      [
-        'food',
-        'restaurant',
-        'lunch',
-        'dinner',
-        'breakfast',
-        'coffee',
-        'tea',
-      ],
-    )) {
-      return 'Food';
-    }
-
-    if (_containsAny(
-      text,
-      [
-        'grocery',
-        'groceries',
-        'rice',
-        'oil',
-        'milk',
-        'vegetables',
-      ],
-    )) {
-      return 'Grocery';
-    }
-
-    if (_containsAny(
-      text,
-      [
-        'shirt',
-        'shirts',
-        'clothes',
-        'clothing',
-        'dress',
-        'jeans',
-        'shoes',
-        'mall',
-      ],
-    )) {
-      return 'Clothing';
-    }
-
-    if (_containsAny(
-      text,
-      [
-        'electricity',
-        'electric bill',
-        'water bill',
-        'gas bill',
-        'mobile bill',
-        'internet bill',
-        'bill',
-      ],
-    )) {
-      return 'Bills';
-    }
-
-    if (_containsAny(
-      text,
-      [
-        'salary',
-        'income',
-        'earned',
-        'received',
-      ],
-    )) {
-      return 'Income';
-    }
-
-    if (_containsAny(
-      text,
-      [
-        'investment',
-        'invest',
-        'mutual fund',
-        'share',
-        'stock',
-        'sip',
-      ],
-    )) {
-      return 'Investment';
-    }
-
-    return 'Other';
+    );
   }
 
-  String? _financeEntity(
+  bool _isReminder(
     String text,
-    String category,
   ) {
-    switch (category) {
-      case 'Fuel':
-        return 'Fuel';
-
-      case 'Food':
-        return 'Food';
-
-      case 'Grocery':
-        return 'Grocery';
-
-      case 'Clothing':
-        return 'Clothing';
-
-      case 'Bills':
-        return 'Bill';
-
-      case 'Investment':
-        return 'Investment';
-
-      default:
-        return null;
-    }
+    return _containsAny(
+      text,
+      [
+        'remind me',
+        'reminder',
+        'remember',
+        'due tomorrow',
+        'due on',
+        'appointment',
+      ],
+    );
   }
-
-  // ==========================================================
-  // HOUSEHOLD DETECTION
-  // ==========================================================
 
   bool _isHousehold(
     String text,
@@ -666,94 +598,20 @@ class YansiBrain {
     return _containsAny(
       text,
       [
-        'household',
-        'kitchen',
         'grocery',
         'groceries',
-        'rice',
-        'cooking oil',
+        'shopping',
         'milk',
         'vegetables',
         'vegetable',
-        'bread',
-        'detergent',
-        'soap',
-        'toothpaste',
-        'shampoo',
-        'dishwash',
-        'cleaning',
-        'we need',
-        'running out',
-        'run out',
-        'finished',
+        'rice',
+        'flour',
+        'oil',
+        'household',
+        'kitchen',
       ],
     );
   }
-
-  String? _householdItem(
-    String text,
-  ) {
-    const items = [
-      'rice',
-      'cooking oil',
-      'oil',
-      'milk',
-      'vegetables',
-      'vegetable',
-      'bread',
-      'detergent',
-      'soap',
-      'toothpaste',
-      'shampoo',
-      'dishwash',
-      'cleaning',
-      'groceries',
-    ];
-
-    for (final item in items) {
-      if (text.contains(item)) {
-        return item;
-      }
-    }
-
-    return null;
-  }
-
-  // ==========================================================
-  // PRODUCTIVITY DETECTION
-  // ==========================================================
-
-  bool _isProductivity(
-    String text,
-  ) {
-    return _containsAny(
-      text,
-      [
-        'task',
-        'todo',
-        'to do',
-        'need to',
-        'have to',
-        'must',
-        'finish',
-        'complete',
-        'call',
-        'send',
-        'meet',
-        'meeting',
-        'work',
-        'job',
-        'remind me',
-        'remember to',
-        'tomorrow',
-        'today',
-      ],
-    );
-  }
-
-  // ==========================================================
-  // GOAL DETECTION
-  // ==========================================================
 
   bool _isGoal(
     String text,
@@ -763,377 +621,31 @@ class YansiBrain {
       [
         'my goal',
         'goal is',
-        'target is',
-        'want to achieve',
-        'want to save',
+        'target',
         'save for',
+        'want to achieve',
+        'plan to',
         'dream',
-        'future goal',
-        'long term',
-        'long-term',
       ],
     );
   }
-
-  // ==========================================================
-  // CALENDAR DETECTION
-  // ==========================================================
-
-  bool _isCalendar(
-    String text,
-  ) {
-    return _containsAny(
-      text,
-      [
-        'appointment',
-        'birthday',
-        'anniversary',
-        'renewal',
-        'renew',
-        'due date',
-        'service due',
-        'checkup',
-        'meeting on',
-        'appointment on',
-        'on monday',
-        'on tuesday',
-        'on wednesday',
-        'on thursday',
-        'on friday',
-        'on saturday',
-        'on sunday',
-      ],
-    );
-  }
-
-  // ==========================================================
-  // DIARY DETECTION
-  // ==========================================================
 
   bool _isDiary(
-    String text,
-  ) {
+    String text) {
     return _containsAny(
       text,
       [
-        'i feel',
-        'i am feeling',
-        'feeling',
-        'happy',
-        'sad',
-        'angry',
-        'worried',
-        'stress',
-        'stressed',
-        'tired',
-        'exhausted',
-        'frustrated',
-        'excited',
-        'afraid',
-        'scared',
-        'good day',
-        'bad day',
+        'today I',
         'today was',
+        'I feel',
+        'I am feeling',
         'my day',
+        'diary',
+        'journal',
+        'something happened',
       ],
     );
   }
-
-  // ==========================================================
-  // EMOTION SIGNAL
-  // ==========================================================
-
-  String? _detectEmotion(
-    String text,
-  ) {
-    if (_containsAny(
-      text,
-      [
-        'stressed',
-        'stress',
-        'worried',
-        'anxious',
-        'afraid',
-        'scared',
-      ],
-    )) {
-      return 'stressed or worried';
-    }
-
-    if (_containsAny(
-      text,
-      [
-        'tired',
-        'exhausted',
-        'drained',
-      ],
-    )) {
-      return 'tired';
-    }
-
-    if (_containsAny(
-      text,
-      [
-        'angry',
-        'frustrated',
-        'annoyed',
-      ],
-    )) {
-      return 'frustrated';
-    }
-
-    if (_containsAny(
-      text,
-      [
-        'sad',
-        'unhappy',
-        'down',
-      ],
-    )) {
-      return 'sad';
-    }
-
-    if (_containsAny(
-      text,
-      [
-        'happy',
-        'great',
-        'excited',
-        'good',
-      ],
-    )) {
-      return 'positive';
-    }
-
-    return null;
-  }
-
-  // ==========================================================
-  // AMOUNT EXTRACTION
-  // ==========================================================
-
-  double? _extractAmount(
-    String text,
-  ) {
-    final patterns = [
-      RegExp(
-        r'(?:₹|rs\.?|rupees?)\s*([0-9]+(?:\.[0-9]+)?)',
-        caseSensitive: false,
-      ),
-      RegExp(
-        r'([0-9]+(?:\.[0-9]+)?)\s*(?:rupees|rs)',
-        caseSensitive: false,
-      ),
-    ];
-
-    for (final pattern in patterns) {
-      final match =
-          pattern.firstMatch(text);
-
-      if (match != null) {
-        return double.tryParse(
-          match.group(1)!,
-        );
-      }
-    }
-
-    return null;
-  }
-
-  // ==========================================================
-  // DATE EXTRACTION
-  // ==========================================================
-
-  DateTime? _extractRelatedDate(
-    String text,
-  ) {
-    final now = DateTime.now();
-
-    if (text.contains('today')) {
-      return DateTime(
-        now.year,
-        now.month,
-        now.day,
-      );
-    }
-
-    if (text.contains('tomorrow')) {
-      final tomorrow =
-          now.add(
-        const Duration(days: 1),
-      );
-
-      return DateTime(
-        tomorrow.year,
-        tomorrow.month,
-        tomorrow.day,
-      );
-    }
-
-    if (text.contains('day after tomorrow')) {
-      final date =
-          now.add(
-        const Duration(days: 2),
-      );
-
-      return DateTime(
-        date.year,
-        date.month,
-        date.day,
-      );
-    }
-
-    const weekdays = {
-      'monday': DateTime.monday,
-      'tuesday': DateTime.tuesday,
-      'wednesday': DateTime.wednesday,
-      'thursday': DateTime.thursday,
-      'friday': DateTime.friday,
-      'saturday': DateTime.saturday,
-      'sunday': DateTime.sunday,
-    };
-
-    for (final entry in weekdays.entries) {
-      if (text.contains(
-        'on ${entry.key}',
-      )) {
-        final current =
-            DateTime.now();
-
-        int difference =
-            entry.value -
-                current.weekday;
-
-        if (difference <= 0) {
-          difference += 7;
-        }
-
-        final date =
-            current.add(
-          Duration(
-            days: difference,
-          ),
-        );
-
-        return DateTime(
-          date.year,
-          date.month,
-          date.day,
-        );
-      }
-    }
-
-    return null;
-  }
-
-  // ==========================================================
-  // TASK CLEANING
-  // ==========================================================
-
-  String _cleanTask(
-    String text,
-  ) {
-    var task = text.trim();
-
-    final prefixes = [
-      'remind me to ',
-      'remember to ',
-      'i need to ',
-      'i have to ',
-      'i must ',
-    ];
-
-    final lower =
-        task.toLowerCase();
-
-    for (final prefix in prefixes) {
-      if (lower.startsWith(prefix)) {
-        task = task.substring(
-          prefix.length,
-        );
-
-        break;
-      }
-    }
-
-    return task.trim();
-  }
-
-  // ==========================================================
-  // GENERAL RESPONSE
-  // ==========================================================
-
-  String _generalResponse(
-    String text,
-  ) {
-    if (_containsAny(
-      text.toLowerCase(),
-      [
-        'how are you',
-        'hello',
-        'hi yansi',
-        'hi',
-        'hey',
-      ],
-    )) {
-      return 'I am here with you. What would you like to talk about?';
-    }
-
-    if (_containsAny(
-      text.toLowerCase(),
-      [
-        'help me',
-        'what should i do',
-        'what can i do',
-      ],
-    )) {
-      return 'I am listening. Tell me what is happening and I will help you think through it.';
-    }
-
-    return 'I understand. I am here with you. Tell me more.';
-  }
-
-  // ==========================================================
-  // DATE NAME
-  // ==========================================================
-
-  String _dateName(
-    DateTime date,
-  ) {
-    final now =
-        DateTime.now();
-
-    final today =
-        DateTime(
-      now.year,
-      now.month,
-      now.day,
-    );
-
-    final target =
-        DateTime(
-      date.year,
-      date.month,
-      date.day,
-    );
-
-    final difference =
-        target.difference(today).inDays;
-
-    if (difference == 0) {
-      return 'today';
-    }
-
-    if (difference == 1) {
-      return 'tomorrow';
-    }
-
-    return '${date.day}/${date.month}/${date.year}';
-  }
-
-  // ==========================================================
-  // HELPER
-  // ==========================================================
 
   bool _containsAny(
     String text,
@@ -1146,5 +658,458 @@ class YansiBrain {
     }
 
     return false;
+  }
+
+  // ==========================================================
+  // AMOUNT EXTRACTION
+  // ==========================================================
+
+  double? _extractAmount(
+    String text,
+  ) {
+    final cleaned =
+        text
+            .replaceAll(
+              ',',
+              '',
+            )
+            .replaceAll(
+              '₹',
+              '',
+            )
+            .replaceAll(
+              '\$',
+              '',
+            );
+
+    final patterns = [
+      RegExp(
+        r'(?:rs\.?|inr|rupees?)\s*(\d+(?:\.\d+)?)',
+        caseSensitive:
+            false,
+      ),
+      RegExp(
+        r'(\d+(?:\.\d+)?)\s*(?:rs|inr|rupees)',
+        caseSensitive:
+            false,
+      ),
+      RegExp(
+        r'(\d+(?:\.\d+)?)',
+      ),
+    ];
+
+    for (final pattern
+        in patterns) {
+      final match =
+          pattern.firstMatch(
+        cleaned,
+      );
+
+      if (match != null) {
+        final value =
+            double.tryParse(
+          match.group(1)!,
+        );
+
+        if (value != null) {
+          return value;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // ==========================================================
+  // EXPENSE CATEGORY
+  // ==========================================================
+
+  String _detectExpenseCategory(
+    String text,
+  ) {
+    if (_containsAny(
+      text,
+      [
+        'petrol',
+        'fuel',
+        'diesel',
+        'cng',
+        'gas',
+      ],
+    )) {
+      return 'Fuel';
+    }
+
+    if (_containsAny(
+      text,
+      [
+        'grocery',
+        'groceries',
+        'vegetable',
+        'milk',
+        'rice',
+        'food',
+        'kitchen',
+      ],
+    )) {
+      return 'Household';
+    }
+
+    if (_containsAny(
+      text,
+      [
+        'restaurant',
+        'hotel',
+        'lunch',
+        'dinner',
+        'breakfast',
+        'coffee',
+      ],
+    )) {
+      return 'Food';
+    }
+
+    if (_containsAny(
+      text,
+      [
+        'electricity',
+        'water bill',
+        'gas bill',
+        'internet',
+        'mobile bill',
+      ],
+    )) {
+      return 'Bills';
+    }
+
+    if (_containsAny(
+      text,
+      [
+        'medicine',
+        'doctor',
+        'hospital',
+        'medical',
+      ],
+    )) {
+      return 'Medical';
+    }
+
+    if (_containsAny(
+      text,
+      [
+        'school',
+        'college',
+        'education',
+        'fees',
+      ],
+    )) {
+      return 'Education';
+    }
+
+    if (_containsAny(
+      text,
+      [
+        'shopping',
+        'shirt',
+        'clothes',
+        'dress',
+        'shoe',
+      ],
+    )) {
+      return 'Shopping';
+    }
+
+    if (_containsAny(
+      text,
+      [
+        'rent',
+        'house rent',
+      ],
+    )) {
+      return 'Rent';
+    }
+
+    if (_containsAny(
+      text,
+      [
+        'insurance',
+        'policy',
+        'premium',
+      ],
+    )) {
+      return 'Insurance';
+    }
+
+    return 'Other';
+  }
+
+  // ==========================================================
+  // INCOME CATEGORY
+  // ==========================================================
+
+  String _detectIncomeCategory(
+    String text,
+  ) {
+    if (_containsAny(
+      text,
+      [
+        'salary',
+      ],
+    )) {
+      return 'Salary';
+    }
+
+    if (_containsAny(
+      text,
+      [
+        'commission',
+      ],
+    )) {
+      return 'Commission';
+    }
+
+    if (_containsAny(
+      text,
+      [
+        'bonus',
+      ],
+    )) {
+      return 'Bonus';
+    }
+
+    return 'Other Income';
+  }
+
+  // ==========================================================
+  // CLEAN TASK
+  // ==========================================================
+
+  String _cleanTaskText(
+    String text,
+  ) {
+    return text
+        .replaceFirst(
+          RegExp(
+            r'^(yansi[,\s]*)?',
+            caseSensitive:
+                false,
+          ),
+          '',
+        )
+        .trim();
+  }
+
+  // ==========================================================
+  // HOUSEHOLD ITEM
+  // ==========================================================
+
+  String _extractHouseholdItem(
+    String text,
+  ) {
+    final lower =
+        text.toLowerCase();
+
+    const knownItems = [
+      'milk',
+      'rice',
+      'oil',
+      'flour',
+      'sugar',
+      'vegetables',
+      'vegetable',
+      'bread',
+      'eggs',
+      'eggs',
+      'soap',
+      'detergent',
+      'toothpaste',
+      'shampoo',
+      'groceries',
+    ];
+
+    for (final item
+        in knownItems) {
+      if (lower.contains(item)) {
+        return item;
+      }
+    }
+
+    return text;
+  }
+
+  // ==========================================================
+  // SAVE RECORD
+  // ==========================================================
+
+  Future<void> _saveRecord(
+    String key,
+    Map<String, dynamic> record,
+  ) async {
+    final existing =
+        prefs.getStringList(
+              key,
+            ) ??
+            <String>[];
+
+    existing.add(
+      jsonEncode(
+        record,
+      ),
+    );
+
+    await prefs.setStringList(
+      key,
+      existing,
+    );
+
+    // --------------------------------------------------------
+    // MASTER YANSI MEMORY
+    // --------------------------------------------------------
+
+    final memory =
+        prefs.getStringList(
+              'yansi_memory',
+            ) ??
+            <String>[];
+
+    memory.add(
+      jsonEncode(
+        record,
+      ),
+    );
+
+    await prefs.setStringList(
+      'yansi_memory',
+      memory,
+    );
+  }
+
+  // ==========================================================
+  // MONEY DISPLAY
+  // ==========================================================
+
+  String _money(
+    double amount,
+  ) {
+    final currency =
+        prefs.getString(
+              'currency',
+            ) ??
+            '₹';
+
+    if (amount ==
+        amount.roundToDouble()) {
+      return '$currency${amount.toInt()}';
+    }
+
+    return '$currency${amount.toStringAsFixed(2)}';
+  }
+
+  // ==========================================================
+  // MEMORY ACCESS
+  // ==========================================================
+
+  Future<List<Map<String, dynamic>>>
+      getMemory() async {
+    final records =
+        prefs.getStringList(
+              'yansi_memory',
+            ) ??
+            <String>[];
+
+    final result =
+        <Map<String, dynamic>>[];
+
+    for (final item
+        in records) {
+      try {
+        final decoded =
+            jsonDecode(item);
+
+        if (decoded
+            is Map<String, dynamic>) {
+          result.add(
+            decoded,
+          );
+        }
+      } catch (_) {}
+    }
+
+    return result;
+  }
+
+  // ==========================================================
+  // MEMORY SUMMARY
+  // ==========================================================
+
+  Future<Map<String, dynamic>>
+      getSummary() async {
+    final memory =
+        await getMemory();
+
+    double expenses = 0;
+
+    double income = 0;
+
+    int tasks = 0;
+
+    int diary = 0;
+
+    int household = 0;
+
+    for (final record
+        in memory) {
+      final type =
+          record['type']
+              ?.toString();
+
+      final amount =
+          (record['amount']
+                  as num?)
+              ?.toDouble() ??
+          0;
+
+      if (type ==
+          'expense') {
+        expenses += amount;
+      }
+
+      if (type ==
+          'income') {
+        income += amount;
+      }
+
+      if (type ==
+          'task') {
+        tasks++;
+      }
+
+      if (type ==
+          'diary') {
+        diary++;
+      }
+
+      if (type ==
+          'household') {
+        household++;
+      }
+    }
+
+    return {
+      'records':
+          memory.length,
+      'expenses':
+          expenses,
+      'income':
+          income,
+      'balance':
+          income - expenses,
+      'tasks':
+          tasks,
+      'diary':
+          diary,
+      'household':
+          household,
+    };
   }
 }
