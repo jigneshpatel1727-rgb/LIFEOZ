@@ -3,16 +3,15 @@ import 'yansi_action_execution_guard.dart';
 import 'yansi_action_router.dart';
 
 /// Executes the small, deterministic subset of LifeOS actions that Yansi can
-/// safely perform locally. The executor never treats a natural-language
-/// command as permission to mutate data without confirmation.
+/// safely perform locally. Mutating actions always pass through the guard.
 class YansiActionExecutor {
   final LifeOSDataStore store;
   final YansiActionExecutionGuard guard;
 
-  const YansiActionExecutor(
+  YansiActionExecutor(
     this.store, {
-    this.guard = const YansiActionExecutionGuard(),
-  });
+    YansiActionExecutionGuard? guard,
+  }) : guard = guard ?? const YansiActionExecutionGuard();
 
   Future<YansiExecutionResult> execute(
     YansiActionIntent intent, {
