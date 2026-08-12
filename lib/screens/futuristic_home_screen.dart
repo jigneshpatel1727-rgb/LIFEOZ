@@ -5,6 +5,8 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/yansi_brain.dart';
+
 class FuturisticHomeScreen extends StatefulWidget {
   final SharedPreferences prefs;
   final String userName;
@@ -157,6 +159,10 @@ class _FuturisticHomeScreenState
     );
   }
 
+  // ==========================================================
+  // YANSI BRAIN
+  // ==========================================================
+
   Future<void> _processVoiceCommand(
     String text,
   ) async {
@@ -164,46 +170,41 @@ class _FuturisticHomeScreenState
 
     if (value.isEmpty) return;
 
-    final lower = value.toLowerCase();
+    try {
+      final brain = YansiBrain(
+        prefs: widget.prefs,
+      );
 
-    String response;
+      final result = await brain.process(
+        value,
+      );
 
-    if (lower.contains('hello') ||
-        lower.contains('hi yansi')) {
-      response =
-          'Hello ${widget.userName}. I am here.';
-    } else if (lower.contains('thank')) {
-      response =
-          'You are welcome. I am always here when you need me.';
-    } else if (lower.contains('expense') ||
-        lower.contains('spent') ||
-        lower.contains('paid')) {
-      response =
-          'Got it. I understood that this is related to your financial life. I will connect it with your LifeOS records.';
-    } else if (lower.contains('task') ||
-        lower.contains('remind')) {
-      response =
-          'Got it. I will treat that as a productivity or reminder request.';
-    } else if (lower.contains('grocery') ||
-        lower.contains('shopping')) {
-      response =
-          'Got it. I will connect that with your household planning.';
-    } else if (lower.contains('goal') ||
-        lower.contains('target')) {
-      response =
-          'I understand. I will connect this with your goals and financial planning.';
-    } else {
-      response =
-          'I heard you. I am processing that through your LifeOS intelligence.';
+      if (!mounted) return;
+
+      setState(() {
+        _heardText = value;
+      });
+
+      await _tts.stop();
+
+      await _tts.speak(
+        result.response,
+      );
+
+      await widget.prefs.setString(
+        'last_yansi_voice_text',
+        value,
+      );
+
+      await widget.prefs.setString(
+        'last_yansi_response',
+        result.response,
+      );
+    } catch (_) {
+      await _tts.speak(
+        'I understood you, but I could not save that yet.',
+      );
     }
-
-    await _tts.speak(response);
-
-    // Keep the spoken information available locally.
-    await widget.prefs.setString(
-      'last_yansi_voice_text',
-      value,
-    );
   }
 
   // ==========================================================
