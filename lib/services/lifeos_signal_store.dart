@@ -27,4 +27,8 @@ class LifeOSSignalStore {
         description,
         data: {'dueDate': dueDate},
       );
+
+  void household(String description) => record(LifeOSSignalType.household, description);
+
+  void diary(String text) => record(LifeOSSignalType.diary, text);
 }
