@@ -19,7 +19,8 @@ class YansiAmbientBriefingOrchestrator {
     final priority = orchestrator.topPriority();
     if (priority == null) return _hiddenSurface();
 
-    final requiresConfirmation = priority.needsConfirmation || priority.priority >= 90;
+    final requiresConfirmation =
+        priority.needsConfirmation || priority.priority >= 90;
 
     return {
       'visible': true,
@@ -51,6 +52,24 @@ class YansiAmbientBriefingOrchestrator {
       return '$title. $message. I need your confirmation before taking any action.';
     }
     return '$title. $message';
+  }
+
+  /// Produces a stable, short preview suitable for an ambient notification.
+  /// This never includes an executable action or sensitive payload.
+  String notificationPreview({
+    bool quietMode = false,
+    bool userActive = true,
+    bool screenVisible = true,
+    int maxLength = 140,
+  }) {
+    final speech = toSpeech(
+      quietMode: quietMode,
+      userActive: userActive,
+      screenVisible: screenVisible,
+    ).trim();
+    if (speech.isEmpty || maxLength < 1) return '';
+    if (speech.length <= maxLength) return speech;
+    return '${speech.substring(0, maxLength - 1).trimRight()}…';
   }
 
   Map<String, dynamic> _hiddenSurface() => {
