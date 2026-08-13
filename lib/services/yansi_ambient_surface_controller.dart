@@ -51,24 +51,8 @@ class YansiAmbientSurfaceController {
     final signal = orchestrator.topPriority();
     if (signal == null) return const YansiAmbientSurfaceState();
     final score = signal.priority.clamp(0, 100).toInt();
-    final key = signalIdentity(
-      title: signal.title,
-      message: signal.message,
-      priority: score,
-    );
-    final cadenceAllowed = cadence.shouldSurface(
-      signalKey: key,
-      priority: score,
-      now: now,
-    );
-    final allowed = gate.allow(
-      visible: score >= 60,
-      userActive: true,
-      quietMode: false,
-      cadenceAllowed: cadenceAllowed,
-      priority: score,
-    );
-    if (!allowed) return const YansiAmbientSurfaceState();
+    final key = signalIdentity(title: signal.title, message: signal.message, priority: score);
+    if (!_allowed(key, score, now: now)) return const YansiAmbientSurfaceState();
     return YansiAmbientSurfaceState(
       title: signal.title,
       message: signal.message,
@@ -81,10 +65,17 @@ class YansiAmbientSurfaceController {
 
   void recordDisplayed(YansiAmbientSurfaceState state, {DateTime? shownAt}) {
     if (!state.visible || state.signalKey == null) return;
-    cadence = cadence.record(
-      state.signalKey!,
-      priority: state.confidence,
-      shownAt: shownAt,
+    cadence = cadence.record(state.signalKey!, priority: state.confidence, shownAt: shownAt);
+  }
+
+  bool _allowed(String key, int priority, {DateTime? now}) {
+    final cadenceAllowed = cadence.shouldSurface(signalKey: key, priority: priority, now: now);
+    return gate.allow(
+      visible: priority >= 60,
+      userActive: true,
+      quietMode: false,
+      cadenceAllowed: cadenceAllowed,
+      priority: priority,
     );
   }
 
@@ -97,31 +88,19 @@ class YansiAmbientSurfaceController {
     DateTime? now,
   }) async {
     if (quietMode || !screenVisible) return const YansiAmbientSurfaceState();
-    final plan = await runtime.prepare(
-      userIsActive: userActive,
-      quietMode: quietMode,
-    );
+    final plan = await runtime.prepare(userIsActive: userActive, quietMode: quietMode);
     if (plan == null || !runtime.isReady) return const YansiAmbientSurfaceState();
 
     final confidence = runtime.confidence.clamp(0, 100).toInt();
     final message = plan.items.isEmpty ? null : plan.items.first.reason;
     if (message == null || message.trim().isEmpty) return const YansiAmbientSurfaceState();
 
-    final key = signalIdentity(
-      title: runtime.headline,
-      message: message,
-      priority: runtime.priority,
-    );
-    final cadenceAllowed = cadence.shouldSurface(
-      signalKey: key,
-      priority: runtime.priority,
-      now: now,
-    );
+    final key = signalIdentity(title: runtime.headline, message: message, priority: runtime.priority);
     final surfaceAllowed = gate.allow(
       visible: screenVisible && confidence >= 60,
       userActive: userActive,
       quietMode: quietMode,
-      cadenceAllowed: cadenceAllowed,
+      cadenceAllowed: cadence.shouldSurface(signalKey: key, priority: runtime.priority, now: now),
       priority: runtime.priority,
     );
     if (!surfaceAllowed) return const YansiAmbientSurfaceState();
