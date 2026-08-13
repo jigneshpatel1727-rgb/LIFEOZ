@@ -1,60 +1,37 @@
-import 'lifeos_intelligence_bus.dart';
 import 'lifeos_signal_store.dart';
+import 'yansi_voice_intent_parser.dart';
 
-/// Converts Yansi's understood utterances into LifeOS signals while keeping
-/// the UI independent from individual core implementations.
+/// Routes Yansi's parsed natural-language intent into the unified LifeOS
+/// signal stream. UI code does not need to know individual core services.
 class YansiResponseRouter {
   final LifeOSSignalStore store;
-  const YansiResponseRouter(this.store);
+  final YansiVoiceIntentParser parser;
+  const YansiResponseRouter(this.store, {this.parser = const YansiVoiceIntentParser()});
 
   bool route(String text) {
     final value = text.trim();
     if (value.isEmpty) return false;
-    final lower = value.toLowerCase();
+    final intent = parser.parse(value);
 
-    final expense = RegExp(r'(?:₹|rs\.?|inr\s*)\s*([0-9]+(?:\.[0-9]+)?)').firstMatch(lower);
-    if (expense != null) {
-      final amount = double.tryParse(expense.group(1)!);
-      if (amount != null) {
-        final category = _category(lower);
-        store.expense(amount, value, category: category);
+    switch (intent.intent) {
+      case 'expense':
+        store.expense(intent.amount!, value, category: intent.category ?? 'Other');
         return true;
-      }
+      case 'task':
+        store.task(value);
+        return true;
+      case 'calendar':
+        store.calendar(value);
+        return true;
+      case 'household':
+        store.household(value);
+        return true;
+      case 'diary':
+        store.diary(value);
+        return true;
+      default:
+        store.record(LifeOSSignalType.voice, value);
+        return true;
     }
-
-    if (_looksLikeTask(lower)) {
-      store.task(value);
-      return true;
-    }
-
-    if (_looksLikeCalendar(lower)) {
-      store.calendar(value);
-      return true;
-    }
-
-    store.record(LifeOSSignalType.voice, value);
-    return true;
   }
-
-  String _category(String text) {
-    if (text.contains('fuel') || text.contains('petrol') || text.contains('diesel')) return 'Fuel';
-    if (text.contains('grocery') || text.contains('vegetable') || text.contains('milk')) return 'Household';
-    if (text.contains('medicine') || text.contains('hospital') || text.contains('doctor')) return 'Health';
-    if (text.contains('bill') || text.contains('electricity') || text.contains('recharge')) return 'Bills';
-    return 'Other';
-  }
-
-  bool _looksLikeTask(String text) =>
-      text.startsWith('remind me to ') ||
-      text.startsWith('i need to ') ||
-      text.startsWith('todo ') ||
-      text.contains('task is ');
-
-  bool _looksLikeCalendar(String text) =>
-      text.contains('tomorrow') ||
-      text.contains('next week') ||
-      text.contains('appointment') ||
-      text.contains('birthday') ||
-      text.contains('anniversary') ||
-      text.contains('due date');
 }
