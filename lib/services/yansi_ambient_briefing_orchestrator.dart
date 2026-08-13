@@ -21,8 +21,10 @@ class YansiAmbientBriefingOrchestrator {
     final priority = orchestrator.topPriority();
     if (priority == null) return _hiddenSurface();
 
+    // Include priority in the identity so a materially changed signal is
+    // treated as a distinct ambient event by the cadence layer.
     final signalKey =
-        '${priority.title.trim().toLowerCase()}|${priority.message.trim().toLowerCase()}';
+        '${priority.title.trim().toLowerCase()}|${priority.message.trim().toLowerCase()}|${priority.priority}';
     if (!cadence.shouldSurface(
       signalKey: signalKey,
       priority: priority.priority,
@@ -43,7 +45,6 @@ class YansiAmbientBriefingOrchestrator {
     };
   }
 
-  /// Marks the displayed signal so the cadence gate can suppress repeats.
   void recordDisplayed(Map<String, dynamic> surface, {DateTime? shownAt}) {
     if (surface['visible'] != true) return;
     final key = surface['signal_key'] as String?;
