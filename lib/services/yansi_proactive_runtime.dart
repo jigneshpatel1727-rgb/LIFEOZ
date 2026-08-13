@@ -2,7 +2,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'yansi_briefing_history.dart';
 import 'yansi_proactive_planner.dart';
 import 'yansi_cross_core_priority.dart';
-import 'yansi_decision_bridge.dart';
 import 'yansi_proactive_pipeline.dart';
 
 /// Runtime bridge for Yansi's ambient/proactive intelligence.
@@ -43,7 +42,6 @@ class YansiProactiveRuntime {
 
     final decision = const YansiProactivePipeline(
       priorityEngine: YansiCrossCorePriority(),
-      decisionBridge: YansiDecisionBridge(),
     ).evaluate(
       fusedSignals: fused,
       insight: plan.items.first.reason,
@@ -65,18 +63,12 @@ class YansiProactiveRuntime {
 
   int _priorityForRank(int rank) {
     switch (rank) {
-      case 1:
-        return 90;
-      case 2:
-        return 85;
-      case 3:
-        return 80;
-      case 4:
-        return 75;
-      case 5:
-        return 70;
-      default:
-        return 60;
+      case 1: return 90;
+      case 2: return 85;
+      case 3: return 80;
+      case 4: return 75;
+      case 5: return 70;
+      default: return 60;
     }
   }
 
