@@ -8,7 +8,6 @@ class LifeOSAIService {
     required double amount,
     required String description,
   }) async {
-    // Save the expense automatically.
     await _saveExpense(
       amount: amount,
       category: category,
@@ -56,31 +55,63 @@ class LifeOSAIService {
     return 'Added ₹${amount.toStringAsFixed(0)} to today\'s $category expense.';
   }
 
+  /// Produces a trusted, read-only intelligence signal for Yansi.
+  /// The signal can be consumed by the ambient intelligence layers but
+  /// cannot execute an action or mutate LifeOS data.
+  Map<String, dynamic> buildYansiExpenseSignal({
+    required String category,
+    required double amount,
+    String description = '',
+  }) {
+    final normalized = category.trim().toLowerCase();
+    final highValue = amount >= 10000;
+    final recurringRisk = normalized.contains('emi') ||
+        normalized.contains('loan') ||
+        normalized.contains('bill') ||
+        normalized.contains('utility');
+    final discretionary = normalized.contains('food') ||
+        normalized.contains('restaurant') ||
+        normalized.contains('shopping') ||
+        normalized.contains('entertainment');
+
+    var priority = 55;
+    if (highValue) priority = 95;
+    if (recurringRisk && priority < 85) priority = 85;
+    if (discretionary && amount >= 1000 && priority < 75) priority = 75;
+
+    final confidence = category.trim().isEmpty ? 45 : 90;
+
+    return {
+      'core': 'expense',
+      'priority': priority,
+      'confidence': confidence,
+      'amount': amount,
+      'category': category.trim(),
+      'hasDescription': description.trim().isNotEmpty,
+      'requiresConfirmation': highValue,
+      'readOnly': true,
+    };
+  }
+
   Future<void> _saveExpense({
     required double amount,
     required String category,
     required String description,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-
     final existing = prefs.getString('lifeos_expenses');
-
     List<dynamic> expenses = [];
 
     if (existing != null && existing.isNotEmpty) {
       try {
         final decoded = jsonDecode(existing);
-
-        if (decoded is List) {
-          expenses = decoded;
-        }
+        if (decoded is List) expenses = decoded;
       } catch (_) {
         expenses = [];
       }
     }
 
     final now = DateTime.now();
-
     final newExpense = {
       'id': now.microsecondsSinceEpoch.toString(),
       'amount': amount,
@@ -90,10 +121,6 @@ class LifeOSAIService {
     };
 
     expenses.insert(0, newExpense);
-
-    await prefs.setString(
-      'lifeos_expenses',
-      jsonEncode(expenses),
-    );
+    await prefs.setString('lifeos_expenses', jsonEncode(expenses));
   }
 }
