@@ -45,12 +45,21 @@ class YansiAmbientSurfaceController {
 
   /// Refreshes the ambient surface from the real proactive runtime.
   ///
-  /// This only prepares/displays intelligence. It does not execute an action.
+  /// Context only affects presentation. It cannot authorize or execute an
+  /// action.
   Future<YansiAmbientSurfaceState> refreshFromRuntime(
     YansiProactiveRuntime runtime, {
     bool quietMode = false,
+    bool userActive = true,
+    bool screenVisible = true,
+    bool voiceAvailable = true,
   }) async {
+    if (quietMode || !screenVisible) {
+      return const YansiAmbientSurfaceState();
+    }
+
     final plan = await runtime.prepare(
+      userIsActive: userActive,
       quietMode: quietMode,
     );
 
@@ -59,13 +68,28 @@ class YansiAmbientSurfaceController {
     }
 
     final confidence = runtime.confidence.clamp(0, 100).toInt();
+    final shouldSurface = userActive && confidence >= 60;
+    final shouldSpeak = voiceAvailable && userActive && runtime.shouldSpeak;
 
     return YansiAmbientSurfaceState(
       title: runtime.headline,
       message: plan.items.isEmpty ? null : plan.items.first.reason,
       confidence: confidence,
-      visible: confidence >= 60,
+      visible: shouldSurface,
       needsConfirmation: runtime.priority >= 90,
+      ambientOnly: true,
     );
+  }
+
+  /// Presentation hint for the voice layer.
+  /// This is never an authorization signal.
+  bool shouldAllowAmbientVoice({
+    required YansiProactiveRuntime runtime,
+    bool quietMode = false,
+    bool userActive = true,
+    bool voiceAvailable = true,
+  }) {
+    if (quietMode || !userActive || !voiceAvailable) return false;
+    return runtime.isReady && runtime.shouldSpeak;
   }
 }
