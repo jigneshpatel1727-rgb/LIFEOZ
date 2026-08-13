@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'yansi_context_fusion.dart';
+import 'yansi_learning_engine.dart';
 import 'yansi_pattern_advice.dart';
 import 'yansi_proactive_planner.dart';
 
 /// Integrated intelligence coordinator for Yansi.
 ///
-/// This is the companion layer: it combines LifeOS context, proactive planning,
-/// approved learning and conversation memory into one explainable snapshot.
-/// It does not grant permissions, perform sensitive actions, or rewrite code.
+/// Combines LifeOS context, proactive planning, approved learning and
+/// explainable pattern advice into one companion snapshot.
 class YansiCompanionSnapshot {
   final DateTime createdAt;
   final String headline;
@@ -51,6 +51,10 @@ class YansiCompanionOrchestrator {
   bool get backgroundEnabled => prefs.getBool('permission_background_ai') == true;
 
   Future<YansiCompanionSnapshot> refresh({bool userIsActive = true}) async {
+    if (learningEnabled) {
+      await YansiLearningEngine(prefs: prefs).learn();
+    }
+
     final context = await YansiContextFusion(prefs: prefs).build();
     final plan = await YansiProactivePlanner(prefs: prefs).build();
     final pattern = learningEnabled
@@ -71,9 +75,7 @@ class YansiCompanionOrchestrator {
       confidence = 0.72;
     }
 
-    final priorities = plan.items
-        .map((e) => e.toJson())
-        .toList(growable: false);
+    final priorities = plan.items.map((e) => e.toJson()).toList(growable: false);
 
     final snapshot = YansiCompanionSnapshot(
       createdAt: DateTime.now(),
