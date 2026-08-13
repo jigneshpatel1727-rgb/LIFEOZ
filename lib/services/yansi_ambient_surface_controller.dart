@@ -1,3 +1,4 @@
+import 'yansi_ambient_cadence_policy.dart';
 import 'yansi_ambient_signal_gate.dart';
 import 'yansi_next_phase_orchestrator.dart';
 import 'yansi_proactive_runtime.dart';
@@ -29,11 +30,14 @@ class YansiAmbientSurfaceState {
 class YansiAmbientSurfaceController {
   final YansiNextPhaseOrchestrator orchestrator;
   final YansiAmbientSignalGate gate;
+  YansiAmbientCadencePolicy cadence;
 
-  const YansiAmbientSurfaceController(
+  YansiAmbientSurfaceController(
     this.orchestrator, {
-    this.gate = const YansiAmbientSignalGate(),
-  });
+    YansiAmbientSignalGate? gate,
+    YansiAmbientCadencePolicy? cadence,
+  })  : gate = gate ?? const YansiAmbientSignalGate(),
+        cadence = cadence ?? const YansiAmbientCadencePolicy();
 
   String signalIdentity({
     required String title,
@@ -43,15 +47,25 @@ class YansiAmbientSurfaceController {
     return '${title.trim().toLowerCase()}|${message.trim().toLowerCase()}|$priority';
   }
 
-  YansiAmbientSurfaceState refresh() {
+  YansiAmbientSurfaceState refresh({DateTime? now}) {
     final signal = orchestrator.topPriority();
     if (signal == null) return const YansiAmbientSurfaceState();
     final score = signal.priority.clamp(0, 100).toInt();
+    final key = signalIdentity(
+      title: signal.title,
+      message: signal.message,
+      priority: score,
+    );
+    final cadenceAllowed = cadence.shouldSurface(
+      signalKey: key,
+      priority: score,
+      now: now,
+    );
     final allowed = gate.allow(
       visible: score >= 60,
       userActive: true,
       quietMode: false,
-      cadenceAllowed: true,
+      cadenceAllowed: cadenceAllowed,
       priority: score,
     );
     if (!allowed) return const YansiAmbientSurfaceState();
@@ -61,11 +75,16 @@ class YansiAmbientSurfaceController {
       confidence: score,
       visible: true,
       needsConfirmation: signal.needsConfirmation || score >= 90,
-      signalKey: signalIdentity(
-        title: signal.title,
-        message: signal.message,
-        priority: score,
-      ),
+      signalKey: key,
+    );
+  }
+
+  void recordDisplayed(YansiAmbientSurfaceState state, {DateTime? shownAt}) {
+    if (!state.visible || state.signalKey == null) return;
+    cadence = cadence.record(
+      state.signalKey!,
+      priority: state.confidence,
+      shownAt: shownAt,
     );
   }
 
@@ -75,6 +94,7 @@ class YansiAmbientSurfaceController {
     bool userActive = true,
     bool screenVisible = true,
     bool voiceAvailable = true,
+    DateTime? now,
   }) async {
     if (quietMode || !screenVisible) return const YansiAmbientSurfaceState();
     final plan = await runtime.prepare(
@@ -87,11 +107,21 @@ class YansiAmbientSurfaceController {
     final message = plan.items.isEmpty ? null : plan.items.first.reason;
     if (message == null || message.trim().isEmpty) return const YansiAmbientSurfaceState();
 
+    final key = signalIdentity(
+      title: runtime.headline,
+      message: message,
+      priority: runtime.priority,
+    );
+    final cadenceAllowed = cadence.shouldSurface(
+      signalKey: key,
+      priority: runtime.priority,
+      now: now,
+    );
     final surfaceAllowed = gate.allow(
       visible: screenVisible && confidence >= 60,
       userActive: userActive,
       quietMode: quietMode,
-      cadenceAllowed: true,
+      cadenceAllowed: cadenceAllowed,
       priority: runtime.priority,
     );
     if (!surfaceAllowed) return const YansiAmbientSurfaceState();
@@ -108,11 +138,7 @@ class YansiAmbientSurfaceController {
         voiceAvailable: voiceAvailable,
         runtimeAllowsSpeech: runtime.shouldSpeak,
       ),
-      signalKey: signalIdentity(
-        title: runtime.headline,
-        message: message,
-        priority: runtime.priority,
-      ),
+      signalKey: key,
     );
   }
 
