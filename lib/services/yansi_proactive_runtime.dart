@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'yansi_briefing_history.dart';
 import 'yansi_proactive_planner.dart';
 
 /// Small runtime bridge for Yansi's ambient/proactive layer.
@@ -11,8 +12,15 @@ class YansiProactiveRuntime {
     if(quietMode) return null;
     final plan=await YansiProactivePlanner(prefs:prefs).build();
     if(plan.items.isEmpty) return null;
+
+    final history=YansiBriefingHistory(prefs:prefs);
+    if(!await history.shouldSurface(plan.headline)) {
+      return null;
+    }
+
     await prefs.setBool('yansi_plan_ready',true);
     await prefs.setString('yansi_plan_headline',plan.headline);
+    await history.markSurfaced(plan.headline);
     return plan;
   }
 
