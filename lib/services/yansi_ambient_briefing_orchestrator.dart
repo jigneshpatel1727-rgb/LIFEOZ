@@ -3,12 +3,12 @@ import 'yansi_next_phase_orchestrator.dart';
 
 class YansiAmbientBriefingOrchestrator {
   final YansiNextPhaseOrchestrator orchestrator;
-  final YansiAmbientCadencePolicy cadence;
+  YansiAmbientCadencePolicy cadence;
 
-  const YansiAmbientBriefingOrchestrator(
+  YansiAmbientBriefingOrchestrator(
     this.orchestrator, {
-    this.cadence = const YansiAmbientCadencePolicy(),
-  });
+    YansiAmbientCadencePolicy? cadence,
+  }) : cadence = cadence ?? const YansiAmbientCadencePolicy();
 
   Map<String, dynamic> buildSurface({
     bool quietMode = false,
@@ -41,6 +41,15 @@ class YansiAmbientBriefingOrchestrator {
       'ambient_only': true,
       'signal_key': signalKey,
     };
+  }
+
+  /// Marks the displayed signal so the cadence gate can suppress repeats.
+  void recordDisplayed(Map<String, dynamic> surface, {DateTime? shownAt}) {
+    if (surface['visible'] != true) return;
+    final key = surface['signal_key'] as String?;
+    if (key == null || key.isEmpty) return;
+    final priority = (surface['priority'] as num?)?.toInt() ?? 0;
+    cadence = cadence.record(key, priority: priority, shownAt: shownAt);
   }
 
   String toSpeech({
