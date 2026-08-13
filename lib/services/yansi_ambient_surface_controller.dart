@@ -1,13 +1,14 @@
 import 'yansi_next_phase_orchestrator.dart';
 
-/// Converts Yansi's internal priorities into a small ambient surface payload.
-/// The UI can show one useful signal without turning Yansi into a chatbot.
+/// Small ambient presentation state for Yansi. The controller exposes one
+/// useful signal at a time and never executes actions.
 class YansiAmbientSurfaceState {
   final String? title;
   final String? message;
   final int confidence;
   final bool visible;
   final bool needsConfirmation;
+  final bool ambientOnly;
 
   const YansiAmbientSurfaceState({
     this.title,
@@ -15,7 +16,10 @@ class YansiAmbientSurfaceState {
     this.confidence = 0,
     this.visible = false,
     this.needsConfirmation = false,
+    this.ambientOnly = true,
   });
+
+  bool get highConfidence => confidence >= 80;
 }
 
 class YansiAmbientSurfaceController {
