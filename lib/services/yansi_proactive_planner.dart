@@ -36,7 +36,30 @@ class YansiProactivePlanner {
     if(context.recentSpend>0) items.add(YansiPlanItem(title:'Keep an eye on recent spending',reason:'Recent 30-day spending is ${context.recentSpend}.',action:'ANALYZE',core:'MONEY',rank:3));
     if(context.goals>0) items.add(YansiPlanItem(title:'Take one step toward a goal',reason:'${context.goals} goals are stored in LifeOS.',action:'ACTIVATE',core:'GOALS',rank:4));
     if(context.householdRecords>0) items.add(YansiPlanItem(title:'Review recurring household needs',reason:'Household history is available for prediction.',action:'PREDICT',core:'HOUSEHOLD',rank:5));
-    if(insight!=null && items.isNotEmpty){items.sort((a,b)=>a.rank.compareTo(b.rank));}
+
+    // Adaptive focus: a recent user-selected core can move its insight upward,
+    // without changing the underlying signal or executing any action.
+    final focus=(prefs.getString('yansi_active_focus')??'').trim().toUpperCase();
+    if(focus.isNotEmpty){
+      items.sort((a,b){
+        final af=a.core.toUpperCase()==focus?0:1;
+        final bf=b.core.toUpperCase()==focus?0:1;
+        if(af!=bf)return af.compareTo(bf);
+        return a.rank.compareTo(b.rank);
+      });
+    }else{
+      items.sort((a,b)=>a.rank.compareTo(b.rank));
+    }
+
+    if(insight!=null && items.isNotEmpty){
+      // Keep the engine as a gate/validation layer; the planner remains read-only.
+      items.sort((a,b){
+        final ar=a.core.toUpperCase()==focus?0:1;
+        final br=b.core.toUpperCase()==focus?0:1;
+        if(ar!=br)return ar.compareTo(br);
+        return a.rank.compareTo(b.rank);
+      });
+    }
     final plan=YansiProactivePlan(createdAt:DateTime.now(),headline:items.isEmpty?'Nothing needs your attention right now.':'Here is what matters most right now.',items:items.take(5).toList());
     await prefs.setString('yansi_proactive_plan',jsonEncode(plan.toJson()));
     return plan;
