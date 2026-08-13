@@ -68,4 +68,77 @@ class YansiPredictiveIntelligence {
       'note': 'This is an observation from LifeOS records, not a judgement.',
     };
   }
+
+  /// Produces one ranked, explainable ambient signal across LifeOS cores.
+  /// This method never executes an action.
+  Map<String, dynamic> ambientInsight() {
+    final money = store.read('money');
+    final tasks = store.read('tasks');
+    final calendar = store.read('calendar');
+    final goals = store.read('goals');
+    final household = store.read('household');
+
+    final pendingTasks = tasks.where((r) => r['completed'] != true).length;
+    final activeGoals = goals.where((r) => r['completed'] != true).length;
+    final expenses = money.where((r) => r['type'] == 'expense').length;
+
+    final candidates = <Map<String, dynamic>>[];
+
+    if (pendingTasks >= 5) {
+      candidates.add({
+        'type': 'task_load',
+        'priority': 0.90,
+        'message': 'You have $pendingTasks pending tasks. I can help prioritize them.',
+        'source': 'tasks',
+      });
+    }
+
+    if (activeGoals > 0 && pendingTasks > 0) {
+      candidates.add({
+        'type': 'goal_alignment',
+        'priority': 0.82,
+        'message': 'You have active goals and pending tasks that can be aligned.',
+        'source': 'goals+tasks',
+      });
+    }
+
+    if (calendar.isNotEmpty) {
+      candidates.add({
+        'type': 'calendar_awareness',
+        'priority': 0.74,
+        'message': 'Your calendar has LifeOS events that may need attention.',
+        'source': 'calendar',
+      });
+    }
+
+    if (household.isNotEmpty) {
+      candidates.add({
+        'type': 'household_awareness',
+        'priority': 0.68,
+        'message': 'Your household history can help predict recurring needs.',
+        'source': 'household',
+      });
+    }
+
+    if (expenses > 0) {
+      candidates.add({
+        'type': 'spending_awareness',
+        'priority': 0.60,
+        'message': 'I have recorded spending history that can be used for smarter planning.',
+        'source': 'money',
+      });
+    }
+
+    candidates.sort(
+      (a, b) => (b['priority'] as num).compareTo(a['priority'] as num),
+    );
+
+    return {
+      'type': 'ambient_insight',
+      'generated': true,
+      'actionable': false,
+      'candidates': candidates,
+      'highestPriority': candidates.isEmpty ? null : candidates.first,
+    };
+  }
 }
