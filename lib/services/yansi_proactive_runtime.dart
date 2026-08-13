@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'yansi_briefing_history.dart';
+import 'yansi_priority_memory.dart';
 import 'yansi_proactive_planner.dart';
 import 'yansi_cross_core_priority.dart';
 import 'yansi_proactive_pipeline.dart';
@@ -15,13 +16,22 @@ class YansiProactiveRuntime {
     bool userIsActive = true,
     bool quietMode = false,
   }) async {
-    if (quietMode) return null;
+    if (quietMode || !userIsActive) return null;
 
     final plan = await YansiProactivePlanner(prefs: prefs).build();
     if (plan.items.isEmpty) return null;
 
     final history = YansiBriefingHistory(prefs: prefs);
-    if (!await history.shouldSurface(plan.headline)) return null;
+    final priority = _priorityForRank(plan.items.first.rank);
+    final memory = YansiPriorityMemory(prefs: prefs);
+    final escalation = memory.isEscalation(priority);
+
+    if (!await history.shouldSurface(
+      plan.headline,
+      priority: priority,
+      lastPriority: history.lastPriority,
+      materiallyChanged: escalation,
+    )) return null;
 
     final signals = <Map<String, dynamic>>[
       for (final item in plan.items)
@@ -44,28 +54,29 @@ class YansiProactiveRuntime {
     ).evaluate(
       fusedSignals: fused,
       insight: plan.items.first.reason,
-      repeated: false,
+      repeated: !escalation,
       quietHours: quietMode,
     );
 
     if (decision['surface'] != true) return null;
 
-    // Cache the prepared decision for the ambient controller. Do not mark it
-    // as surfaced here: preparing intelligence is not the same as showing it.
     await prefs.setBool('yansi_plan_ready', true);
     await prefs.setString('yansi_plan_headline', plan.headline);
     await prefs.setBool('yansi_decision_speak', decision['speak'] == true);
     await prefs.setInt('yansi_decision_priority', decision['priority'] as int? ?? 0);
     await prefs.setInt('yansi_decision_confidence', decision['confidence'] as int? ?? 0);
-
     return plan;
   }
 
-  /// Call only after the ambient surface/voice has actually been presented.
   Future<void> markPresented() async {
     final headline = prefs.getString('yansi_plan_headline');
     if (headline == null || headline.trim().isEmpty) return;
-    await YansiBriefingHistory(prefs: prefs).markSurfaced(headline);
+    final currentPriority = priority;
+    await YansiBriefingHistory(prefs: prefs).markPresented(
+      headline,
+      priority: currentPriority,
+    );
+    await YansiPriorityMemory(prefs: prefs).remember(currentPriority);
   }
 
   int _priorityForRank(int rank) {
