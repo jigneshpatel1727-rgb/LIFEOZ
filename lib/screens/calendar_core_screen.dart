@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/yansi_brain.dart';
+import '../services/yansi_due_date_parser.dart';
 
 /// Dedicated Calendar core. Diary remains a Yansi capability rather than a
 /// replacement for the fifth permanent LifeOS core.
@@ -31,13 +32,26 @@ class _CalendarCoreScreenState extends State<CalendarCoreScreen> {
     final calendar = memory.where((record) {
       final type = record['type']?.toString();
       return type == 'reminder' || type == 'calendar' || type == 'bill' || type == 'renewal';
-    }).toList();
+    }).map((record) {
+      final copy = Map<String, dynamic>.from(record);
+      final text = (copy['text'] ?? copy['title'] ?? copy['event'] ?? '').toString();
+      final parsed = YansiDueDateParser.parse(text);
+      if (parsed != null) copy['dueDate'] = parsed.toIso8601String();
+      return copy;
+    }).toList()
+      ..sort((a, b) => _eventDate(a).compareTo(_eventDate(b)));
 
     if (!mounted) return;
     setState(() {
       events = calendar;
       loading = false;
     });
+  }
+
+  DateTime _eventDate(Map<String, dynamic> record) {
+    final due = DateTime.tryParse((record['dueDate'] ?? '').toString());
+    if (due != null) return due;
+    return DateTime.tryParse((record['date'] ?? '').toString()) ?? DateTime(9999);
   }
 
   @override
@@ -96,7 +110,8 @@ class _CalendarCoreScreenState extends State<CalendarCoreScreen> {
 
   Widget _eventTile(Map<String, dynamic> record) {
     final text = (record['text'] ?? record['title'] ?? record['event'] ?? 'Calendar event').toString();
-    final date = (record['date'] ?? '').toString();
+    final date = (record['dueDate'] ?? record['date'] ?? '').toString();
+    final hasDueDate = record['dueDate'] != null;
     return Container(
       margin: const EdgeInsets.only(bottom: 9),
       padding: const EdgeInsets.all(14),
@@ -106,15 +121,16 @@ class _CalendarCoreScreenState extends State<CalendarCoreScreen> {
           Container(width: 40, height: 40, decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF00E5FF).withOpacity(.07)), child: const Icon(Icons.event_outlined, color: Color(0xFF00E5FF), size: 19)),
           const SizedBox(width: 12),
           Expanded(child: Text(text, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12))),
-          if (date.isNotEmpty) Text(_shortDate(date), style: const TextStyle(color: Color(0xFF76FFFF), fontSize: 10)),
+          if (date.isNotEmpty) Text(_shortDate(date, explicit: hasDueDate), style: TextStyle(color: hasDueDate ? const Color(0xFF76FFFF) : Colors.white24, fontSize: 10)),
         ],
       ),
     );
   }
 
-  String _shortDate(String value) {
+  String _shortDate(String value, {required bool explicit}) {
     final parsed = DateTime.tryParse(value);
     if (parsed == null) return '';
-    return '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}';
+    final prefix = explicit ? '' : '~';
+    return '$prefix${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}';
   }
 }
