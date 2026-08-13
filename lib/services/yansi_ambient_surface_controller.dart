@@ -35,6 +35,14 @@ class YansiAmbientSurfaceController {
     this.gate = const YansiAmbientSignalGate(),
   });
 
+  String signalIdentity({
+    required String title,
+    required String message,
+    required int priority,
+  }) {
+    return '${title.trim().toLowerCase()}|${message.trim().toLowerCase()}|$priority';
+  }
+
   YansiAmbientSurfaceState refresh() {
     final signal = orchestrator.topPriority();
     if (signal == null) return const YansiAmbientSurfaceState();
@@ -53,6 +61,11 @@ class YansiAmbientSurfaceController {
       confidence: score,
       visible: true,
       needsConfirmation: signal.needsConfirmation || score >= 90,
+      signalKey: signalIdentity(
+        title: signal.title,
+        message: signal.message,
+        priority: score,
+      ),
     );
   }
 
@@ -68,15 +81,11 @@ class YansiAmbientSurfaceController {
       userIsActive: userActive,
       quietMode: quietMode,
     );
-    if (plan == null || !runtime.isReady) {
-      return const YansiAmbientSurfaceState();
-    }
+    if (plan == null || !runtime.isReady) return const YansiAmbientSurfaceState();
 
     final confidence = runtime.confidence.clamp(0, 100).toInt();
     final message = plan.items.isEmpty ? null : plan.items.first.reason;
-    if (message == null || message.trim().isEmpty) {
-      return const YansiAmbientSurfaceState();
-    }
+    if (message == null || message.trim().isEmpty) return const YansiAmbientSurfaceState();
 
     final surfaceAllowed = gate.allow(
       visible: screenVisible && confidence >= 60,
@@ -84,11 +93,6 @@ class YansiAmbientSurfaceController {
       quietMode: quietMode,
       cadenceAllowed: true,
       priority: runtime.priority,
-    );
-    final voiceEligible = gate.allowVoice(
-      surfaceAllowed: surfaceAllowed,
-      voiceAvailable: voiceAvailable,
-      runtimeAllowsSpeech: runtime.shouldSpeak,
     );
     if (!surfaceAllowed) return const YansiAmbientSurfaceState();
 
@@ -99,7 +103,16 @@ class YansiAmbientSurfaceController {
       visible: true,
       needsConfirmation: runtime.priority >= 90,
       ambientOnly: true,
-      voiceEligible: voiceEligible,
+      voiceEligible: gate.allowVoice(
+        surfaceAllowed: true,
+        voiceAvailable: voiceAvailable,
+        runtimeAllowsSpeech: runtime.shouldSpeak,
+      ),
+      signalKey: signalIdentity(
+        title: runtime.headline,
+        message: message,
+        priority: runtime.priority,
+      ),
     );
   }
 
