@@ -9,7 +9,6 @@ import 'yansi_proactive_pipeline.dart';
 /// It prepares intelligence only; presentation is recorded separately.
 class YansiProactiveRuntime {
   final SharedPreferences prefs;
-
   const YansiProactiveRuntime({required this.prefs});
 
   Future<YansiProactivePlan?> prepare({
@@ -21,17 +20,12 @@ class YansiProactiveRuntime {
     final plan = await YansiProactivePlanner(prefs: prefs).build();
     if (plan.items.isEmpty) return null;
 
-    final history = YansiBriefingHistory(prefs: prefs);
     final priority = _priorityForRank(plan.items.first.rank);
     final memory = YansiPriorityMemory(prefs: prefs);
     final escalation = memory.isEscalation(priority);
+    final history = YansiBriefingHistory(prefs: prefs);
 
-    if (!await history.shouldSurface(
-      plan.headline,
-      priority: priority,
-      lastPriority: history.lastPriority,
-      materiallyChanged: escalation,
-    )) return null;
+    if (!escalation && !await history.shouldSurface(plan.headline)) return null;
 
     final signals = <Map<String, dynamic>>[
       for (final item in plan.items)
@@ -63,7 +57,7 @@ class YansiProactiveRuntime {
     await prefs.setBool('yansi_plan_ready', true);
     await prefs.setString('yansi_plan_headline', plan.headline);
     await prefs.setBool('yansi_decision_speak', decision['speak'] == true);
-    await prefs.setInt('yansi_decision_priority', decision['priority'] as int? ?? 0);
+    await prefs.setInt('yansi_decision_priority', decision['priority'] as int? ?? priority);
     await prefs.setInt('yansi_decision_confidence', decision['confidence'] as int? ?? 0);
     return plan;
   }
@@ -72,10 +66,7 @@ class YansiProactiveRuntime {
     final headline = prefs.getString('yansi_plan_headline');
     if (headline == null || headline.trim().isEmpty) return;
     final currentPriority = priority;
-    await YansiBriefingHistory(prefs: prefs).markPresented(
-      headline,
-      priority: currentPriority,
-    );
+    await YansiBriefingHistory(prefs: prefs).markPresented(headline);
     await YansiPriorityMemory(prefs: prefs).remember(currentPriority);
   }
 
