@@ -13,9 +13,21 @@ class YansiNeuralOrbSurfaceBridge {
 
   YansiNeuralOrbMotion motion(YansiAmbientSurfaceState state) {
     final metadata = presence.adapt(state);
+    final visible = metadata['orbVisible'] == true;
+    final rawIntensity = (metadata['intensity'] as num?)?.toInt() ?? 0;
+    final confidence = rawIntensity.clamp(0, 100).toInt();
+
+    // Fail closed: malformed presentation state produces an inert orb.
+    if (!visible || confidence < 60) {
+      return YansiNeuralOrbMotion.fromSignal(
+        visible: false,
+        confidence: 0,
+      );
+    }
+
     return YansiNeuralOrbMotion.fromSignal(
-      visible: metadata['orbVisible'] == true,
-      confidence: (metadata['intensity'] as num?)?.toInt() ?? 0,
+      visible: true,
+      confidence: confidence,
     );
   }
 }
