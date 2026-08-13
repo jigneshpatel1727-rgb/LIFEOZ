@@ -21,14 +21,15 @@ class YansiAmbientSurfaceController {
   const YansiAmbientSurfaceController(this.orchestrator);
 
   YansiAmbientSurfaceState refresh() {
-    final priority = orchestrator.topPriority();
-    if (priority == null) return const YansiAmbientSurfaceState();
+    final signal = orchestrator.topPriority();
+    if (signal == null) return const YansiAmbientSurfaceState();
 
+    final score = signal.priority.clamp(0, 100);
     return YansiAmbientSurfaceState(
-      title: priority.title,
-      message: priority.message,
-      confidence: priority.priority,
-      visible: priority.priority >= 60,
+      title: signal.title,
+      message: signal.message,
+      confidence: score,
+      visible: score >= 60,
     );
   }
 }
