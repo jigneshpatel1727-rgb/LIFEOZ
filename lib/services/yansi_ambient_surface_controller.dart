@@ -24,7 +24,7 @@ class YansiAmbientSurfaceController {
     final signal = orchestrator.topPriority();
     if (signal == null) return const YansiAmbientSurfaceState();
 
-    final score = signal.priority.clamp(0, 100);
+    final score = signal.priority.clamp(0, 100).toInt();
     return YansiAmbientSurfaceState(
       title: signal.title,
       message: signal.message,
