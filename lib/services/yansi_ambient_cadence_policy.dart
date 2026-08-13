@@ -24,15 +24,9 @@ class YansiAmbientCadencePolicy {
     if (_lastKey == null || _lastShownAt == null) return true;
 
     final current = now ?? DateTime.now();
-    final elapsed = current.difference(_lastShownAt!);
     if (_lastKey != signalKey) return true;
-
-    // Only a materially higher priority may interrupt the repeat window.
-    if (priorityJump > 0 && priority >= _lastPriority + priorityJump) {
-      return true;
-    }
-
-    return elapsed >= repeatAfter;
+    if (priorityJump > 0 && priority >= _lastPriority + priorityJump) return true;
+    return current.difference(_lastShownAt!).compareTo(repeatAfter) >= 0;
   }
 
   YansiAmbientCadencePolicy record(
@@ -45,6 +39,13 @@ class YansiAmbientCadencePolicy {
       lastShownAt: shownAt ?? DateTime.now(),
       lastPriority: priority,
     );
+  }
+
+  bool matches(String signalKey) => _lastKey == signalKey;
+
+  Duration? age({DateTime? now}) {
+    if (_lastShownAt == null) return null;
+    return (now ?? DateTime.now()).difference(_lastShownAt!);
   }
 
   String? get lastKey => _lastKey;
