@@ -1,8 +1,8 @@
+import 'lifeos_intelligence_bus.dart';
 import 'lifeos_signal_store.dart';
 import 'yansi_voice_intent_parser.dart';
 
-/// Routes Yansi's parsed natural-language intent into the unified LifeOS
-/// signal stream. UI code does not need to know individual core services.
+/// Routes Yansi's parsed natural-language intent into the unified LifeOS signal stream.
 class YansiResponseRouter {
   final LifeOSSignalStore store;
   final YansiVoiceIntentParser parser;
@@ -12,7 +12,6 @@ class YansiResponseRouter {
     final value = text.trim();
     if (value.isEmpty) return false;
     final intent = parser.parse(value);
-
     switch (intent.intent) {
       case 'expense':
         store.expense(intent.amount!, value, category: intent.category ?? 'Other');
