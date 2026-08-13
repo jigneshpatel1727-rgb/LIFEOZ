@@ -22,25 +22,17 @@ class YansiCrossCorePriority {
     String? best;
     var score = 0;
     var confidence = 0;
+    final trustedCores = <String>[];
 
     for (final entry in signals.entries) {
-      if (entry.value is! Map || (entry.value as Map).isEmpty) {
-        continue;
-      }
+      if (entry.value is! Map || (entry.value as Map).isEmpty) continue;
 
       final value = entry.value as Map;
+      if (value['readOnly'] == false) continue;
 
-      // Never rank a signal that is explicitly allowed to mutate data.
-      if (value['readOnly'] == false) {
-        continue;
-      }
-
-      final candidate = _score(
-        entry.key.toString(),
-        value,
-      );
-
+      final candidate = _score(entry.key.toString(), value);
       final candidateConfidence = _confidence(value);
+      trustedCores.add(entry.key.toString().toLowerCase());
 
       if (candidate > score ||
           (candidate == score && candidateConfidence > confidence)) {
@@ -50,24 +42,35 @@ class YansiCrossCorePriority {
       }
     }
 
+    final uniqueCores = trustedCores.toSet();
+    final multiCore = uniqueCores.length >= 2;
+
+    // Independent signals reinforcing one another deserve a modest boost,
+    // but never enough to exceed the 100-point safety ceiling.
+    if (multiCore && best != null) {
+      score = (score + 8).clamp(0, 100);
+      confidence = (confidence + 5).clamp(0, 100);
+    }
+
     return {
       'core': best,
       'score': score,
       'confidence': confidence,
+      'multiCore': multiCore,
+      'supportingCores': uniqueCores.toList(),
       'reason': best == null
           ? null
-          : 'Highest-value trusted LifeOS signal',
+          : multiCore
+              ? 'Multiple trusted LifeOS signals reinforce this insight'
+              : 'Highest-value trusted LifeOS signal',
     };
   }
 
   int _score(String core, Map value) {
     final explicit = value['priority'];
+    if (explicit is num) return explicit.clamp(0, 100).toInt();
 
-    if (explicit is num) {
-      return explicit.clamp(0, 100).toInt();
-    }
-
-    return switch (core) {
+    return switch (core.toLowerCase()) {
       'calendar' => 80,
       'tasks' => 75,
       'expense' => 70,
@@ -79,11 +82,7 @@ class YansiCrossCorePriority {
 
   int _confidence(Map value) {
     final explicit = value['confidence'];
-
-    if (explicit is num) {
-      return explicit.clamp(0, 100).toInt();
-    }
-
+    if (explicit is num) return explicit.clamp(0, 100).toInt();
     return 60;
   }
 }
