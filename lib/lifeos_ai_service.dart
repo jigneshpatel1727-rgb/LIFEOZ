@@ -56,8 +56,6 @@ class LifeOSAIService {
   }
 
   /// Produces a trusted, read-only intelligence signal for Yansi.
-  /// The signal can be consumed by the ambient intelligence layers but
-  /// cannot execute an action or mutate LifeOS data.
   Map<String, dynamic> buildYansiExpenseSignal({
     required String category,
     required double amount,
@@ -90,6 +88,42 @@ class LifeOSAIService {
       'hasDescription': description.trim().isNotEmpty,
       'requiresConfirmation': highValue,
       'readOnly': true,
+    };
+  }
+
+  /// Converts the expense signal into a concise ambient insight payload.
+  Map<String, dynamic> buildYansiExpenseInsight({
+    required String category,
+    required double amount,
+    String description = '',
+  }) {
+    final signal = buildYansiExpenseSignal(
+      category: category,
+      amount: amount,
+      description: description,
+    );
+
+    final priority = signal['priority'] as int;
+    final confidence = signal['confidence'] as int;
+    final normalized = category.trim().toLowerCase();
+
+    String? insight;
+    if (priority >= 90) {
+      insight = 'High-value expense detected. It may be worth reviewing before it becomes a pattern.';
+    } else if (normalized.contains('emi') || normalized.contains('loan')) {
+      insight = 'This is a committed expense. Yansi can help you watch the remaining discretionary spending.';
+    } else if (normalized.contains('food') ||
+        normalized.contains('restaurant') ||
+        normalized.contains('shopping')) {
+      insight = 'This spending category is worth tracking for future saving opportunities.';
+    }
+
+    return {
+      ...signal,
+      'insight': insight,
+      'surfaceEligible': priority >= 70 && confidence >= 70,
+      'speakEligible': priority >= 90 && confidence >= 70 &&
+          signal['requiresConfirmation'] != true,
     };
   }
 
