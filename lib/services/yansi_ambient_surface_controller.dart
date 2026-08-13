@@ -27,8 +27,8 @@ class YansiAmbientSurfaceController {
     return YansiAmbientSurfaceState(
       title: priority.title,
       message: priority.message,
-      confidence: priority.confidence,
-      visible: priority.confidence >= 60,
+      confidence: priority.priority,
+      visible: priority.priority >= 60,
     );
   }
 }
