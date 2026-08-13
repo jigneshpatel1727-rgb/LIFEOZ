@@ -5,7 +5,7 @@ import 'yansi_cross_core_priority.dart';
 import 'yansi_proactive_pipeline.dart';
 
 /// Runtime bridge for Yansi's ambient/proactive intelligence.
-/// It prepares intelligence only; it never executes sensitive actions.
+/// It prepares intelligence only; presentation is recorded separately.
 class YansiProactiveRuntime {
   final SharedPreferences prefs;
 
@@ -35,8 +35,7 @@ class YansiProactiveRuntime {
 
     final fused = <String, dynamic>{
       'signals': {
-        for (final signal in signals)
-          signal['core'].toString(): signal,
+        for (final signal in signals) signal['core'].toString(): signal,
       },
     };
 
@@ -51,14 +50,22 @@ class YansiProactiveRuntime {
 
     if (decision['surface'] != true) return null;
 
+    // Cache the prepared decision for the ambient controller. Do not mark it
+    // as surfaced here: preparing intelligence is not the same as showing it.
     await prefs.setBool('yansi_plan_ready', true);
     await prefs.setString('yansi_plan_headline', plan.headline);
     await prefs.setBool('yansi_decision_speak', decision['speak'] == true);
     await prefs.setInt('yansi_decision_priority', decision['priority'] as int? ?? 0);
     await prefs.setInt('yansi_decision_confidence', decision['confidence'] as int? ?? 0);
-    await history.markSurfaced(plan.headline);
 
     return plan;
+  }
+
+  /// Call only after the ambient surface/voice has actually been presented.
+  Future<void> markPresented() async {
+    final headline = prefs.getString('yansi_plan_headline');
+    if (headline == null || headline.trim().isEmpty) return;
+    await YansiBriefingHistory(prefs: prefs).markSurfaced(headline);
   }
 
   int _priorityForRank(int rank) {
