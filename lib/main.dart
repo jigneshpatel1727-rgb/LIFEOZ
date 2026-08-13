@@ -6,6 +6,7 @@ import 'screens/hyper_futuristic_home_v2.dart';
 import 'screens/profile_setup_screen.dart';
 import 'services/profile_setup_service.dart';
 import 'services/user_profile_service.dart';
+import 'services/yansi_lifecycle_bridge.dart';
 import 'services/yansi_runtime_guardian.dart';
 
 Future<void> main() async {
@@ -20,17 +21,29 @@ class LifeOS extends StatefulWidget {
   @override State<LifeOS> createState() => _LifeOSState();
 }
 
-class _LifeOSState extends State<LifeOS> {
+class _LifeOSState extends State<LifeOS> with WidgetsBindingObserver {
   UserProfile? _profile;
   bool _loading = true;
   late final YansiRuntimeGuardian _guardian;
+  late final YansiLifecycleBridge _yansiLifecycle;
   UserProfileService get _profiles => UserProfileService(widget.prefs);
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _guardian = YansiRuntimeGuardian(prefs: widget.prefs)..start();
+    _yansiLifecycle = YansiLifecycleBridge(prefs: widget.prefs);
     _loadProfile();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _yansiLifecycle.onAppResumed();
+    } else if (state == AppLifecycleState.paused) {
+      _yansiLifecycle.onAppPaused();
+    }
   }
 
   Future<void> _loadProfile() async {
@@ -75,6 +88,7 @@ class _LifeOSState extends State<LifeOS> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _guardian.dispose();
     super.dispose();
   }
