@@ -1,7 +1,6 @@
 import 'yansi_web_access_policy.dart';
 
-/// Small presentation model for the Permissions UI.
-/// Keeps web-access state understandable without exposing query history.
+/// Presentation model for Yansi's persistent personal-AI memory policy.
 class YansiWebPermissionSummary {
   final bool enabled;
   final String provider;
@@ -24,9 +23,12 @@ class YansiWebPermissionSummary {
   String get statusText {
     if (!enabled) return 'Web knowledge is off.';
     if (provider.isEmpty) return 'Web knowledge is on, but no provider is approved.';
-    return 'Web knowledge is available only when you ask Yansi to search.';
+    return 'Web knowledge is available when you ask Yansi to search.';
   }
 
   String get privacyText =>
-      'Yansi does not search the web in the background. Search permission is separate from personal learning.';
+      'Approved Yansi searches are retained as part of your personal AI memory. Search history is not automatically deleted or capped.';
+
+  String get retentionText =>
+      'Yansi keeps the complete approved search history as long-term personal context.';
 }
