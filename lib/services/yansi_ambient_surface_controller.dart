@@ -89,4 +89,14 @@ class YansiAmbientSurfaceController {
     if (quietMode || !userActive || !voiceAvailable) return false;
     return runtime.isReady && runtime.shouldSpeak;
   }
+
+  /// Produces a short, speakable ambient line without executing anything.
+  String? ambientVoiceText(YansiAmbientSurfaceState state) {
+    if (!state.voiceEligible || state.message == null) return null;
+    final text = state.message!.trim();
+    if (text.isEmpty) return null;
+    return state.needsConfirmation
+        ? 'I noticed something important. $text Please confirm before I act.'
+        : text;
+  }
 }
