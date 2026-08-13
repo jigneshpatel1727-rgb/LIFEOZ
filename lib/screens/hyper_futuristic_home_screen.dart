@@ -3,13 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/yansi_brain.dart';
+import '../services/yansi_proactive_engine.dart';
 import '../services/core_router.dart';
 import '../services/lifeos_permission_gate.dart';
 import '../services/yansi_ambient_listener.dart';
 import '../services/yansi_ambient_state_machine.dart';
 
-/// Hyper-futuristic LifeOS command surface.
-/// Yansi remains an ambient intelligence layer rather than a chatbot page.
 class HyperFuturisticHomeScreen extends StatefulWidget {
   final SharedPreferences prefs;
   final String userName, country, currency;
@@ -28,15 +27,17 @@ class _HyperFuturisticHomeScreenState extends State<HyperFuturisticHomeScreen> w
   late int _theme;
   bool _menu=false;
   String _state='IDLE';
+  YansiProactiveInsight? _insight;
 
   @override void initState(){
     super.initState(); _theme=widget.themeIndex;
     _yansiState=YansiAmbientStateMachine();
     _yansiState.addListener(_syncState);
     _ambient=YansiAmbientListener(permissions:LifeOSPermissionGate(widget.prefs),state:_yansiState,onUtterance:_ask);
-    WidgetsBinding.instance.addPostFrameCallback((_) async { await _welcome(); if(widget.prefs.getBool('permission_voice')==true) await _ambient.start(); });
+    WidgetsBinding.instance.addPostFrameCallback((_) async { await _welcome(); await _scanProactive(); if(widget.prefs.getBool('permission_voice')==true) await _ambient.start(); });
   }
   void _syncState(){if(!mounted)return;final s=_yansiState.state.name.toUpperCase();if(s!=_state)setState(()=>_state=s);}
+  Future<void> _scanProactive() async{final insight=await const YansiProactiveEngine(prefs:null as SharedPreferences).scan();}
   @override void dispose(){_ambient.dispose();_yansiState.removeListener(_syncState);_yansiState.dispose();_pulse.dispose();_orbit.dispose();_tts.stop();super.dispose();}
   Future<void> _welcome() async{await Future.delayed(const Duration(milliseconds:650));final n=widget.userName.trim();await _speak(n.isEmpty?'Welcome. I am Yansi, your personal LifeOS AI agent. I am here whenever you need me.':'Welcome, $n. I am Yansi, your personal LifeOS AI agent. I am here whenever you need me.');}
   Future<void> _speak(String text) async{if(!mounted)return;_yansiState.setSpeaking();try{await _tts.setLanguage('en-IN');await _tts.setSpeechRate(.46);await _tts.speak(text);}catch(_){ }if(mounted)_yansiState.setIdle();}
@@ -47,66 +48,24 @@ class _HyperFuturisticHomeScreenState extends State<HyperFuturisticHomeScreen> w
     final c=_palette(_theme); final size=MediaQuery.of(context).size;
     return Scaffold(backgroundColor:c.bg,body:Stack(children:[
       Positioned.fill(child:AnimatedBuilder(animation:Listenable.merge([_pulse,_orbit]),builder:(_,__)=>CustomPaint(painter:_Cosmos(_pulse.value,_orbit.value,c)))) ,
-      SafeArea(child:Padding(padding:const EdgeInsets.fromLTRB(14,10,14,0),child:Row(children:[
-        _topButton(Icons.menu_rounded,c,()=>setState(()=>_menu=!_menu)),
-        const Spacer(),
-        Container(width:7,height:7,decoration:BoxDecoration(shape:BoxShape.circle,color:c.a,boxShadow:[BoxShadow(color:c.a.withOpacity(.8),blurRadius:12)])),
-        const SizedBox(width:8),
-        _topButton(Icons.notifications_none_rounded,c,()=>_speak('I will surface important events when they matter.')),
-      ]))),
-      Positioned(top:82,left:0,right:0,child:Column(children:[
-        Text(widget.userName.isEmpty?'LIFEOS':widget.userName.toUpperCase(),style:TextStyle(color:c.text,fontSize:12,fontWeight:FontWeight.w600,letterSpacing:5)),
-        const SizedBox(height:7),
-        Text('PERSONAL INTELLIGENCE ENVIRONMENT',style:TextStyle(color:c.dim,fontSize:7.5,letterSpacing:2.8)),
-      ])),
+      SafeArea(child:Padding(padding:const EdgeInsets.fromLTRB(14,10,14,0),child:Row(children:[_topButton(Icons.menu_rounded,c,()=>setState(()=>_menu=!_menu)),const Spacer(),Container(width:7,height:7,decoration:BoxDecoration(shape:BoxShape.circle,color:c.a,boxShadow:[BoxShadow(color:c.a.withOpacity(.8),blurRadius:12)])),const SizedBox(width:8),_topButton(Icons.notifications_none_rounded,c,()=>_speak('I will surface important events when they matter.'))]))),
+      Positioned(top:82,left:0,right:0,child:Column(children:[Text(widget.userName.isEmpty?'LIFEOS':widget.userName.toUpperCase(),style:TextStyle(color:c.text,fontSize:12,fontWeight:FontWeight.w600,letterSpacing:5)),const SizedBox(height:7),Text('PERSONAL INTELLIGENCE ENVIRONMENT',style:TextStyle(color:c.dim,fontSize:7.5,letterSpacing:2.8))])),
       Positioned(top:size.height*.16,left:0,right:0,height:size.height*.40,child:AnimatedBuilder(animation:Listenable.merge([_pulse,_orbit]),builder:(_,__)=>_YansiCore(pulse:_pulse.value,orbit:_orbit.value,state:_state,c:c))),
+      if(_insight!=null)Positioned(left:18,right:18,top:size.height*.47,child:_insightCard(c,_insight!)),
       Positioned(top:size.height*.57,left:0,right:0,bottom:88,child:_coreConstellation(context,c)),
       Positioned(bottom:18,left:0,right:0,child:Center(child:Text('ONE SCREEN  •  ONE TAP  •  ONE REPORT',style:TextStyle(color:c.dim,fontSize:7,letterSpacing:2.1)))),
       if(_menu)Positioned(top:58,left:12,child:_menuPanel(c)),
     ]));
   }
 
+  Widget _insightCard(_P c,YansiProactiveInsight x)=>GestureDetector(onTap:()=>_speak(x.message),child:Container(padding:const EdgeInsets.fromLTRB(14,11,10,11),decoration:BoxDecoration(color:c.panel.withOpacity(.94),borderRadius:BorderRadius.circular(18),border:Border.all(color:c.a.withOpacity(.22)),boxShadow:[BoxShadow(color:c.a.withOpacity(.08),blurRadius:25)]),child:Row(children:[Container(width:4,height:42,decoration:BoxDecoration(borderRadius:BorderRadius.circular(5),color:c.a)),const SizedBox(width:11),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(x.title,style:TextStyle(color:c.a,fontSize:8,letterSpacing:1.8,fontWeight:FontWeight.w700)),const SizedBox(height:4),Text(x.message,maxLines:2,overflow:TextOverflow.ellipsis,style:TextStyle(color:c.text.withOpacity(.75),fontSize:10,height:1.25))])),Text(x.action,style:TextStyle(color:c.dim,fontSize:7,letterSpacing:1.2))])));
+
   Widget _topButton(IconData icon,_P c,VoidCallback tap)=>GestureDetector(onTap:tap,child:Container(width:38,height:38,decoration:BoxDecoration(shape:BoxShape.circle,color:c.panel,border:Border.all(color:c.line),boxShadow:[BoxShadow(color:c.a.withOpacity(.07),blurRadius:18)]),child:Icon(icon,size:18,color:c.text.withOpacity(.8))));
-
-  Widget _coreConstellation(BuildContext context,_P c){
-    final w=MediaQuery.of(context).size.width;
-    final specs=<List<Object>>[[0,Icons.account_balance_wallet_outlined,.08],[1,Icons.auto_awesome_outlined,.30],[2,Icons.bolt_outlined,.52],[3,Icons.home_work_outlined,.74],[4,Icons.timeline_rounded,.40]];
-    return Stack(children:[
-      Positioned(left:w*.14,right:w*.14,top:35,child:Container(height:1,color:c.a.withOpacity(.08))),
-      ...specs.map((s){final i=s[0] as int;final icon=s[1] as IconData;final left=s[2] as double;final top=i==4?105.0:0.0;return Positioned(left:w*left,top:top,child:_coreNode(context,i,icon,c));}),
-    ]);
-  }
-  Widget _coreNode(BuildContext context,int i,IconData icon,_P c)=>GestureDetector(onTap:()=>_core(context,i),child:Column(children:[
-    Container(width:56,height:56,decoration:BoxDecoration(shape:BoxShape.circle,color:c.panel,border:Border.all(color:c.a.withOpacity(.42)),boxShadow:[BoxShadow(color:c.a.withOpacity(.12),blurRadius:24),BoxShadow(color:c.b.withOpacity(.05),blurRadius:8)]),child:Stack(alignment:Alignment.center,children:[Container(width:42,height:42,decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(color:c.b.withOpacity(.16))),),Icon(icon,size:23,color:c.a)])),
-    const SizedBox(height:7),
-    Text('${i+1}',style:TextStyle(color:c.dim,fontSize:7,letterSpacing:1.5)),
-  ]));
-
-  Widget _menuPanel(_P c)=>Container(width:245,padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:c.bg.withOpacity(.98),borderRadius:BorderRadius.circular(22),border:Border.all(color:c.line),boxShadow:[BoxShadow(color:c.a.withOpacity(.12),blurRadius:40)]),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-    Text('ENVIRONMENT',style:TextStyle(color:c.a,fontSize:8,letterSpacing:2.4)),const SizedBox(height:10),
-    ...List.generate(5,(i)=>GestureDetector(onTap:()async{setState(()=>_theme=i);await widget.onThemeChanged(i);setState(()=>_menu=false);},child:Padding(padding:const EdgeInsets.symmetric(vertical:7),child:Row(children:[Container(width:8,height:8,decoration:BoxDecoration(shape:BoxShape.circle,color:i==_theme?c.a:c.dim)),const SizedBox(width:10),Text(const ['Aurora Nexus','Void Matrix','Quantum Purple','Solaris Prime','Frost Minimal'][i],style:TextStyle(fontSize:11,color:i==_theme?c.text:c.dim))])))),
-  ]));
-
+  Widget _coreConstellation(BuildContext context,_P c){final w=MediaQuery.of(context).size.width;final specs=<List<Object>>[[0,Icons.account_balance_wallet_outlined,.08],[1,Icons.auto_awesome_outlined,.30],[2,Icons.bolt_outlined,.52],[3,Icons.home_work_outlined,.74],[4,Icons.timeline_rounded,.40]];return Stack(children:[Positioned(left:w*.14,right:w*.14,top:35,child:Container(height:1,color:c.a.withOpacity(.08))),...specs.map((s){final i=s[0] as int;final icon=s[1] as IconData;final left=s[2] as double;final top=i==4?105.0:0.0;return Positioned(left:w*left,top:top,child:_coreNode(context,i,icon,c));})]);}
+  Widget _coreNode(BuildContext context,int i,IconData icon,_P c)=>GestureDetector(onTap:()=>_core(context,i),child:Column(children:[Container(width:56,height:56,decoration:BoxDecoration(shape:BoxShape.circle,color:c.panel,border:Border.all(color:c.a.withOpacity(.42)),boxShadow:[BoxShadow(color:c.a.withOpacity(.12),blurRadius:24),BoxShadow(color:c.b.withOpacity(.05),blurRadius:8)]),child:Stack(alignment:Alignment.center,children:[Container(width:42,height:42,decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(color:c.b.withOpacity(.16)))),Icon(icon,size:23,color:c.a)])),const SizedBox(height:7),Text('${i+1}',style:TextStyle(color:c.dim,fontSize:7,letterSpacing:1.5))]));
+  Widget _menuPanel(_P c)=>Container(width:245,padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:c.bg.withOpacity(.98),borderRadius:BorderRadius.circular(22),border:Border.all(color:c.line),boxShadow:[BoxShadow(color:c.a.withOpacity(.12),blurRadius:40)]),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('ENVIRONMENT',style:TextStyle(color:c.a,fontSize:8,letterSpacing:2.4)),const SizedBox(height:10),...List.generate(5,(i)=>GestureDetector(onTap:()async{setState(()=>_theme=i);await widget.onThemeChanged(i);setState(()=>_menu=false);},child:Padding(padding:const EdgeInsets.symmetric(vertical:7),child:Row(children:[Container(width:8,height:8,decoration:BoxDecoration(shape:BoxShape.circle,color:i==_theme?c.a:c.dim)),const SizedBox(width:10),Text(const ['Aurora Nexus','Void Matrix','Quantum Purple','Solaris Prime','Frost Minimal'][i],style:TextStyle(fontSize:11,color:i==_theme?c.text:c.dim))]))))]));
   _P _palette(int i){const p=[_P(Color(0xFF010A0B),Color(0xFF00FFD5),Color(0xFF38FF7A),Color(0xFFE8FFFB),Color(0xFF6E9995),Color(0x0918FFE0)),_P(Color(0xFF01050D),Color(0xFF159BFF),Color(0xFF4DD6FF),Color(0xFFE9F6FF),Color(0xFF718EA9),Color(0x081599FF)),_P(Color(0xFF08010D),Color(0xFFD94CFF),Color(0xFFFF58C8),Color(0xFFFFF0FF),Color(0xFFA98EB2),Color(0x08D94CFF)),_P(Color(0xFF0A0701),Color(0xFFFFCF2E),Color(0xFFFF7A00),Color(0xFFFFF7DC),Color(0xFFAA9763),Color(0x08FFCF2E)),_P(Color(0xFFF3F9FF),Color(0xFF167DFF),Color(0xFF59C8FF),Color(0xFF08244A),Color(0xFF68819B),Color(0x08167DFF))];return p[i.clamp(0,4)];}
 }
-
-class _P{final Color bg,a,b,text,dim,panel;const _P(this.bg,this.a,this.b,this.text,this.dim,this.panel);}
-
-class _YansiCore extends StatelessWidget{final double pulse,orbit;final String state;final _P c;const _YansiCore({required this.pulse,required this.orbit,required this.state,required this.c});
-  @override Widget build(BuildContext context){final scale=1+math.sin(pulse*math.pi*2)*.045;return Center(child:Transform.scale(scale:scale,child:Stack(alignment:Alignment.center,children:[
-    for(int i=0;i<5;i++)Transform.rotate(angle:orbit*(i.isEven?1:-1)*2.0+i*.35,child:Container(width:138+i*28,height:138+i*28,decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(color:(i.isEven?c.a:c.b).withOpacity(.075+i*.014))))),
-    Container(width:116,height:116,decoration:BoxDecoration(shape:BoxShape.circle,gradient:RadialGradient(colors:[c.a.withOpacity(.38),c.b.withOpacity(.12),Colors.transparent]),boxShadow:[BoxShadow(color:c.a.withOpacity(.28),blurRadius:55)])),
-    Container(width:78,height:78,decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(color:c.a.withOpacity(.5)),gradient:RadialGradient(colors:[c.a.withOpacity(.22),c.bg]))),
-    Icon(Icons.auto_awesome,size:28,color:c.text.withOpacity(.92)),
-    Positioned(bottom:-24,child:Text(state=='IDLE'?'':state,style:TextStyle(color:c.a,fontSize:7,letterSpacing:2.2))),
-  ])));}
-}
-
-class _Cosmos extends CustomPainter{final double pulse,orbit;final _P c;_Cosmos(this.pulse,this.orbit,this.c);
-  @override void paint(Canvas canvas,Size s){final center=Offset(s.width/2,s.height*.36);final p=Paint();
-    final glow=Paint()..color=c.a.withOpacity(.035)..maskFilter=const MaskFilter.blur(BlurStyle.normal,40);canvas.drawCircle(center,s.width*.28,glow);
-    for(int i=0;i<70;i++){final a=(i*0.91)+orbit*math.pi*2*(i.isEven?1:-1);final r=s.width*(.12+(i%13)*.035);final x=center.dx+math.cos(a)*r;final y=center.dy+math.sin(a)*r*.72;final alpha=.025+((i%5)/100);p.color=(i%3==0?c.b:c.a).withOpacity(alpha);canvas.drawCircle(Offset(x,y),i%7==0?1.3:.7,p);if(i%9==0){final q=Paint()..color=c.a.withOpacity(.035);canvas.drawLine(center,Offset(x,y),q);}}
-    final ring=Paint()..style=PaintingStyle.stroke..strokeWidth=1..color=c.a.withOpacity(.055);for(int i=0;i<3;i++){canvas.drawOval(Rect.fromCenter(center:center,width:s.width*(.58+i*.11),height:s.height*(.18+i*.04)),ring);}
-  }
-  @override bool shouldRepaint(covariant _Cosmos old)=>old.pulse!=pulse||old.orbit!=orbit||old.c!=c;
-}
+class _P{final Color bg,a,b,text,dim,panel;const _P(this.bg,this.a,this.b,this.text,this.dim,this.panel);Color get line=>a.withOpacity(.16);}
+class _YansiCore extends StatelessWidget{final double pulse,orbit;final String state;final _P c;const _YansiCore({required this.pulse,required this.orbit,required this.state,required this.c});@override Widget build(BuildContext context){final scale=1+math.sin(pulse*math.pi*2)*.045;return Center(child:Transform.scale(scale:scale,child:Stack(alignment:Alignment.center,children:[for(int i=0;i<5;i++)Transform.rotate(angle:orbit*(i.isEven?1:-1)*2.0+i*.35,child:Container(width:138+i*28,height:138+i*28,decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(color:(i.isEven?c.a:c.b).withOpacity(.075+i*.014))))),Container(width:116,height:116,decoration:BoxDecoration(shape:BoxShape.circle,gradient:RadialGradient(colors:[c.a.withOpacity(.38),c.b.withOpacity(.12),Colors.transparent]),boxShadow:[BoxShadow(color:c.a.withOpacity(.28),blurRadius:55)])),Container(width:78,height:78,decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(color:c.a.withOpacity(.5)),gradient:RadialGradient(colors:[c.a.withOpacity(.22),c.bg]))),Icon(Icons.auto_awesome,size:28,color:c.text.withOpacity(.92)),Positioned(bottom:-24,child:Text(state=='IDLE'?'':state,style:TextStyle(color:c.a,fontSize:7,letterSpacing:2.2)))])));}}
+class _Cosmos extends CustomPainter{final double pulse,orbit;final _P c;_Cosmos(this.pulse,this.orbit,this.c);@override void paint(Canvas canvas,Size s){final center=Offset(s.width/2,s.height*.36);final p=Paint();final glow=Paint()..color=c.a.withOpacity(.035)..maskFilter=const MaskFilter.blur(BlurStyle.normal,40);canvas.drawCircle(center,s.width*.28,glow);for(int i=0;i<70;i++){final a=(i*.91)+orbit*math.pi*2*(i.isEven?1:-1);final r=s.width*(.12+(i%13)*.035);final x=center.dx+math.cos(a)*r;final y=center.dy+math.sin(a)*r*.72;final alpha=.025+((i%5)/100);p.color=(i%3==0?c.b:c.a).withOpacity(alpha);canvas.drawCircle(Offset(x,y),i%7==0?1.3:.7,p);if(i%9==0){final q=Paint()..color=c.a.withOpacity(.035);canvas.drawLine(center,Offset(x,y),q);}}final ring=Paint()..style=PaintingStyle.stroke..strokeWidth=1..color=c.a.withOpacity(.055);for(int i=0;i<3;i++){canvas.drawOval(Rect.fromCenter(center:center,width:s.width*(.58+i*.11),height:s.height*(.18+i*.04)),ring);}}@override bool shouldRepaint(covariant _Cosmos old)=>old.pulse!=pulse||old.orbit!=orbit||old.c!=c;}
