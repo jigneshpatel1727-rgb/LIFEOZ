@@ -11,6 +11,7 @@ class YansiAmbientSurfaceState {
   final bool visible;
   final bool needsConfirmation;
   final bool ambientOnly;
+  final bool voiceEligible;
 
   const YansiAmbientSurfaceState({
     this.title,
@@ -19,6 +20,7 @@ class YansiAmbientSurfaceState {
     this.visible = false,
     this.needsConfirmation = false,
     this.ambientOnly = true,
+    this.voiceEligible = false,
   });
 
   bool get highConfidence => confidence >= 80;
@@ -43,10 +45,6 @@ class YansiAmbientSurfaceController {
     );
   }
 
-  /// Refreshes the ambient surface from the real proactive runtime.
-  ///
-  /// Context only affects presentation. It cannot authorize or execute an
-  /// action.
   Future<YansiAmbientSurfaceState> refreshFromRuntime(
     YansiProactiveRuntime runtime, {
     bool quietMode = false,
@@ -69,7 +67,7 @@ class YansiAmbientSurfaceController {
 
     final confidence = runtime.confidence.clamp(0, 100).toInt();
     final shouldSurface = userActive && confidence >= 60;
-    final shouldSpeak = voiceAvailable && userActive && runtime.shouldSpeak;
+    final voiceEligible = voiceAvailable && userActive && runtime.shouldSpeak;
 
     return YansiAmbientSurfaceState(
       title: runtime.headline,
@@ -78,11 +76,10 @@ class YansiAmbientSurfaceController {
       visible: shouldSurface,
       needsConfirmation: runtime.priority >= 90,
       ambientOnly: true,
+      voiceEligible: voiceEligible,
     );
   }
 
-  /// Presentation hint for the voice layer.
-  /// This is never an authorization signal.
   bool shouldAllowAmbientVoice({
     required YansiProactiveRuntime runtime,
     bool quietMode = false,
