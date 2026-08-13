@@ -92,10 +92,13 @@ class YansiAmbientSurfaceController {
     if (plan == null || !runtime.isReady) return const YansiAmbientSurfaceState();
 
     final confidence = runtime.confidence.clamp(0, 100).toInt();
+    final title = runtime.headline;
     final message = plan.items.isEmpty ? null : plan.items.first.reason;
-    if (message == null || message.trim().isEmpty) return const YansiAmbientSurfaceState();
+    if (title == null || title.trim().isEmpty || message == null || message.trim().isEmpty) {
+      return const YansiAmbientSurfaceState();
+    }
 
-    final key = signalIdentity(title: runtime.headline, message: message, priority: runtime.priority);
+    final key = signalIdentity(title: title, message: message, priority: runtime.priority);
     final surfaceAllowed = gate.allow(
       visible: screenVisible && confidence >= 60,
       userActive: userActive,
@@ -106,7 +109,7 @@ class YansiAmbientSurfaceController {
     if (!surfaceAllowed) return const YansiAmbientSurfaceState();
 
     return YansiAmbientSurfaceState(
-      title: runtime.headline,
+      title: title,
       message: message,
       confidence: confidence,
       visible: true,
