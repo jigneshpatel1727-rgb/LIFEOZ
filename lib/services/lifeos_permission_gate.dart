@@ -9,6 +9,7 @@ class LifeOSPermissionGate {
   bool get voiceEnabled => prefs.getBool('permission_voice') ?? false;
   bool get notificationEnabled => prefs.getBool('permission_notifications') ?? false;
   bool get webEnabled => prefs.getBool('permission_web') ?? false;
+  bool get canUseWeb => webEnabled;
   bool get healthEnabled => prefs.getBool('permission_health') ?? false;
   bool get backgroundEnabled => prefs.getBool('permission_background_ai') ?? false;
 
