@@ -1,38 +1,25 @@
-/// Safety boundary for Yansi actions across the five LifeOS cores.
-///
-/// Read-only analysis can proceed immediately. Mutating or sensitive actions
-/// require an explicit confirmation token from the UI/voice layer.
+/// Final execution guard for Yansi data-changing actions.
 class YansiActionExecutionGuard {
   const YansiActionExecutionGuard();
 
-  static const Set<String> _mutatingActions = {
-    'add_expense',
-    'delete_expense',
-    'add_task',
-    'complete_task',
-    'delete_task',
-    'add_household_item',
-    'delete_household_item',
-    'add_calendar_event',
-    'delete_calendar_event',
-    'add_goal',
-    'delete_goal',
-  };
-
-  bool requiresConfirmation(String action) => _mutatingActions.contains(action);
-
-  bool canExecute({
-    required String action,
-    required bool confirmed,
+  Map<String, dynamic> check({
+    required Map<String, dynamic> authorization,
+    required bool explicitConfirmation,
   }) {
-    if (!requiresConfirmation(action)) return true;
-    return confirmed;
-  }
+    final sensitive = authorization['sensitive'] == true;
+    final authorized = authorization['authorized'] == true;
 
-  String explanation(String action) {
-    if (!requiresConfirmation(action)) {
-      return 'This is a read-only LifeOS action.';
-    }
-    return 'I understood "$action". I need your confirmation before I change your LifeOS data.';
+    final permitted =
+        authorized && (!sensitive || explicitConfirmation);
+
+    return {
+      'permitted': permitted,
+      'sensitive': sensitive,
+      'explicitConfirmation': explicitConfirmation,
+      'executionAllowed': permitted,
+      'reason': permitted
+          ? 'approved'
+          : 'confirmation_or_authorization_required',
+    };
   }
 }
