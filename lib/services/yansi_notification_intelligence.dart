@@ -74,6 +74,22 @@ class YansiNotificationIntelligence {
     return result;
   }
 
+  bool shouldSurface({
+    required YansiNotificationInsight insight,
+    required bool notificationsEnabled,
+    required bool backgroundEnabled,
+    required bool materiallyNew,
+    required DateTime localTime,
+    int priority = 60,
+    bool userIsActive = false,
+  }) {
+    if (!notificationsEnabled || !backgroundEnabled || !materiallyNew) return false;
+    if (priority < 60) return false;
+    if (userIsActive) return true;
+    if (localTime.hour >= 23 || localTime.hour < 7) return priority >= 90;
+    return true;
+  }
+
   bool _containsAny(String text, List<String> values) =>
       values.any(text.contains);
 }
