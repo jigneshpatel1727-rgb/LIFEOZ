@@ -1,4 +1,7 @@
+import 'lifeos_data_store.dart';
 import 'yansi_cross_core_insight_engine.dart';
+import 'yansi_hyper_intelligence_merger.dart';
+import 'yansi_hyper_intelligence_snapshot.dart';
 
 class YansiPrioritySignal {
   final String title;
@@ -12,7 +15,8 @@ class YansiPrioritySignal {
 /// ambient Yansi layer. It does not execute sensitive actions by itself.
 class YansiProactivePriorityEngine {
   final YansiCrossCoreInsightEngine insights;
-  const YansiProactivePriorityEngine(this.insights);
+  final LifeOSDataStore? store;
+  const YansiProactivePriorityEngine(this.insights, {this.store});
 
   List<YansiPrioritySignal> prioritize() {
     final output = <YansiPrioritySignal>[];
@@ -23,6 +27,12 @@ class YansiProactivePriorityEngine {
         priority: insight.confidence,
       ));
     }
+
+    if (store != null) {
+      final snapshot = YansiHyperIntelligenceEngine(store!).capture();
+      return const YansiHyperIntelligenceMerger().merge(snapshot, output);
+    }
+
     output.sort((a, b) => b.priority.compareTo(a.priority));
     return output;
   }
