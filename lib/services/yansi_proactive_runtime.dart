@@ -1,33 +1,96 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'yansi_briefing_history.dart';
 import 'yansi_proactive_planner.dart';
+import 'yansi_cross_core_priority.dart';
+import 'yansi_decision_bridge.dart';
+import 'yansi_proactive_pipeline.dart';
 
-/// Small runtime bridge for Yansi's ambient/proactive layer.
-/// It prepares intelligence without speaking or executing actions by itself.
+/// Runtime bridge for Yansi's ambient/proactive intelligence.
+/// It prepares intelligence only; it never executes sensitive actions.
 class YansiProactiveRuntime {
   final SharedPreferences prefs;
+
   const YansiProactiveRuntime({required this.prefs});
 
-  Future<YansiProactivePlan?> prepare({bool userIsActive=true,bool quietMode=false}) async {
-    if(quietMode) return null;
-    final plan=await YansiProactivePlanner(prefs:prefs).build();
-    if(plan.items.isEmpty) return null;
+  Future<YansiProactivePlan?> prepare({
+    bool userIsActive = true,
+    bool quietMode = false,
+  }) async {
+    if (quietMode) return null;
 
-    final history=YansiBriefingHistory(prefs:prefs);
-    if(!await history.shouldSurface(plan.headline)) {
-      return null;
-    }
+    final plan = await YansiProactivePlanner(prefs: prefs).build();
+    if (plan.items.isEmpty) return null;
 
-    await prefs.setBool('yansi_plan_ready',true);
-    await prefs.setString('yansi_plan_headline',plan.headline);
+    final history = YansiBriefingHistory(prefs: prefs);
+    if (!await history.shouldSurface(plan.headline)) return null;
+
+    final signals = <Map<String, dynamic>>[
+      for (final item in plan.items)
+        {
+          'core': item.core.toLowerCase(),
+          'priority': _priorityForRank(item.rank),
+          'confidence': 85,
+          'readOnly': true,
+        },
+    ];
+
+    final fused = <String, dynamic>{
+      'signals': {
+        for (final signal in signals)
+          signal['core'].toString(): signal,
+      },
+    };
+
+    final decision = const YansiProactivePipeline(
+      priorityEngine: YansiCrossCorePriority(),
+      decisionBridge: YansiDecisionBridge(),
+    ).evaluate(
+      fusedSignals: fused,
+      insight: plan.items.first.reason,
+      repeated: false,
+      quietHours: quietMode,
+    );
+
+    if (decision['surface'] != true) return null;
+
+    await prefs.setBool('yansi_plan_ready', true);
+    await prefs.setString('yansi_plan_headline', plan.headline);
+    await prefs.setBool('yansi_decision_speak', decision['speak'] == true);
+    await prefs.setInt('yansi_decision_priority', decision['priority'] as int? ?? 0);
+    await prefs.setInt('yansi_decision_confidence', decision['confidence'] as int? ?? 0);
     await history.markSurfaced(plan.headline);
+
     return plan;
   }
 
-  bool get isReady => prefs.getBool('yansi_plan_ready')==true;
+  int _priorityForRank(int rank) {
+    switch (rank) {
+      case 1:
+        return 90;
+      case 2:
+        return 85;
+      case 3:
+        return 80;
+      case 4:
+        return 75;
+      case 5:
+        return 70;
+      default:
+        return 60;
+    }
+  }
+
+  bool get isReady => prefs.getBool('yansi_plan_ready') == true;
   String? get headline => prefs.getString('yansi_plan_headline');
+  bool get shouldSpeak => prefs.getBool('yansi_decision_speak') == true;
+  int get priority => prefs.getInt('yansi_decision_priority') ?? 0;
+  int get confidence => prefs.getInt('yansi_decision_confidence') ?? 0;
+
   Future<void> clearReady() async {
     await prefs.remove('yansi_plan_ready');
     await prefs.remove('yansi_plan_headline');
+    await prefs.remove('yansi_decision_speak');
+    await prefs.remove('yansi_decision_priority');
+    await prefs.remove('yansi_decision_confidence');
   }
 }
