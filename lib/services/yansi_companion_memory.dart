@@ -32,5 +32,46 @@ class YansiCompanionMemory {
     }).where((e) => e.isNotEmpty).toList().reversed.toList();
   }
 
-  Future<void> clear() => prefs.remove(_key);
+  /// Finds repeated user-approved topics without diagnosing personality or health.
+  /// A pattern is only persisted when personal learning is enabled.
+  Future<List<Map<String, dynamic>>> learnPatterns({int lookback = 60}) async {
+    if (!enabled) return const [];
+    final rows = recent(limit: lookback);
+    final counts = <String, int>{};
+    for (final row in rows) {
+      final topic = (row['topic'] ?? '').toString().trim().toLowerCase();
+      if (topic.isEmpty) continue;
+      counts[topic] = (counts[topic] ?? 0) + 1;
+    }
+    final patterns = counts.entries
+        .where((e) => e.value >= 2)
+        .map((e) => {
+              'topic': e.key,
+              'frequency': e.value,
+              'confidence': (0.5 + (e.value - 2) * 0.08).clamp(0.0, 0.9),
+              'type': 'behavioral_pattern',
+              'createdAt': DateTime.now().toIso8601String(),
+            })
+        .toList()
+      ..sort((a, b) => (b['frequency'] as int).compareTo(a['frequency'] as int));
+    await prefs.setStringList(
+      'yansi_learned_patterns',
+      patterns.take(30).map(jsonEncode).toList(),
+    );
+    return patterns;
+  }
+
+  List<Map<String, dynamic>> learnedPatterns() {
+    if (!enabled) return const [];
+    final rows = prefs.getStringList('yansi_learned_patterns') ?? <String>[];
+    return rows.map((raw) {
+      try { return Map<String, dynamic>.from(jsonDecode(raw) as Map); }
+      catch (_) { return <String, dynamic>{}; }
+    }).where((e) => e.isNotEmpty).toList();
+  }
+
+  Future<void> clear() async {
+    await prefs.remove(_key);
+    await prefs.remove('yansi_learned_patterns');
+  }
 }
