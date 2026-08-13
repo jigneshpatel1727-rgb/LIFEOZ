@@ -28,7 +28,7 @@ class _FuturisticCoreSurfaceState extends State<FuturisticCoreSurface> with Sing
     final brain=YansiBrain(prefs:prefs);
     final memory=await brain.getMemory();
     final summary=await brain.getSummary();
-    final filtered=memory.where((item){switch(widget.core){case 0:return item['type']=='expense'||item['type']=='income';case 1:return item['type']=='goal';case 2:return item['type']=='task'||item['type']=='reminder';case 3:return item['type']=='household';case 4:return item['type']=='diary';default:return false;}}).toList();
+    final filtered=memory.where((item){switch(widget.core){case 0:return item['type']=='expense'||item['type']=='income';case 1:return item['type']=='goal';case 2:return item['type']=='task'||item['type']=='reminder';case 3:return item['type']=='household';case 4:return item['type']=='reminder';default:return false;}}).toList();
     final income=(summary['income'] as num?)?.toDouble()??0;
     final expenses=(summary['expenses'] as num?)?.toDouble()??0;
     if(!mounted)return;
@@ -36,12 +36,12 @@ class _FuturisticCoreSurfaceState extends State<FuturisticCoreSurface> with Sing
   }
 
   String _makeInsight(int count,double income,double expenses){
-    switch(widget.core){case 0:return expenses>income&&income>0?'Financial pressure detected — Yansi recommends reviewing spending.':'Financial field stable — Yansi is watching spending patterns.';case 1:return count==0?'No goal signal yet — tell Yansi what future you want.':'Yansi is tracking $count goal signal${count==1?'':'s'} toward your future.';case 2:return count==0?'No active task signal — Yansi is ready to organize your day.':'Yansi detected $count productivity signal${count==1?'':'s'} and can prioritize them.';case 3:return count==0?'Household intelligence is ready for your first signal.':'Yansi is tracking $count household record${count==1?'':'s'}.';default:return count==0?'Your Life timeline is waiting for its first memory.':'Yansi has mapped $count life memories into your timeline.';}}
+    switch(widget.core){case 0:return expenses>income&&income>0?'Financial pressure detected — Yansi recommends reviewing spending.':'Financial field stable — Yansi is watching spending patterns.';case 1:return count==0?'No goal signal yet — tell Yansi what future you want.':'Yansi is tracking $count goal signal${count==1?'':'s'} toward your future.';case 2:return count==0?'No active task signal — Yansi is ready to organize your day.':'Yansi detected $count productivity signal${count==1?'':'s'} and can prioritize them.';case 3:return count==0?'Household intelligence is ready for your first signal.':'Yansi is tracking $count household record${count==1?'':'s'}.';default:return count==0?'Your Life calendar is waiting for its first event.':'Yansi has mapped $count upcoming calendar signal${count==1?'':'s'}.';}}
 
   Future<void> _speakInsight() async{try{await _tts.setLanguage('en-IN');await _tts.setSpeechRate(.45);await _tts.speak(_insight);}catch(_){}}
   String _money(double v){return v==v.roundToDouble()?'${widget.currency}${v.toInt()}':'${widget.currency}${v.toStringAsFixed(2)}';}
   String _main(){if(widget.core==0)return _money(_expenses);return '$_records';}
-  String _label(){const x=['TOTAL SPENDING','GOALS','ACTIVE SIGNALS','HOUSEHOLD SIGNALS','LIFE MEMORIES'];return x[widget.core];}
+  String _label(){const x=['TOTAL SPENDING','GOALS','ACTIVE SIGNALS','HOUSEHOLD SIGNALS','UPCOMING EVENTS'];return x[widget.core];}
 
   @override Widget build(BuildContext context){
     final d=coreByIndex(widget.core);
