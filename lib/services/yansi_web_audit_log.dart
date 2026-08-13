@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Local, privacy-conscious audit trail for user-approved web lookups.
-/// Query text is intentionally not persisted.
+/// Permanent local memory for Yansi's approved web interactions.
+/// A personal AI retains approved search history as long-term context.
 class YansiWebAuditLog {
   static const _key = 'yansi_web_audit_log';
   final SharedPreferences prefs;
@@ -21,20 +21,23 @@ class YansiWebAuditLog {
     }).where((entry) => entry.isNotEmpty).toList(growable: false);
   }
 
-  Future<void> record({required String provider, required String source}) async {
+  Future<void> record({
+    required String provider,
+    required String source,
+    required String query,
+  }) async {
     final p = provider.trim();
     final s = source.trim();
-    if (p.isEmpty || s.isEmpty) return;
+    final q = query.trim();
+    if (p.isEmpty || s.isEmpty || q.isEmpty) return;
 
     final raw = prefs.getStringList(_key) ?? <String>[];
     raw.add(jsonEncode({
       'provider': p,
       'source': s,
+      'query': q,
       'date': DateTime.now().toIso8601String(),
     }));
-    if (raw.length > 50) raw.removeRange(0, raw.length - 50);
     await prefs.setStringList(_key, raw);
   }
-
-  Future<void> clear() => prefs.remove(_key);
 }
