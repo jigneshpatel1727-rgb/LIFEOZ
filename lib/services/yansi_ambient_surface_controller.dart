@@ -7,12 +7,14 @@ class YansiAmbientSurfaceState {
   final String? message;
   final int confidence;
   final bool visible;
+  final bool needsConfirmation;
 
   const YansiAmbientSurfaceState({
     this.title,
     this.message,
     this.confidence = 0,
     this.visible = false,
+    this.needsConfirmation = false,
   });
 }
 
@@ -30,6 +32,7 @@ class YansiAmbientSurfaceController {
       message: signal.message,
       confidence: score,
       visible: score >= 60,
+      needsConfirmation: signal.needsConfirmation,
     );
   }
 }
