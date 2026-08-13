@@ -1,12 +1,17 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Central permission policy for LifeOS intelligence sources.
-/// Platform-specific permission prompts remain outside this policy layer.
+///
+/// Voice is ON by default because Yansi is designed as an ambient companion.
+/// Android/iOS microphone permission is still handled by the operating system;
+/// LifeOS never bypasses that platform-level permission.
 class LifeOSPermissionGate {
   final SharedPreferences prefs;
   const LifeOSPermissionGate(this.prefs);
 
-  bool get voiceEnabled => prefs.getBool('permission_voice') ?? false;
+  // Yansi voice is a core companion capability and therefore defaults ON.
+  // The user can still switch it off from LifeOS settings at any time.
+  bool get voiceEnabled => prefs.getBool('permission_voice') ?? true;
   bool get notificationEnabled => prefs.getBool('permission_notifications') ?? false;
   bool get webEnabled => prefs.getBool('permission_web') ?? false;
   bool get canUseWeb => webEnabled;
