@@ -1,9 +1,7 @@
+import 'yansi_ambient_signal_gate.dart';
 import 'yansi_next_phase_orchestrator.dart';
 import 'yansi_proactive_runtime.dart';
 
-/// Small ambient presentation state for Yansi.
-/// The controller exposes one useful signal at a time and never executes
-/// actions.
 class YansiAmbientSurfaceState {
   final String? title;
   final String? message;
@@ -12,6 +10,7 @@ class YansiAmbientSurfaceState {
   final bool needsConfirmation;
   final bool ambientOnly;
   final bool voiceEligible;
+  final String? signalKey;
 
   const YansiAmbientSurfaceState({
     this.title,
@@ -21,6 +20,7 @@ class YansiAmbientSurfaceState {
     this.needsConfirmation = false,
     this.ambientOnly = true,
     this.voiceEligible = false,
+    this.signalKey,
   });
 
   bool get highConfidence => confidence >= 80;
@@ -28,20 +28,31 @@ class YansiAmbientSurfaceState {
 
 class YansiAmbientSurfaceController {
   final YansiNextPhaseOrchestrator orchestrator;
+  final YansiAmbientSignalGate gate;
 
-  const YansiAmbientSurfaceController(this.orchestrator);
+  const YansiAmbientSurfaceController(
+    this.orchestrator, {
+    this.gate = const YansiAmbientSignalGate(),
+  });
 
   YansiAmbientSurfaceState refresh() {
     final signal = orchestrator.topPriority();
     if (signal == null) return const YansiAmbientSurfaceState();
-
     final score = signal.priority.clamp(0, 100).toInt();
+    final allowed = gate.allow(
+      visible: score >= 60,
+      userActive: true,
+      quietMode: false,
+      cadenceAllowed: true,
+      priority: score,
+    );
+    if (!allowed) return const YansiAmbientSurfaceState();
     return YansiAmbientSurfaceState(
       title: signal.title,
       message: signal.message,
       confidence: score,
-      visible: score >= 60,
-      needsConfirmation: signal.needsConfirmation,
+      visible: true,
+      needsConfirmation: signal.needsConfirmation || score >= 90,
     );
   }
 
@@ -52,28 +63,40 @@ class YansiAmbientSurfaceController {
     bool screenVisible = true,
     bool voiceAvailable = true,
   }) async {
-    if (quietMode || !screenVisible) {
-      return const YansiAmbientSurfaceState();
-    }
-
+    if (quietMode || !screenVisible) return const YansiAmbientSurfaceState();
     final plan = await runtime.prepare(
       userIsActive: userActive,
       quietMode: quietMode,
     );
-
     if (plan == null || !runtime.isReady) {
       return const YansiAmbientSurfaceState();
     }
 
     final confidence = runtime.confidence.clamp(0, 100).toInt();
-    final shouldSurface = userActive && confidence >= 60;
-    final voiceEligible = voiceAvailable && userActive && runtime.shouldSpeak;
+    final message = plan.items.isEmpty ? null : plan.items.first.reason;
+    if (message == null || message.trim().isEmpty) {
+      return const YansiAmbientSurfaceState();
+    }
+
+    final surfaceAllowed = gate.allow(
+      visible: screenVisible && confidence >= 60,
+      userActive: userActive,
+      quietMode: quietMode,
+      cadenceAllowed: true,
+      priority: runtime.priority,
+    );
+    final voiceEligible = gate.allowVoice(
+      surfaceAllowed: surfaceAllowed,
+      voiceAvailable: voiceAvailable,
+      runtimeAllowsSpeech: runtime.shouldSpeak,
+    );
+    if (!surfaceAllowed) return const YansiAmbientSurfaceState();
 
     return YansiAmbientSurfaceState(
       title: runtime.headline,
-      message: plan.items.isEmpty ? null : plan.items.first.reason,
+      message: message,
       confidence: confidence,
-      visible: shouldSurface,
+      visible: true,
       needsConfirmation: runtime.priority >= 90,
       ambientOnly: true,
       voiceEligible: voiceEligible,
@@ -86,11 +109,13 @@ class YansiAmbientSurfaceController {
     bool userActive = true,
     bool voiceAvailable = true,
   }) {
-    if (quietMode || !userActive || !voiceAvailable) return false;
-    return runtime.isReady && runtime.shouldSpeak;
+    return gate.allowVoice(
+      surfaceAllowed: !quietMode && userActive,
+      voiceAvailable: voiceAvailable,
+      runtimeAllowsSpeech: runtime.isReady && runtime.shouldSpeak,
+    );
   }
 
-  /// Produces a short, speakable ambient line without executing anything.
   String? ambientVoiceText(YansiAmbientSurfaceState state) {
     if (!state.voiceEligible || state.message == null) return null;
     final text = state.message!.trim();
