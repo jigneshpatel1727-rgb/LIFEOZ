@@ -51,8 +51,10 @@ class YansiAmbientCommandService {
         return LifeOSSignalType.goal;
       case YansiIntent.diary:
         return LifeOSSignalType.diary;
+      // Income is not an investment. Keep it in the neutral voice stream
+      // until the intelligence bus has a dedicated income signal type.
       case YansiIntent.income:
-        return LifeOSSignalType.investment;
+        return LifeOSSignalType.voice;
       case YansiIntent.question:
       case YansiIntent.unknown:
         return LifeOSSignalType.voice;
