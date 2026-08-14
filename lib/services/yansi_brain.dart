@@ -25,7 +25,6 @@ class YansiActionPlan {
   int get confidencePercent => (confidence * 100).round().clamp(0, 100);
 }
 
-/// Local-first intelligence gateway and the foundation for Yansi's action layer.
 class YansiBrain {
   static const _historyKey = 'yansi_conversation_history';
   static const _voiceKey = 'yansi_voice_history';
@@ -70,7 +69,6 @@ class YansiBrain {
     return result;
   }
 
-  /// Produces the next useful action without silently performing sensitive actions.
   YansiActionPlan planFor(YansiResult result) {
     switch (result.intent) {
       case YansiIntent.expense: return const YansiActionPlan(title: 'Money context updated', action: 'Refresh spending intelligence', confidence: .94, safeToAutoApply: true);
@@ -141,7 +139,7 @@ class YansiBrain {
   Future<void> _saveConversation(String role, String text) async { final raw = prefs.getStringList(_historyKey) ?? <String>[]; raw.add(jsonEncode({'role': role, 'text': text, 'date': DateTime.now().toIso8601String()})); if (raw.length > 200) raw.removeRange(0, raw.length - 200); await prefs.setStringList(_historyKey, raw); }
   Future<void> _saveVoice(String transcript, String path) async { if (!(prefs.getBool('save_voice_history') ?? false)) return; final raw = prefs.getStringList(_voiceKey) ?? <String>[]; raw.add(jsonEncode({'transcript': transcript, 'path': path, 'date': DateTime.now().toIso8601String()})); await prefs.setStringList(_voiceKey, raw); }
   Future<void> _savePlan(YansiActionPlan plan, YansiResult result) async { final raw = prefs.getStringList(_planKey) ?? <String>[]; raw.add(jsonEncode({'title': plan.title, 'action': plan.action, 'confidence': plan.confidence, 'safeToAutoApply': plan.safeToAutoApply, 'intent': result.intent.name, 'date': DateTime.now().toIso8601String()})); if (raw.length > 100) raw.removeRange(0, raw.length - 100); await prefs.setStringList(_planKey, raw); }
-  double? _extractAmount(String text) { final cleaned = text.replaceAll(',', '').replaceAll('₹', '').replaceAll('\\$', ''); for (final p in [RegExp(r'(?:rs\\.?|inr|rupees?)\\s*(\\d+(?:\\.\\d+)?)', caseSensitive: false), RegExp(r'(\\d+(?:\\.\\d+)?)\\s*(?:rs|inr|rupees)', caseSensitive: false), RegExp(r'(\\d+(?:\\.\\d+)?)')]) { final m = p.firstMatch(cleaned); if (m != null) return double.tryParse(m.group(1)!); } return null; }
+  double? _extractAmount(String text) { final cleaned = text.replaceAll(',', '').replaceAll('₹', '').replaceAll(r'$', ''); for (final p in [RegExp(r'(?:rs\\.?|inr|rupees?)\\s*(\\d+(?:\\.\\d+)?)', caseSensitive: false), RegExp(r'(\\d+(?:\\.\\d+)?)\\s*(?:rs|inr|rupees)', caseSensitive: false), RegExp(r'(\\d+(?:\\.\\d+)?)')]) { final m = p.firstMatch(cleaned); if (m != null) return double.tryParse(m.group(1)!); } return null; }
   String _expenseCategory(String text) { if (_containsAny(text, ['petrol', 'fuel', 'diesel', 'cng'])) return 'Fuel'; if (_containsAny(text, ['grocery', 'groceries', 'vegetable', 'rice', 'flour', 'milk', 'kitchen'])) return 'Household'; if (_containsAny(text, ['food', 'restaurant', 'lunch', 'dinner', 'breakfast', 'coffee'])) return 'Food'; if (_containsAny(text, ['electricity', 'water bill', 'gas bill', 'internet', 'recharge'])) return 'Bills'; if (_containsAny(text, ['medicine', 'doctor', 'hospital'])) return 'Health'; if (_containsAny(text, ['school', 'education', 'course'])) return 'Education'; if (_containsAny(text, ['share', 'stock', 'mutual fund', 'investment'])) return 'Investment'; return 'Other'; }
   String _householdItem(String text) { final lower = text.toLowerCase(); for (final item in ['milk', 'rice', 'wheat', 'flour', 'oil', 'vegetables', 'vegetable', 'detergent', 'soap', 'coffee', 'tea', 'sugar']) { if (lower.contains(item)) return item; } final cleaned = text.replaceAll(RegExp(r'^(add|buy|get|purchase|remind me to)\\s+', caseSensitive: false), '').trim(); return cleaned.isEmpty ? 'household item' : cleaned; }
   String _cleanTask(String text) => text.replaceFirst(RegExp(r'^(add|create|make)\\s+(a\\s+)?task\\s+(to\\s+)?', caseSensitive: false), '').trim();
