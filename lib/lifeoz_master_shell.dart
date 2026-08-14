@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -11,46 +10,231 @@ class LifeOZMasterShell extends StatefulWidget {
 }
 
 class _LifeOZMasterShellState extends State<LifeOZMasterShell> with SingleTickerProviderStateMixin {
-  late AnimationController animation;
+  late final AnimationController motion = AnimationController(vsync: this, duration: const Duration(seconds: 18))..repeat();
   final FlutterTts tts = FlutterTts();
-  Timer? timer;
   String name = '';
-  bool splash = true;
   int active = -1;
-  double yaw = 0;
-  double pitch = 0;
-  static const coreColors = <Color>[Color(0xFF42F5A7),Color(0xFFFFB14A),Color(0xFFB66BFF),Color(0xFF42DFFF),Color(0xFFD968FF)];
-  static const messages = <String>['Life intelligence is ready.','Growth intelligence is ready.','Productivity intelligence is ready.','Time intelligence is ready.','Future intelligence is ready.'];
+  bool showProfile = false;
 
-  @override void initState(){super.initState();name=widget.prefs.getString('user_name')??'';animation=AnimationController(vsync:this,duration:const Duration(seconds:16))..repeat();tts.setSpeechRate(.44);timer=Timer(const Duration(milliseconds:1600),(){if(mounted)setState((){splash=false;});});}
-  @override void dispose(){timer?.cancel();animation.dispose();tts.stop();super.dispose();}
-  Future<void> speak(String text)async{await tts.stop();await tts.speak(text);}
+  static const coreColors = <Color>[Color(0xFF55E89A), Color(0xFFFFB24A), Color(0xFFB96BFF), Color(0xFF47DFFF), Color(0xFFE16CFF)];
+  static const coreSpeech = <String>[
+    'Your life intelligence is ready.',
+    'Your care and commitment intelligence is ready.',
+    'Your prosperity intelligence is ready.',
+    'Your time intelligence is ready.',
+    'Your personal growth intelligence is ready.',
+  ];
 
-  @override Widget build(BuildContext context){return Scaffold(backgroundColor:const Color(0xFF01040A),body:SafeArea(child:AnimatedBuilder(animation:animation,builder:(context,child){return Stack(fit:StackFit.expand,children:<Widget>[CustomPaint(painter:BackgroundPainter(animation.value)),splash?_splash():_home()]);})));}
+  @override
+  void initState() {
+    super.initState();
+    name = widget.prefs.getString('user_name') ?? '';
+    tts.setSpeechRate(.44);
+  }
 
-  Widget _splash(){return Center(child:Column(mainAxisSize:MainAxisSize.min,children:<Widget>[SizedBox(width:210,height:210,child:CustomPaint(painter:YansiPainter(animation.value,const Color(0xFF20D9FF),yaw,pitch,true))),const SizedBox(height:14),const Text('LifeOZ',style:TextStyle(color:Colors.white,fontSize:34,fontWeight:FontWeight.w900,letterSpacing:5)),const SizedBox(height:7),const Text('INITIALIZING LIVING INTELLIGENCE',style:TextStyle(color:Color(0xFF63E8FF),fontSize:9,letterSpacing:1.7))]));}
+  @override
+  void dispose() {
+    motion.dispose();
+    tts.stop();
+    super.dispose();
+  }
 
-  Widget _home(){return LayoutBuilder(builder:(context,box){final double w=box.maxWidth;final double h=box.maxHeight;final Offset center=Offset(w/2,h*.46);final double orbSize=math.min(w*.70,330.0);final List<Offset> nodes=<Offset>[Offset(w*.50,h*.14),Offset(w*.16,h*.30),Offset(w*.84,h*.30),Offset(w*.17,h*.70),Offset(w*.83,h*.70)];return Stack(children:<Widget>[
-    Positioned(top:12,left:18,right:18,child:Row(children:<Widget>[SizedBox(width:44,height:44,child:CustomPaint(painter:LogoPainter(animation.value))),const SizedBox(width:9),const Text('LifeOZ',style:TextStyle(color:Colors.white,fontSize:18,fontWeight:FontWeight.w900,letterSpacing:3)),const Spacer(),Container(width:48,height:48,decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(color:const Color(0xFF20D9FF).withValues(alpha:.65))),child:const Icon(Icons.auto_awesome,color:Color(0xFF20D9FF)))])),
-    Positioned.fill(child:CustomPaint(painter:NetworkPainter(animation.value,nodes,center,active))),
-    for(int i=0;i<nodes.length;i++) Positioned(left:nodes[i].dx-50,top:nodes[i].dy-50,child:GestureDetector(onTap:(){setState((){active=i;});speak(messages[i]);},child:SizedBox(width:100,height:100,child:CustomPaint(painter:CorePainter(i,coreColors[i],animation.value,active==i))))),
-    Positioned(left:center.dx-orbSize/2,top:center.dy-orbSize/2,child:GestureDetector(onPanUpdate:(details){setState((){yaw=yaw+details.delta.dx*.008;pitch=pitch+details.delta.dy*.008;if(yaw>1.2)yaw=1.2;if(yaw< -1.2)yaw=-1.2;if(pitch>.8)pitch=.8;if(pitch<-.8)pitch=-.8;});},onTap:(){String text='I am Yansi, your personal LifeOS intelligence.';if(name.isNotEmpty){text='Welcome, '+name+'. I am Yansi, your personal LifeOS intelligence.';}speak(text);},child:SizedBox(width:orbSize,height:orbSize,child:CustomPaint(painter:YansiPainter(animation.value,const Color(0xFF20D9FF),yaw,pitch,true))))),
-    Positioned(left:18,right:18,bottom:14,child:Container(height:50,decoration:BoxDecoration(color:Colors.black.withValues(alpha:.34),borderRadius:BorderRadius.circular(25),border:Border.all(color:Colors.white.withValues(alpha:.10))),child:const Row(mainAxisAlignment:MainAxisAlignment.center,children:<Widget>[Icon(Icons.threed_rotation,color:Color(0xFF6BEAFF),size:18),SizedBox(width:8),Text('DRAG YANSI • ROTATE THE LIVING CORE',style:TextStyle(color:Colors.white70,fontSize:9,letterSpacing:1.0,fontWeight:FontWeight.w700))]))),
-  ]);});}
+  Future<void> _speak(String text) async {
+    await tts.stop();
+    await tts.speak(text);
+  }
+
+  Future<void> _editName() async {
+    final controller = TextEditingController(text: name);
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF08131D),
+        title: const Text('PROFILE', style: TextStyle(letterSpacing: 2)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(labelText: 'Name', labelStyle: TextStyle(color: Colors.white70)),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('SAVE')),
+        ],
+      ),
+    );
+    if (value != null && value.isNotEmpty) {
+      await widget.prefs.setString('user_name', value);
+      if (mounted) setState(() => name = value);
+      await _speak('Got it. I will call you $value.');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF01040A),
+      body: SafeArea(
+        child: AnimatedBuilder(
+          animation: motion,
+          builder: (context, _) => Stack(
+            fit: StackFit.expand,
+            children: [
+              CustomPaint(painter: _UniversePainter(motion.value)),
+              _home(),
+              if (showProfile) _profileOverlay(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _home() {
+    return LayoutBuilder(builder: (context, box) {
+      final w = box.maxWidth;
+      final h = box.maxHeight;
+      final center = Offset(w / 2, h * .48);
+      final radiusX = math.min(w * .36, 150.0);
+      final radiusY = math.min(h * .28, 205.0);
+      final nodes = List<Offset>.generate(5, (i) {
+        final angle = -math.pi / 2 + i * math.pi * 2 / 5;
+        return Offset(center.dx + math.cos(angle) * radiusX, center.dy + math.sin(angle) * radiusY);
+      });
+      return Stack(children: [
+        Positioned(top: 10, left: 18, right: 18, child: Row(children: [
+          SizedBox(width: 48, height: 48, child: CustomPaint(painter: _LifeOZLogoPainter(motion.value))),
+          const SizedBox(width: 10),
+          const Text('LIFEOZ', style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w900, letterSpacing: 4)),
+          const Spacer(),
+          GestureDetector(
+            onTap: () => setState(() => showProfile = true),
+            child: Container(width: 50, height: 50, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFFFFB45B).withValues(alpha: .75)), color: Colors.black.withValues(alpha: .22)), child: const Icon(Icons.tune_rounded, color: Color(0xFFFFB45B), size: 26)),
+          ),
+        ])),
+        Positioned.fill(child: CustomPaint(painter: _NeuralFieldPainter(motion.value, center, nodes, active))),
+        for (int i = 0; i < 5; i++)
+          Positioned(left: nodes[i].dx - 43, top: nodes[i].dy - 43, child: GestureDetector(
+            onTap: () { setState(() => active = i); _speak(coreSpeech[i]); },
+            child: SizedBox(width: 86, height: 86, child: CustomPaint(painter: _Core3DPainter(i, coreColors[i], motion.value, active == i))),
+          )),
+        Positioned(left: center.dx - math.min(w * .34, 150.0), top: center.dy - math.min(w * .34, 150.0), child: IgnorePointer(child: SizedBox(width: math.min(w * .68, 300.0), height: math.min(w * .68, 300.0), child: CustomPaint(painter: _Yansi3DPainter(motion.value))))),
+        if (active >= 0) _insightChip(active),
+        Positioned(bottom: 20, left: 24, right: 24, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Text(name.isEmpty ? 'LIVING INTELLIGENCE' : 'WELCOME, ${name.toUpperCase()}', style: const TextStyle(color: Colors.white70, fontSize: 9, letterSpacing: 2.1, fontWeight: FontWeight.w700)),
+        ])),
+      ]);
+    });
+  }
+
+  Widget _insightChip(int i) => Positioned(left: 28, right: 28, bottom: 54, child: GestureDetector(
+    onTap: () => setState(() => active = -1),
+    child: Container(padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12), decoration: BoxDecoration(color: const Color(0xFF06111A).withValues(alpha: .92), borderRadius: BorderRadius.circular(22), border: Border.all(color: coreColors[i].withValues(alpha: .55)), boxShadow: [BoxShadow(color: coreColors[i].withValues(alpha: .16), blurRadius: 24)]), child: Row(children: [
+      Icon(Icons.auto_awesome, color: coreColors[i], size: 17), const SizedBox(width: 10), Expanded(child: Text(coreSpeech[i], style: const TextStyle(color: Colors.white, fontSize: 11, letterSpacing: .4))), const Icon(Icons.close, color: Colors.white38, size: 15),
+    ])),
+  ));
+
+  Widget _profileOverlay() => Positioned.fill(child: Container(color: const Color(0xE801040A), child: Center(child: Container(width: 320, padding: const EdgeInsets.all(22), decoration: BoxDecoration(borderRadius: BorderRadius.circular(28), color: const Color(0xFF07121C), border: Border.all(color: const Color(0xFFFFB45B).withValues(alpha: .55)), boxShadow: const [BoxShadow(color: Color(0x4400D9FF), blurRadius: 40)]), child: Column(mainAxisSize: MainAxisSize.min, children: [
+    const Text('LIFEOZ PROFILE', style: TextStyle(color: Colors.white, letterSpacing: 2.2, fontSize: 13, fontWeight: FontWeight.w800)),
+    const SizedBox(height: 18),
+    CircleAvatar(radius: 38, backgroundColor: const Color(0xFF102533), child: Icon(Icons.person_outline, color: const Color(0xFFFFB45B), size: 38)),
+    const SizedBox(height: 12),
+    Text(name.isEmpty ? 'Your name' : name, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
+    const SizedBox(height: 18),
+    SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: _editName, icon: const Icon(Icons.edit_outlined), label: const Text('CORRECT / EDIT NAME'))),
+    const SizedBox(height: 8),
+    SizedBox(width: double.infinity, child: TextButton(onPressed: () => setState(() => showProfile = false), child: const Text('CLOSE'))),
+  ]))));
 }
 
-class BackgroundPainter extends CustomPainter{final double phase;BackgroundPainter(this.phase);@override void paint(Canvas c,Size s){final rect=Offset.zero&s;c.drawRect(rect,Paint()..shader=RadialGradient(radius:1.15,colors:<Color>[const Color(0xFF061A2A),const Color(0xFF010207)]).createShader(rect));final r=math.Random(77);for(int i=0;i<120;i++){final a=.02+.04*((math.sin(phase*math.pi*2+i)+1)/2);c.drawCircle(Offset(r.nextDouble()*s.width,r.nextDouble()*s.height),.5+r.nextDouble(),Paint()..color=Colors.white.withValues(alpha:a));}}@override bool shouldRepaint(covariant BackgroundPainter old)=>true;}
+class _UniversePainter extends CustomPainter {
+  final double phase;
+  _UniversePainter(this.phase);
+  @override void paint(Canvas c, Size s) {
+    final rect = Offset.zero & s;
+    c.drawRect(rect, Paint()..shader = const RadialGradient(radius: 1.1, colors: [Color(0xFF071B2B), Color(0xFF01040A), Color(0xFF000106)]).createShader(rect));
+    final rng = math.Random(42);
+    for (var i = 0; i < 145; i++) {
+      final x = rng.nextDouble() * s.width;
+      final y = rng.nextDouble() * s.height;
+      final twinkle = .18 + .28 * ((math.sin(phase * math.pi * 2 + i) + 1) / 2);
+      c.drawCircle(Offset(x, y), .45 + rng.nextDouble() * 1.2, Paint()..color = Colors.white.withValues(alpha: twinkle));
+    }
+    final center = Offset(s.width / 2, s.height * .48);
+    for (var i = 0; i < 7; i++) {
+      final rx = 95.0 + i * 42;
+      final ry = rx * .28;
+      c.save(); c.translate(center.dx, center.dy); c.rotate(phase * math.pi * 2 * (i.isEven ? .035 : -.025));
+      c.drawOval(Rect.fromCenter(center: Offset.zero, width: rx * 2, height: ry * 2), Paint()..style = PaintingStyle.stroke..strokeWidth = .65..color = const Color(0xFF48DFFF).withValues(alpha: .07 + i * .008));
+      c.restore();
+    }
+  }
+  @override bool shouldRepaint(covariant _UniversePainter old) => true;
+}
 
-class NetworkPainter extends CustomPainter{final double phase;final List<Offset> nodes;final Offset center;final int active;NetworkPainter(this.phase,this.nodes,this.center,this.active);@override void paint(Canvas c,Size s){final p=Paint()..style=PaintingStyle.stroke..strokeWidth=1..color=const Color(0xFF20D9FF).withValues(alpha:.13);for(final n in nodes){c.drawLine(center,n,p);final double t=(phase+n.dx/s.width)%1;c.drawCircle(Offset.lerp(center,n,t)!,2,Paint()..color=const Color(0xFF20D9FF).withValues(alpha:.75));}double ring=44+7*math.sin(phase*math.pi*2);double opacity=.14;if(active>=0)opacity=.30;c.drawCircle(center,ring,Paint()..style=PaintingStyle.stroke..strokeWidth=1.2..color=const Color(0xFF20D9FF).withValues(alpha:opacity));}@override bool shouldRepaint(covariant NetworkPainter old)=>true;}
+class _NeuralFieldPainter extends CustomPainter {
+  final double phase; final Offset center; final List<Offset> nodes; final int active;
+  _NeuralFieldPainter(this.phase, this.center, this.nodes, this.active);
+  @override void paint(Canvas c, Size s) {
+    for (var i = 0; i < nodes.length; i++) {
+      final color = <Color>[const Color(0xFF55E89A), const Color(0xFFFFB24A), const Color(0xFFB96BFF), const Color(0xFF47DFFF), const Color(0xFFE16CFF)][i];
+      final p = Paint()..style = PaintingStyle.stroke..strokeWidth = active == i ? 2.0 : .75..color = color.withValues(alpha: active == i ? .42 : .17);
+      c.drawLine(center, nodes[i], p);
+      for (var k = 0; k < 3; k++) {
+        final t = (phase + k / 3 + i * .09) % 1;
+        final pos = Offset.lerp(center, nodes[i], t)!;
+        c.drawCircle(pos, active == i ? 2.6 : 1.4, Paint()..color = color.withValues(alpha: .75));
+      }
+    }
+  }
+  @override bool shouldRepaint(covariant _NeuralFieldPainter old) => true;
+}
 
-class LogoPainter extends CustomPainter{final double phase;LogoPainter(this.phase);@override void paint(Canvas c,Size s){final m=Offset(s.width/2,s.height/2);final r=s.width*.4;final p=Paint()..style=PaintingStyle.stroke..strokeWidth=1.8..color=const Color(0xFF20D9FF).withValues(alpha:.8);c.drawCircle(m,r,p);c.drawOval(Rect.fromCenter(center:m,width:r*1.55,height:r*.55),p);c.drawCircle(Offset(m.dx+math.cos(phase*math.pi*2)*r*.7,m.dy),2.8,Paint()..color=const Color(0xFF48F0A0));}@override bool shouldRepaint(covariant LogoPainter old)=>true;}
+class _LifeOZLogoPainter extends CustomPainter {
+  final double phase; _LifeOZLogoPainter(this.phase);
+  @override void paint(Canvas c, Size s) {
+    final m = Offset(s.width / 2, s.height / 2); final r = s.shortestSide * .34;
+    final p = Paint()..style = PaintingStyle.stroke..strokeWidth = 2.0..color = const Color(0xFFFFB45B);
+    c.drawCircle(m, r, p); c.drawOval(Rect.fromCenter(center: m, width: r * 1.55, height: r * .65), p);
+    c.drawCircle(Offset(m.dx + math.cos(phase * math.pi * 2) * r * .72, m.dy), 2.4, Paint()..color = const Color(0xFF55E89A));
+  }
+  @override bool shouldRepaint(covariant _LifeOZLogoPainter old) => true;
+}
 
-class CorePainter extends CustomPainter{final int index;final Color color;final double phase;final bool active;CorePainter(this.index,this.color,this.phase,this.active);@override void paint(Canvas c,Size s){final m=Offset(s.width/2,s.height/2);final r=28*(1+.06*math.sin(phase*math.pi*2+index));double glow=.12;double stroke=1.1;double alpha=.55;if(active){glow=.28;stroke=2.2;alpha=.95;}c.drawCircle(m,r*1.2,Paint()..color=color.withValues(alpha:glow)..maskFilter=const MaskFilter.blur(BlurStyle.normal,16));c.drawCircle(m,r,Paint()..shader=RadialGradient(colors:<Color>[Colors.white.withValues(alpha:.85),color,Colors.black]).createShader(Rect.fromCircle(center:m,radius:r)));final p=Paint()..style=PaintingStyle.stroke..strokeWidth=stroke..color=color.withValues(alpha:alpha);for(int k=0;k<2;k++){c.save();c.translate(m.dx,m.dy);c.rotate(phase*math.pi*2*(k==0?1:-.7)+index);c.drawOval(Rect.fromCenter(center:Offset.zero,width:r*2.6,height:r*.72),p);c.restore();}}@override bool shouldRepaint(covariant CorePainter old)=>true;}
+class _Core3DPainter extends CustomPainter {
+  final int index; final Color color; final double phase; final bool selected;
+  _Core3DPainter(this.index, this.color, this.phase, this.selected);
+  @override void paint(Canvas c, Size s) {
+    final m = Offset(s.width / 2, s.height / 2); final pulse = 1 + .08 * math.sin(phase * math.pi * 2 + index);
+    final r = 25 * pulse;
+    c.drawCircle(m, r * 1.5, Paint()..color = color.withValues(alpha: selected ? .25 : .12)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15));
+    c.drawCircle(m, r, Paint()..shader = RadialGradient(colors: [Colors.white.withValues(alpha: .9), color.withValues(alpha: .92), const Color(0xFF02060B)]).createShader(Rect.fromCircle(center: m, radius: r)));
+    final p = Paint()..style = PaintingStyle.stroke..strokeWidth = selected ? 2.0 : 1.1..color = color.withValues(alpha: selected ? .95 : .62);
+    for (var k = 0; k < 3; k++) { c.save(); c.translate(m.dx, m.dy); c.rotate(phase * math.pi * 2 * (k.isEven ? .8 : -.55) + index); c.drawOval(Rect.fromCenter(center: Offset.zero, width: r * 2.7, height: r * .66), p); c.restore(); }
+    final star = Path();
+    for (var k = 0; k < 8; k++) { final a = -math.pi / 2 + k * math.pi / 4; final rr = k.isEven ? r * .48 : r * .20; final pt = m + Offset(math.cos(a) * rr, math.sin(a) * rr); if (k == 0) star.moveTo(pt.dx, pt.dy); else star.lineTo(pt.dx, pt.dy); }
+    star.close(); c.drawPath(star, Paint()..color = Colors.white.withValues(alpha: .82));
+  }
+  @override bool shouldRepaint(covariant _Core3DPainter old) => true;
+}
 
-class YansiPainter extends CustomPainter{final double phase;final Color color;final double yaw;final double pitch;final bool large;YansiPainter(this.phase,this.color,this.yaw,this.pitch,this.large);Offset project(double x,double y,double z,double scale){final double a=yaw+math.sin(phase*math.pi*2)*.30;final double b=pitch+math.cos(phase*math.pi*2)*.15;final double x1=x*math.cos(a)-z*math.sin(a);final double z1=x*math.sin(a)+z*math.cos(a);final double y1=y*math.cos(b)-z1*math.sin(b);final double z2=y*math.sin(b)+z1*math.cos(b);final double q=1/(1+z2*.42);return Offset(x1*q*scale,y1*q*scale);}
-  @override void paint(Canvas c,Size s){final Offset m=Offset(s.width/2,s.height/2);double scale=s.shortestSide*.31;if(!large)scale=s.shortestSide*.36;final double breathe=1+.055*math.sin(phase*math.pi*2);double glowAlpha=.12;double glowBlur=13;if(large){glowAlpha=.16;glowBlur=28;}c.drawCircle(m,scale*1.35*breathe,Paint()..color=color.withValues(alpha:glowAlpha)..maskFilter=MaskFilter.blur(BlurStyle.normal,glowBlur));c.drawCircle(m,scale*breathe,Paint()..shader=RadialGradient(center:const Alignment(-.25,-.28),radius:1,colors:<Color>[Colors.white.withValues(alpha:.95),color.withValues(alpha:.9),color.withValues(alpha:.3),const Color(0xFF01040A)],stops:const <double>[0,.17,.58,1]).createShader(Rect.fromCircle(center:m,radius:scale)));
-    double widthStroke=.65;if(large)widthStroke=1;final p=Paint()..style=PaintingStyle.stroke..strokeWidth=widthStroke..color=color.withValues(alpha:.6);for(int i=0;i<7;i++){final double lat=-1+i*(2/6);final double y=lat*scale;final double width=math.sqrt(math.max(0,1-lat*lat))*scale;c.save();c.translate(m.dx,m.dy+y*math.cos(pitch));double direction=.55;if(!i.isEven)direction=-.4;c.rotate(phase*math.pi*2*direction+yaw);c.drawOval(Rect.fromCenter(center:Offset.zero,width:width*2,height:scale*.28),p);c.restore();}
-    final random=math.Random(92);final particles=<Particle>[];int count=42;if(large)count=120;for(int i=0;i<count;i++){final double theta=random.nextDouble()*math.pi*2;final double phi=math.acos(2*random.nextDouble()-1);final double radius=.72+random.nextDouble()*.36;double x=math.sin(phi)*math.cos(theta)*radius;final double y=math.cos(phi)*radius;double z=math.sin(phi)*math.sin(theta)*radius;final double spin=phase*math.pi*2*(.7+(i%5)*.08);final double rx=x*math.cos(spin)-z*math.sin(spin);z=x*math.sin(spin)+z*math.cos(spin);x=rx;particles.add(Particle(project(x,y,z,scale),(1-z).clamp(.35,1.6),z));}particles.sort((a,b)=>a.z.compareTo(b.z));for(final particle in particles){double pr=.7+particle.depth*(large?1.9:1.2);pr=pr.clamp(.55,3.0);c.drawCircle(m+particle.offset,pr,Paint()..color=Colors.white.withValues(alpha:(.18+particle.depth*.35).clamp(.12,.75)));}
-    for(int i=0;i<3;i++){final double angle=phase*math.pi*2*(1+i*.17)+i*2.1;final Offset pos=m+project(math.cos(angle)*1.18,math.sin(angle*1.7)*.55,math.sin(angle)*.85,scale);c.drawCircle(pos,2.2,Paint()..color=color);}c.drawCircle(m.translate(-scale*.25,-scale*.30),scale*.12,Paint()..color=Colors.white.withValues(alpha:.5));}
-  @override bool shouldRepaint(covariant YansiPainter old)=>true;}
-class Particle{final Offset offset;final double depth;final double z;Particle(this.offset,this.depth,this.z);}
+class _Yansi3DPainter extends CustomPainter {
+  final double phase; _Yansi3DPainter(this.phase);
+  @override void paint(Canvas c, Size s) {
+    final m = Offset(s.width / 2, s.height / 2); final scale = s.shortestSide * .27; final breathe = 1 + .045 * math.sin(phase * math.pi * 2);
+    c.drawCircle(m, scale * 1.65, Paint()..color = const Color(0xFF43DFFF).withValues(alpha: .13)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 30));
+    c.drawCircle(m, scale * breathe, Paint()..shader = const RadialGradient(center: Alignment(-.25, -.28), radius: 1, colors: [Colors.white, Color(0xFF49E6FF), Color(0xFF5A46C7), Color(0xFF02050A)]).createShader(Rect.fromCircle(center: m, radius: scale)));
+    final p = Paint()..style = PaintingStyle.stroke..strokeWidth = 1.15..color = const Color(0xFF8DEBFF).withValues(alpha: .72);
+    for (var i = 0; i < 9; i++) {
+      final lat = -1 + i * .25; final y = lat * scale; final width = math.sqrt(math.max(0, 1 - lat * lat)) * scale;
+      c.save(); c.translate(m.dx, m.dy + y); c.rotate(phase * math.pi * 2 * (i.isEven ? .12 : -.08));
+      c.drawOval(Rect.fromCenter(center: Offset.zero, width: width * 2, height: scale * .22), p); c.restore();
+    }
+    for (var i = 0; i < 4; i++) {
+      final a = phase * math.pi * 2 * (1 + i * .11) + i * 1.57; final pos = m + Offset(math.cos(a) * scale * 1.18, math.sin(a * 1.7) * scale * .62);
+      c.drawCircle(pos, 2.1, Paint()..color = const Color(0xFFFFC978));
+    }
+    c.drawCircle(m.translate(-scale * .25, -scale * .3), scale * .10, Paint()..color = Colors.white.withValues(alpha: .65));
+  }
+  @override bool shouldRepaint(covariant _Yansi3DPainter old) => true;
+}
