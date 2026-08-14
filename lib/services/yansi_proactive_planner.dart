@@ -44,7 +44,7 @@ class YansiProactivePlanner {
     final rawConfidence=insight?.confidence??0;
     final insightConfidence=rawConfidence.isNaN?0.0:rawConfidence.clamp(0,1).toDouble();
     final temporal=context.temporalSignal.toLowerCase();
-    final pressure=context.situationalPressure;
+    final pressure=context.situationalPressure.clamp(0,100);
 
     int temporalBonus(String core){
       if((temporal.contains('productivity')||temporal.contains('task'))&&core=='PRODUCTIVITY')return 12;
