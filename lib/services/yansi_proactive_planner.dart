@@ -44,12 +44,21 @@ class YansiProactivePlanner {
     final rawConfidence=insight?.confidence??0;
     final insightConfidence=rawConfidence.isNaN?0.0:rawConfidence.clamp(0,1).toDouble();
     final temporal=context.temporalSignal.toLowerCase();
+    final pressure=context.situationalPressure;
 
     int temporalBonus(String core){
       if((temporal.contains('productivity')||temporal.contains('task'))&&core=='PRODUCTIVITY')return 12;
-      if((temporal.contains('commitment'))&&core=='CALENDAR')return 12;
+      if(temporal.contains('commitment')&&core=='CALENDAR')return 12;
       if(temporal.contains('money')&&core=='MONEY')return 12;
       return 0;
+    }
+
+    int pressureBonus(String core){
+      if(pressure<35)return 0;
+      if(core=='PRODUCTIVITY'&&context.openTasks>0)return (pressure*0.16).round();
+      if(core=='CALENDAR'&&context.upcomingReminders>0)return (pressure*0.18).round();
+      if(core=='MONEY'&&context.recentSpend>0)return (pressure*0.08).round();
+      return (pressure*0.04).round();
     }
 
     for(final prediction in predictions.take(10)){
@@ -59,7 +68,8 @@ class YansiProactivePlanner {
       final predictionBonus=(prediction.confidence*22).round();
       final recurrenceBonus=prediction.occurrences>=4?8:prediction.occurrences>=3?5:2;
       final timeBonus=temporalBonus(core);
-      candidates.add({'title':'${prediction.title} may matter again','reason':'${prediction.reason} Yansi can prepare for this pattern without taking action automatically.','action':'PREDICT','core':core,'rank':6,'predictionConfidence':prediction.confidence,'predictionScore':(base+predictionBonus+recurrenceBonus+timeBonus).clamp(0,100),'predictionKey':prediction.key,'temporalBonus':timeBonus});
+      final pressureValue=pressureBonus(core);
+      candidates.add({'title':'${prediction.title} may matter again','reason':'${prediction.reason} Yansi can prepare for this pattern without taking action automatically.','action':'PREDICT','core':core,'rank':6,'predictionConfidence':prediction.confidence,'predictionScore':(base+predictionBonus+recurrenceBonus+timeBonus+pressureValue).clamp(0,100),'predictionKey':prediction.key});
     }
 
     final scored=candidates.map((candidate){
@@ -71,11 +81,13 @@ class YansiProactivePlanner {
       final focusBonus=focusMatch?20:0;
       final confidenceBonus=confidenceMatch?(insightConfidence*20).round():0;
       final contextTimeBonus=temporalBonus(core);
-      final score=(base+focusBonus+confidenceBonus+contextTimeBonus).clamp(0,100);
+      final contextPressureBonus=pressureBonus(core);
+      final score=(base+focusBonus+confidenceBonus+contextTimeBonus+contextPressureBonus).clamp(0,100);
       final confidence=((candidate['predictionConfidence'] as num?)?.toDouble()??(confidenceMatch?insightConfidence:0.5)).clamp(0,1).toDouble();
       final factors=<String>['base $base'];
       if(candidate['predictionConfidence']!=null)factors.add('recurring pattern');
       if(contextTimeBonus>0)factors.add('time context +$contextTimeBonus');
+      if(contextPressureBonus>0)factors.add('situational pressure +$contextPressureBonus');
       if(focusMatch)factors.add('active focus +$focusBonus');
       if(confidenceMatch)factors.add('insight confidence +$confidenceBonus');
       return YansiPlanItem(title:candidate['title'] as String,reason:candidate['reason'] as String,action:candidate['action'] as String,core:core,rank:rank,score:score,confidence:confidence,scoreReason:factors.join(', '));
