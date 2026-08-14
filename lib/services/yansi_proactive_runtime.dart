@@ -18,10 +18,16 @@ class YansiProactiveRuntime {
 
     final top=plan.items.first;
     final priority=top.score.clamp(0,100).toInt();
+    final previousCore=(prefs.getString('yansi_decision_core')??'').trim().toLowerCase();
+    final previousPriority=prefs.getInt('yansi_decision_priority')??0;
+    final previousConfidence=prefs.getInt('yansi_decision_confidence')??0;
+    final currentConfidence=(top.confidence*100).clamp(0,100).toInt();
+    final materiallyChanged=previousCore!=top.core.trim().toLowerCase() || (priority-previousPriority).abs()>=10 || (currentConfidence-previousConfidence).abs()>=10;
+
     final memory=YansiPriorityMemory(prefs:prefs);
     final escalation=memory.isEscalation(priority);
     final history=YansiBriefingHistory(prefs:prefs);
-    final historyAllows=await history.shouldSurface(plan.headline);
+    final historyAllows=await history.shouldSurface(plan.headline,materiallyChanged:materiallyChanged);
     if(!escalation&&!historyAllows)return null;
 
     final signals=<Map<String,dynamic>>[
@@ -39,9 +45,10 @@ class YansiProactiveRuntime {
 
     await prefs.setBool('yansi_plan_ready',true);
     await prefs.setString('yansi_plan_headline',plan.headline);
+    await prefs.setString('yansi_decision_core',top.core);
     await prefs.setBool('yansi_decision_speak',decision['speak']==true);
     await prefs.setInt('yansi_decision_priority',(decision['priority'] as num?)?.clamp(0,100).toInt()??priority);
-    await prefs.setInt('yansi_decision_confidence',(decision['confidence'] as num?)?.clamp(0,100).toInt()??(top.confidence*100).clamp(0,100).toInt());
+    await prefs.setInt('yansi_decision_confidence',(decision['confidence'] as num?)?.clamp(0,100).toInt()??currentConfidence);
     await prefs.setString('yansi_decision_reason',top.scoreReason);
     return plan;
   }
@@ -60,10 +67,12 @@ class YansiProactiveRuntime {
   int get priority=>prefs.getInt('yansi_decision_priority')??0;
   int get confidence=>prefs.getInt('yansi_decision_confidence')??0;
   String? get decisionReason=>prefs.getString('yansi_decision_reason');
+  String? get decisionCore=>prefs.getString('yansi_decision_core');
 
   Future<void> clearReady() async {
     await prefs.remove('yansi_plan_ready');
     await prefs.remove('yansi_plan_headline');
+    await prefs.remove('yansi_decision_core');
     await prefs.remove('yansi_decision_speak');
     await prefs.remove('yansi_decision_priority');
     await prefs.remove('yansi_decision_confidence');
