@@ -2,7 +2,7 @@ part of 'yansi_brain.dart';
 
 /// Compatibility/report API used by the existing LifeOS report screen.
 extension YansiReportApi on YansiBrain {
-  Future<List<Map<String,dynamic>>> getMemory() async {
+  Future<List<Map<String, dynamic>>> getMemory() async {
     const keys = [YansiBrain._expenseKey,YansiBrain._incomeKey,YansiBrain._taskKey,YansiBrain._reminderKey,YansiBrain._householdKey,YansiBrain._goalKey,YansiBrain._diaryKey];
     final records=<Map<String,dynamic>>[];
     for(final key in keys){records.addAll(_readRecords(key));}
@@ -29,19 +29,13 @@ extension YansiActionExecutionApi on YansiBrain {
     final raw=prefs.getStringList('yansi_executed_actions')??<String>[];
     final now=DateTime.now();
     for(final value in raw.reversed.take(20)){
-      try{
-        final previous=Map<String,dynamic>.from(jsonDecode(value) as Map);
-        final previousFingerprint=(previous['fingerprint']??'').toString();
-        final previousDate=DateTime.tryParse((previous['date']??'').toString());
-        if(previousFingerprint==fingerprint&&previousDate!=null&&now.difference(previousDate).inSeconds<=12){return {...previous,'executed':false,'duplicateSuppressed':true,'requiresConfirmation':false,'speak':'I already handled that.'};}
-      }catch(_){ }
+      try{final previous=Map<String,dynamic>.from(jsonDecode(value) as Map);final previousFingerprint=(previous['fingerprint']??'').toString();final previousDate=DateTime.tryParse((previous['date']??'').toString());if(previousFingerprint==fingerprint&&previousDate!=null&&now.difference(previousDate).inSeconds<=12){return {...previous,'executed':false,'duplicateSuppressed':true,'requiresConfirmation':false,'speak':'I already handled that.'};}}catch(_){ }
     }
     final execution=<String,dynamic>{'id':DateTime.now().microsecondsSinceEpoch.toString(),'intent':result.intent.name,'action':plan.action,'title':plan.title,'confidence':plan.confidence,'confirmed':userConfirmed,'executed':true,'targetCore':targetCore,'operation':'local_lifeos_update','fingerprint':fingerprint,'date':DateTime.now().toIso8601String(),'data':result.data};
     raw.add(jsonEncode(execution));if(raw.length>100){raw.removeRange(0,raw.length-100);}await prefs.setStringList('yansi_executed_actions',raw);return execution;
   }
 
-  /// Reverses the most recent local LifeOS mutation when the originating
-  /// record is still present. This gives Yansi a safe "undo that" capability.
+  /// Reverses the most recent local LifeOS mutation when the originating record is still present.
   Future<Map<String,dynamic>> undoLastAction() async {
     final raw=prefs.getStringList('yansi_executed_actions')??<String>[];
     if(raw.isEmpty)return {'undone':false,'reason':'There is no recent Yansi action to undo.','speak':'There is nothing recent for me to undo.'};
@@ -52,15 +46,33 @@ extension YansiActionExecutionApi on YansiBrain {
     YansiIntent? intent;
     for(final candidate in YansiIntent.values){if(candidate.name==intentName){intent=candidate;break;}}
     if(intent==null)return {'undone':false,'reason':'Unknown action type.','speak':'I cannot safely undo that action.'};
-    final key=_keyForIntent(intent!);
+    final key=_keyForIntent(intent);
     final id=((execution['data'] as Map)['id']??'').toString();
     if(id.isEmpty)return {'undone':false,'reason':'The original record has no stable id.','speak':'I cannot safely undo that action.'};
-    final records=_readRecords(key);
-    final index=records.indexWhere((r)=>r['id'].toString()==id);
+    final records=_readRecords(key);final index=records.indexWhere((r)=>r['id'].toString()==id);
     if(index<0)return {'undone':false,'reason':'The original record is no longer present.','speak':'That item is already gone, so there is nothing to undo.'};
-    records.removeAt(index);
-    await _replaceRecords(key,records);
+    records.removeAt(index);await _replaceRecords(key,records);
     return {'undone':true,'intent':intent.name,'targetCore':_targetCoreFor(intent),'recordId':id,'speak':'Done. I undid my last update.'};
+  }
+
+  /// Predicts the most useful next step from current LifeOS signals.
+  /// This is advisory only: it never mutates user data or performs an action.
+  Future<List<Map<String,dynamic>>> proactiveSuggestions() async {
+    final snapshot=crossCoreSnapshot();
+    final suggestions=<Map<String,dynamic>>[];
+    final openTasks=(snapshot['openTaskCount'] as int?)??0;
+    final reminders=(snapshot['reminderCount'] as int?)??0;
+    final expenses=(snapshot['expenseCount'] as int?)??0;
+    final goals=(snapshot['goalCount'] as int?)??0;
+    final household=(snapshot['householdCount'] as int?)??0;
+    if(openTasks>=3){suggestions.add({'priority':92,'core':'productivity','title':'Reduce task load','message':'You have $openTasks open tasks. I can help you choose the highest-value next task.','action':'prioritize_tasks'});}
+    if(reminders>=3){suggestions.add({'priority':88,'core':'calendar','title':'Review upcoming dates','message':'You have $reminders reminders stored. I can surface the most time-sensitive ones.','action':'review_calendar'});}
+    if(expenses>=5){suggestions.add({'priority':82,'core':'money','title':'Check spending pattern','message':'Your spending history is large enough for a more useful trend check.','action':'analyze_spending'});}
+    if(goals>0&&openTasks>0){suggestions.add({'priority':86,'core':'goals','title':'Align tasks with goals','message':'I can connect your open work to your active goals and highlight what matters most.','action':'align_goals_tasks'});}
+    if(household>=4){suggestions.add({'priority':76,'core':'household','title':'Predict recurring needs','message':'Your household history is sufficient to improve recurring-item suggestions.','action':'predict_household'});}
+    if(suggestions.isEmpty){suggestions.add({'priority':55,'core':'yansi','title':'Build your LifeOS context','message':'Keep using Yansi naturally. I will learn useful patterns from the information you choose to store.','action':'build_context'});}
+    suggestions.sort((a,b)=>(b['priority'] as int).compareTo(a['priority'] as int));
+    return suggestions.take(5).toList();
   }
 
   String _keyForIntent(YansiIntent intent){switch(intent){case YansiIntent.expense:return YansiBrain._expenseKey;case YansiIntent.income:return YansiBrain._incomeKey;case YansiIntent.task:return YansiBrain._taskKey;case YansiIntent.reminder:return YansiBrain._reminderKey;case YansiIntent.household:return YansiBrain._householdKey;case YansiIntent.goal:return YansiBrain._goalKey;case YansiIntent.diary:return YansiBrain._diaryKey;case YansiIntent.question:case YansiIntent.unknown:return '';}}
