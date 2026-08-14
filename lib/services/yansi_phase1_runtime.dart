@@ -31,13 +31,11 @@ class YansiPhase1Runtime {
       userIsActive: userIsActive,
     );
 
-    final reasoned = reasoner.evaluate(
-      suggestions: suggestions,
-      activeFocus: context.activeFocus,
-    );
+    final reasoned = reasoner.reason(context);
+    final combined = reasoned.isNotEmpty ? reasoned : suggestions;
 
     return presenter.present(
-      insights: reasoned,
+      insights: combined,
       userIsActive: userIsActive,
       voiceAllowed: voiceAllowed,
     );
