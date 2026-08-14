@@ -1,4 +1,6 @@
 import 'yansi_context_reasoner.dart';
+import 'yansi_insight_memory.dart';
+import 'yansi_insight_memory_ranker.dart';
 import 'yansi_insight_presenter.dart';
 import 'yansi_intelligence_bridge.dart';
 import 'yansi_phase1_context.dart';
@@ -8,11 +10,13 @@ import 'yansi_phase1_context.dart';
 class YansiPhase1Runtime {
   final YansiIntelligenceBridge bridge;
   final YansiContextReasoner reasoner;
+  final YansiInsightMemoryRanker memoryRanker;
   final YansiInsightPresenter presenter;
 
   const YansiPhase1Runtime({
     this.bridge = const YansiIntelligenceBridge(),
     this.reasoner = const YansiContextReasoner(),
+    this.memoryRanker = const YansiInsightMemoryRanker(),
     this.presenter = const YansiInsightPresenter(),
   });
 
@@ -36,6 +40,31 @@ class YansiPhase1Runtime {
 
     return presenter.present(
       insights: combined,
+      userIsActive: userIsActive,
+      voiceAllowed: voiceAllowed,
+    );
+  }
+
+  Future<YansiInsightPresentation> evaluateWithMemory(
+    YansiPhase1Context context,
+    YansiInsightMemory memory, {
+    required bool userIsActive,
+    required bool voiceAllowed,
+  }) async {
+    final base = evaluate(
+      context,
+      userIsActive: userIsActive,
+      voiceAllowed: voiceAllowed,
+    );
+    if (base.insight == null) return base;
+
+    final ranked = memoryRanker.rank(
+      current: [base.insight!],
+      memories: memory.load(),
+    );
+
+    return presenter.present(
+      insights: ranked,
       userIsActive: userIsActive,
       voiceAllowed: voiceAllowed,
     );
