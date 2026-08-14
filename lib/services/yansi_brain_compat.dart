@@ -25,8 +25,33 @@ extension YansiActionExecutionApi on YansiBrain {
     final sensitive=_isSensitiveAction(plan.action,result.intent);
     final targetCore=_targetCoreFor(result.intent);
     if(sensitive&&!userConfirmed){return {'executed':false,'requiresConfirmation':true,'reason':'This action requires your confirmation before execution.','action':plan.action,'intent':result.intent.name,'targetCore':targetCore};}
-    final execution=<String,dynamic>{'id':DateTime.now().microsecondsSinceEpoch.toString(),'intent':result.intent.name,'action':plan.action,'title':plan.title,'confidence':plan.confidence,'confirmed':userConfirmed,'executed':true,'targetCore':targetCore,'operation':'local_lifeos_update','date':DateTime.now().toIso8601String(),'data':result.data};
-    final raw=prefs.getStringList('yansi_executed_actions')??<String>[];raw.add(jsonEncode(execution));if(raw.length>100){raw.removeRange(0,raw.length-100);}await prefs.setStringList('yansi_executed_actions',raw);return execution;
+
+    // Voice recognition can emit the same final transcript more than once.
+    // Deduplicate identical actions within a short safety window so Yansi
+    // cannot accidentally double-add an expense/task from one utterance.
+    final fingerprint=_actionFingerprint(plan,result);
+    final raw=prefs.getStringList('yansi_executed_actions')??<String>[];
+    final now=DateTime.now();
+    for(final value in raw.reversed.take(20)){
+      try{
+        final previous=Map<String,dynamic>.from(jsonDecode(value) as Map);
+        final previousFingerprint=(previous['fingerprint']??'').toString();
+        final previousDate=DateTime.tryParse((previous['date']??'').toString());
+        if(previousFingerprint==fingerprint&&previousDate!=null&&now.difference(previousDate).inSeconds<=12){
+          return {...previous,'executed':false,'duplicateSuppressed':true,'requiresConfirmation':false,'speak':'I already handled that.'};
+        }
+      }catch(_){ }
+    }
+
+    final execution=<String,dynamic>{'id':DateTime.now().microsecondsSinceEpoch.toString(),'intent':result.intent.name,'action':plan.action,'title':plan.title,'confidence':plan.confidence,'confirmed':userConfirmed,'executed':true,'targetCore':targetCore,'operation':'local_lifeos_update','fingerprint':fingerprint,'date':DateTime.now().toIso8601String(),'data':result.data};
+    raw.add(jsonEncode(execution));if(raw.length>100){raw.removeRange(0,raw.length-100);}await prefs.setStringList('yansi_executed_actions',raw);return execution;
+  }
+
+  String _actionFingerprint(YansiActionPlan plan,YansiResult result){
+    final amount=result.amount?.toStringAsFixed(2)??'';
+    final item=(result.item??'').trim().toLowerCase();
+    final text=result.originalText.trim().toLowerCase().replaceAll(RegExp(r'\\s+'),' ');
+    return '${result.intent.name}|${plan.action.toLowerCase()}|$amount|$item|$text';
   }
 
   /// Produces a concise receipt for the ambient Yansi layer/UI after an action.
@@ -38,15 +63,18 @@ extension YansiActionExecutionApi on YansiBrain {
     final executed=execution['executed']==true;
     final confirmed=execution['confirmed']==true;
     final needsConfirmation=execution['requiresConfirmation']==true;
+    final duplicate=execution['duplicateSuppressed']==true;
     String message;
     if(needsConfirmation){
       message='I need your confirmation before I do that.';
+    }else if(duplicate){
+      message='I already handled that.';
     }else if(executed){
       message=confirmed?'Done. I completed the $core action.':'Done. I updated $core in LifeOS.';
     }else{
       message='I could not complete that action.';
     }
-    return {'speak':message,'core':core,'action':action,'completed':executed,'requiresConfirmation':needsConfirmation,'timestamp':execution['date']??DateTime.now().toIso8601String()};
+    return {'speak':message,'core':core,'action':action,'completed':executed,'duplicateSuppressed':duplicate,'requiresConfirmation':needsConfirmation,'timestamp':execution['date']??DateTime.now().toIso8601String()};
   }
 
   String _targetCoreFor(YansiIntent intent){switch(intent){case YansiIntent.expense:case YansiIntent.income:return 'money';case YansiIntent.task:return 'productivity';case YansiIntent.reminder:return 'calendar';case YansiIntent.household:return 'household';case YansiIntent.goal:return 'goals';case YansiIntent.diary:return 'diary';case YansiIntent.question:return 'yansi';case YansiIntent.unknown:return 'yansi';}}
