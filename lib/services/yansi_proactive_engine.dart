@@ -28,10 +28,19 @@ class YansiProactiveEngine {
     if(goals.isNotEmpty){final stale=goals.where((g){final d=DateTime.tryParse('${g['updatedAt']??g['date']??''}');return d==null||now.difference(d).inDays>=14;}).length;if(stale>0)candidates.add(YansiProactiveInsight(title:'GOAL DRIFT',message:'$stale goal${stale==1?'':'s'} show little recent progress. I can convert one into a small action for today.',priority:'MEDIUM',action:'ACTIVATE',core:'GOALS',confidence:.78,data:{'staleGoals':stale}));}
     if(household.length>=3){final counts=<String,int>{};for(final e in household){final item='${e['item']??''}'.trim().toLowerCase();if(item.isNotEmpty)counts[item]=(counts[item]??0)+1;}if(counts.isNotEmpty){final top=counts.entries.reduce((a,b)=>a.value>=b.value?a:b);candidates.add(YansiProactiveInsight(title:'HOUSEHOLD PREDICTION',message:'${top.key} is recurring in your household history. I can prepare a predicted shopping requirement.',priority:'LOW',action:'PREDICT',core:'HOUSEHOLD',confidence:(.6+top.value*.06).clamp(0,.94).toDouble(),data:{'item':top.key,'frequency':top.value}));}}
     if(candidates.isEmpty)return null;
-    candidates.sort((a,b){const rank={'HIGH':3,'MEDIUM':2,'LOW':1};final p=(rank[b.priority]??0).compareTo(rank[a.priority]??0);return p!=0?p:b.confidence.compareTo(a.confidence);});
+
+    // Priority remains dominant, while confidence breaks close calls instead of
+    // allowing a weak high-priority signal to suppress a strong medium signal.
+    const priorityWeight={'HIGH':3.0,'MEDIUM':2.0,'LOW':1.0};
+    double rankingScore(YansiProactiveInsight insight){
+      final priority=(priorityWeight[insight.priority]??1.0)/3.0;
+      final confidence=insight.confidence.clamp(0,1);
+      return priority*0.75+confidence*0.25;
+    }
+    candidates.sort((a,b)=>rankingScore(b).compareTo(rankingScore(a)));
     final best=candidates.first;
     final decision=notificationPolicy.decide(priority:best.priority,quietMode:quietMode,userIsActive:userIsActive,permissionGranted:notificationPermissionGranted);
-    await prefs.setString('yansi_last_prediction',jsonEncode({'title':best.title,'core':best.core,'confidence':best.confidence,'at':now.toIso8601String(),'data':best.data,'delivery':decision.mode.name,'deliver':decision.deliver}));
+    await prefs.setString('yansi_last_prediction',jsonEncode({'title':best.title,'core':best.core,'confidence':best.confidence,'rankingScore':rankingScore(best),'at':now.toIso8601String(),'data':best.data,'delivery':decision.mode.name,'deliver':decision.deliver}));
     return best;
   }
 }
