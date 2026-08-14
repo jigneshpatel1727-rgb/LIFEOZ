@@ -192,6 +192,19 @@ jobs:
       - name: Remove generated placeholder test
         run: rm -f test/widget_test.dart
 
+      - name: Normalize speech result type for current speech_to_text API
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('lib/lifeoz_future_shell.dart')
+          text = path.read_text()
+          text = text.replace(
+              'onResult: (stt.SpeechRecognitionResult result)',
+              'onResult: (result)',
+          )
+          path.write_text(text)
+          PY
+
       - name: Analyze Flutter project
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
