@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// LIFEOZ MASTER LAYOUT
-/// Visual source of truth: user supplied master reference board.
-/// Home: central Yansi intelligence + five symbolic cores, no core names.
-/// Secondary layers: holographic control, adaptive environment, six visual realities.
+/// LIFEOZ MASTER EXPERIENCE
+/// The user's supplied master board is the visual source of truth.
+/// This is an interactive implementation: symbols are live controls,
+/// Yansi is animated, and six visual realities are animated realms.
 class LifeOZMasterShell extends StatefulWidget {
   final SharedPreferences prefs;
   const LifeOZMasterShell({super.key, required this.prefs});
@@ -18,9 +19,10 @@ class LifeOZMasterShell extends StatefulWidget {
 
 class _LifeOZMasterShellState extends State<LifeOZMasterShell>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse;
+  late final AnimationController _motion;
   final FlutterTts _tts = FlutterTts();
   Timer? _splashTimer;
+
   String _name = '';
   bool _splash = true;
   String _layer = 'home';
@@ -28,24 +30,31 @@ class _LifeOZMasterShellState extends State<LifeOZMasterShell>
   int _environment = 0;
   int _reality = 0;
 
-  static const coreColors = <Color>[
-    Color(0xFF4FF5A9), // life / household
-    Color(0xFFFFB84A), // goals / growth
-    Color(0xFFB66BFF), // productivity
-    Color(0xFF42D9FF), // time
-    Color(0xFFC16BFF), // future / intelligence
+  static const List<Color> coreColors = <Color>[
+    Color(0xFF38E88A),
+    Color(0xFFFFA63D),
+    Color(0xFFB46CFF),
+    Color(0xFF42DFFF),
+    Color(0xFFD15CFF),
   ];
 
-  static const coreMessages = <String>[
-    'I am opening your life and household intelligence.',
-    'I am opening your goals and growth intelligence.',
-    'I am opening your productivity intelligence.',
-    'I am opening your time and calendar intelligence.',
-    'I am opening your future and possibility intelligence.',
+  static const List<String> coreMessages = <String>[
+    'Life intelligence is ready.',
+    'Growth and goals intelligence is ready.',
+    'Productivity intelligence is ready.',
+    'Time and calendar intelligence is ready.',
+    'Future and possibility intelligence is ready.',
   ];
 
-  static const environments = <String>['Morning', 'Work', 'Evening', 'Focus', 'Rest'];
-  static const realities = <String>[
+  static const List<String> environments = <String>[
+    'Morning',
+    'Work',
+    'Evening',
+    'Focus',
+    'Rest',
+  ];
+
+  static const List<String> realities = <String>[
     'OREON PRIME',
     'TERRA FLUX',
     'VORTEX NEXUS',
@@ -54,11 +63,23 @@ class _LifeOZMasterShellState extends State<LifeOZMasterShell>
     'SHADOW CORE',
   ];
 
+  static const List<String> realitySubtitles = <String>[
+    'Living Cosmic Organism',
+    'Organic Nature Tech',
+    'Dimensional Rings',
+    'Light Geometry',
+    'Emotion & Energy',
+    'Minimal Dark Matter',
+  ];
+
   @override
   void initState() {
     super.initState();
     _name = widget.prefs.getString('user_name') ?? '';
-    _pulse = AnimationController(vsync: this, duration: const Duration(seconds: 12))..repeat();
+    _motion = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 14),
+    )..repeat();
     _tts.setSpeechRate(0.44);
     _splashTimer = Timer(const Duration(milliseconds: 1800), () {
       if (mounted) setState(() => _splash = false);
@@ -68,19 +89,32 @@ class _LifeOZMasterShellState extends State<LifeOZMasterShell>
   @override
   void dispose() {
     _splashTimer?.cancel();
-    _pulse.dispose();
+    _motion.dispose();
     _tts.stop();
     super.dispose();
   }
+
+  Color fade(Color color, double alpha) => color.withValues(alpha: alpha);
 
   Future<void> _speak(String text) async {
     await _tts.stop();
     await _tts.speak(text);
   }
 
-  void _core(int index) {
-    setState(() => _activeCore = index);
+  void _openCore(int index) {
+    setState(() {
+      _activeCore = index;
+      _layer = 'core';
+    });
     _speak(coreMessages[index]);
+  }
+
+  void _openReality(int index) {
+    setState(() {
+      _reality = index;
+      _layer = 'reality';
+    });
+    _speak('${realities[index]} selected. Entering the living realm.');
   }
 
   @override
@@ -89,11 +123,11 @@ class _LifeOZMasterShellState extends State<LifeOZMasterShell>
       backgroundColor: const Color(0xFF01040A),
       body: SafeArea(
         child: AnimatedBuilder(
-          animation: _pulse,
-          builder: (_, __) => Stack(
+          animation: _motion,
+          builder: (context, child) => Stack(
             fit: StackFit.expand,
-            children: [
-              CustomPaint(painter: _MasterBackground(_pulse.value, _reality)),
+            children: <Widget>[
+              CustomPaint(painter: _MasterBackground(_motion.value, _reality)),
               if (_splash) _buildSplash() else _buildHome(),
               if (!_splash && _layer != 'home') _buildLayer(),
             ],
@@ -107,12 +141,30 @@ class _LifeOZMasterShellState extends State<LifeOZMasterShell>
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          CustomPaint(size: const Size(190, 190), painter: _YansiPainter(_pulse.value, const Color(0xFF20D9FF), large: true)),
-          const SizedBox(height: 16),
-          const Text('LifeOZ', style: TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 5)),
-          const SizedBox(height: 7),
-          Text('Initiating Your Universe...', style: TextStyle(color: const Color(0xFF63E8FF).withOpacity(.75), fontSize: 10, letterSpacing: 1.8)),
+        children: <Widget>[
+          CustomPaint(
+            size: const Size(190, 190),
+            painter: _YansiPainter(_motion.value, const Color(0xFF20D9FF)),
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'LifeOZ',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 34,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Initiating Your Universe...',
+            style: TextStyle(
+              color: Color(0xFF63E8FF),
+              fontSize: 10,
+              letterSpacing: 1.8,
+            ),
+          ),
         ],
       ),
     );
@@ -120,39 +172,57 @@ class _LifeOZMasterShellState extends State<LifeOZMasterShell>
 
   Widget _buildHome() {
     return LayoutBuilder(
-      builder: (_, c) {
-        final w = c.maxWidth;
-        final h = c.maxHeight;
-        final center = Offset(w / 2, h * .46);
-        final nodes = <Offset>[
+      builder: (context, constraints) {
+        final double w = constraints.maxWidth;
+        final double h = constraints.maxHeight;
+        final Offset center = Offset(w / 2, h * .45);
+        final List<Offset> nodes = <Offset>[
           Offset(w * .50, h * .16),
           Offset(w * .19, h * .30),
           Offset(w * .81, h * .30),
-          Offset(w * .20, h * .70),
-          Offset(w * .80, h * .70),
+          Offset(w * .20, h * .69),
+          Offset(w * .80, h * .69),
         ];
+
         return Stack(
-          children: [
+          children: <Widget>[
             Positioned(top: 12, left: 18, right: 18, child: _topBar()),
-            Positioned.fill(child: CustomPaint(painter: _MasterNetwork(_pulse.value, nodes, center, _activeCore))),
-            for (var i = 0; i < nodes.length; i++)
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _MasterNetwork(_motion.value, nodes, center, _activeCore),
+              ),
+            ),
+            for (int i = 0; i < nodes.length; i++)
               Positioned(
-                left: nodes[i].dx - 55,
-                top: nodes[i].dy - 55,
+                left: nodes[i].dx - 58,
+                top: nodes[i].dy - 58,
                 child: GestureDetector(
-                  onTap: () => _core(i),
-                  child: CustomPaint(size: const Size(110, 110), painter: _CoreMasterPainter(i, coreColors[i], _activeCore == i, _pulse.value)),
+                  onTap: () => _openCore(i),
+                  child: CustomPaint(
+                    size: const Size(116, 116),
+                    painter: _CorePainter(i, coreColors[i], _activeCore == i, _motion.value),
+                  ),
                 ),
               ),
             Positioned(
               left: center.dx - 145,
               top: center.dy - 145,
               child: GestureDetector(
-                onTap: () => _speak(_name.isEmpty ? 'I am Yansi, your personal LifeOS intelligence.' : 'Welcome, $_name. I am Yansi, your personal LifeOS intelligence.'),
-                child: CustomPaint(size: const Size(290, 290), painter: _YansiPainter(_pulse.value, _activeCore < 0 ? const Color(0xFF20D9FF) : coreColors[_activeCore], large: true)),
+                onTap: () => _speak(
+                  _name.isEmpty
+                      ? 'I am Yansi, your personal LifeOS intelligence.'
+                      : 'Welcome, $_name. I am Yansi, your personal LifeOS intelligence.',
+                ),
+                child: CustomPaint(
+                  size: const Size(290, 290),
+                  painter: _YansiPainter(
+                    _motion.value,
+                    _activeCore < 0 ? const Color(0xFF20D9FF) : coreColors[_activeCore],
+                  ),
+                ),
               ),
             ),
-            Positioned(left: 18, right: 18, bottom: 16, child: _adaptiveStrip()),
+            Positioned(left: 18, right: 18, bottom: 14, child: _bottomControls()),
           ],
         );
       },
@@ -161,17 +231,25 @@ class _LifeOZMasterShellState extends State<LifeOZMasterShell>
 
   Widget _topBar() {
     return Row(
-      children: [
-        CustomPaint(size: const Size(46, 46), painter: _LogoPainter()),
+      children: <Widget>[
+        CustomPaint(size: const Size(48, 48), painter: _LogoPainter()),
         const SizedBox(width: 10),
-        const Text('LifeOZ', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 3)),
+        const Text(
+          'LifeOZ',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 3,
+          ),
+        ),
         const Spacer(),
-        _controlButton(Icons.tune_rounded, () => setState(() => _layer = 'hologram')),
+        _roundButton(Icons.tune_rounded, () => setState(() => _layer = 'hologram')),
       ],
     );
   }
 
-  Widget _controlButton(IconData icon, VoidCallback onTap) {
+  Widget _roundButton(IconData icon, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -179,31 +257,47 @@ class _LifeOZMasterShellState extends State<LifeOZMasterShell>
         height: 48,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.black.withOpacity(.28),
-          border: Border.all(color: const Color(0xFF20D9FF).withOpacity(.65)),
-          boxShadow: const [BoxShadow(color: Color(0x3320D9FF), blurRadius: 18)],
+          color: fade(Colors.black, .30),
+          border: Border.all(color: fade(const Color(0xFF20D9FF), .70)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(color: fade(const Color(0xFF20D9FF), .20), blurRadius: 18),
+          ],
         ),
-        child: const Icon(Icons.tune_rounded, color: Color(0xFF20D9FF), size: 25),
+        child: Icon(icon, color: const Color(0xFF20D9FF), size: 25),
       ),
     );
   }
 
-  Widget _adaptiveStrip() {
+  Widget _bottomControls() {
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: _bottomButton(Icons.auto_awesome, 'REALITIES', () => setState(() => _layer = 'realities')),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _bottomButton(Icons.wb_sunny_outlined, environments[_environment].toUpperCase(), () => setState(() => _layer = 'environment')),
+        ),
+      ],
+    );
+  }
+
+  Widget _bottomButton(IconData icon, String label, VoidCallback onTap) {
     return GestureDetector(
-      onTap: () => setState(() => _layer = 'environment'),
+      onTap: onTap,
       child: Container(
-        height: 54,
+        height: 52,
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(.25),
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: Colors.white.withOpacity(.08)),
+          color: fade(Colors.black, .34),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: fade(const Color(0xFF6BEAFF), .18)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.auto_awesome, color: Color(0xFF20D9FF), size: 18),
+          children: <Widget>[
+            Icon(icon, color: const Color(0xFF6BEAFF), size: 18),
             const SizedBox(width: 8),
-            Text(environments[_environment], style: const TextStyle(color: Colors.white70, fontSize: 10, letterSpacing: 1.6)),
+            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 9, letterSpacing: 1.3, fontWeight: FontWeight.w700)),
           ],
         ),
       ),
@@ -213,45 +307,107 @@ class _LifeOZMasterShellState extends State<LifeOZMasterShell>
   Widget _buildLayer() {
     return Positioned.fill(
       child: Container(
-        color: Colors.black.withOpacity(.88),
+        color: fade(Colors.black, .90),
         child: _layer == 'hologram'
             ? _hologramLayer()
             : _layer == 'environment'
                 ? _environmentLayer()
-                : _realityLayer(),
+                : _layer == 'realities'
+                    ? _realitiesLayer()
+                    : _layer == 'reality'
+                        ? _realityLayer()
+                        : _coreLayer(),
+      ),
+    );
+  }
+
+  Widget _layerHeader(String title, String subtitle) {
+    return Column(
+      children: <Widget>[
+        const SizedBox(height: 20),
+        Text(title, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: 2)),
+        const SizedBox(height: 5),
+        Text(subtitle, style: const TextStyle(color: Color(0xFF6BEAFF), fontSize: 9, letterSpacing: 1)),
+      ],
+    );
+  }
+
+  Widget _layerFooter() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: GestureDetector(
+        onTap: () => setState(() => _layer = 'home'),
+        child: const Text('RETURN TO YOUR UNIVERSE', style: TextStyle(color: Colors.white54, fontSize: 9, letterSpacing: 1.4)),
       ),
     );
   }
 
   Widget _hologramLayer() {
-    final items = <MapEntry<String, IconData>>[
-      const MapEntry('PROFILE', Icons.person_outline),
-      const MapEntry('DESIGN', Icons.auto_awesome),
-      const MapEntry('PERMISSIONS', Icons.shield_outlined),
-      const MapEntry('YANSI', Icons.psychology_outlined),
-      const MapEntry('SETTINGS', Icons.tune),
+    const List<MapEntry<String, IconData>> items = <MapEntry<String, IconData>>[
+      MapEntry<String, IconData>('PROFILE', Icons.person_outline),
+      MapEntry<String, IconData>('DESIGN', Icons.auto_awesome),
+      MapEntry<String, IconData>('PERMISSIONS', Icons.shield_outlined),
+      MapEntry<String, IconData>('YANSI', Icons.psychology_outlined),
+      MapEntry<String, IconData>('SETTINGS', Icons.tune),
     ];
-    return _layerScaffold(
-      'HOLOGRAPHIC CONTROL',
-      'Tap a node • Open your universe',
-      Center(
-        child: SizedBox(
-          width: 320,
-          height: 340,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              CustomPaint(size: const Size(320, 340), painter: _HoloNetwork(_pulse.value)),
-              GestureDetector(
-                onTap: () => _speak('Yansi is listening.'),
-                child: CustomPaint(size: const Size(92, 92), painter: _YansiPainter(_pulse.value, const Color(0xFF20D9FF), large: false)),
+
+    return Column(
+      children: <Widget>[
+        _layerHeader('HOLOGRAPHIC CONTROL', 'Tap a node • Open your universe'),
+        Expanded(
+          child: Center(
+            child: SizedBox(
+              width: 320,
+              height: 360,
+              child: Stack(
+                alignment: Alignment.center,
+                children: <Widget>[
+                  CustomPaint(size: const Size(320, 360), painter: _HoloNetwork(_motion.value)),
+                  GestureDetector(
+                    onTap: () => _speak('Yansi is listening.'),
+                    child: CustomPaint(size: const Size(94, 94), painter: _YansiPainter(_motion.value, const Color(0xFF20D9FF))),
+                  ),
+                  _holoPositioned(0, items[0].key, items[0].value),
+                  _holoPositioned(1, items[1].key, items[1].value),
+                  _holoPositioned(2, items[2].key, items[2].value),
+                  _holoPositioned(3, items[3].key, items[3].value),
+                  _holoPositioned(4, items[4].key, items[4].value),
+                ],
               ),
-              for (var i = 0; i < items.length; i++)
-                Positioned(
-                  left: const [8.0, 124.0, 232.0, 8.0, 232.0][i],
-                  top: const [118.0, 28.0, 118.0, 224.0, 224.0][i],
-                  child: _holoNode(items[i].key, items[i].value),
+            ),
+          ),
+        ),
+        _layerFooter(),
+      ],
+    );
+  }
+
+  Widget _holoPositioned(int index, String label, IconData icon) {
+    const List<double> left = <double>[0, 120, 240, 0, 240];
+    const List<double> top = <double>[128, 28, 128, 240, 240];
+    return Positioned(
+      left: left[index],
+      top: top[index],
+      child: GestureDetector(
+        onTap: () => _speak('$label control is ready.'),
+        child: SizedBox(
+          width: 80,
+          child: Column(
+            children: <Widget>[
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: fade(const Color(0xFF20D9FF), .68)),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(color: fade(const Color(0xFF20D9FF), .24), blurRadius: 18),
+                  ],
                 ),
+                child: Icon(icon, color: Colors.white70, size: 26),
+              ),
+              const SizedBox(height: 5),
+              Text(label, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 8)),
             ],
           ),
         ),
@@ -259,89 +415,147 @@ class _LifeOZMasterShellState extends State<LifeOZMasterShell>
     );
   }
 
-  Widget _holoNode(String label, IconData icon) {
-    return GestureDetector(
-      onTap: () => _speak('$label control is ready.'),
-      child: SizedBox(
-        width: 80,
-        child: Column(
-          children: [
-            Container(width: 58, height: 58, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFF20D9FF).withOpacity(.65)), boxShadow: const [BoxShadow(color: Color(0x4420D9FF), blurRadius: 18)]), child: Icon(icon, color: Colors.white70, size: 26)),
-            const SizedBox(height: 5),
-            Text(label, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 8, letterSpacing: .7)),
-          ],
+  Widget _environmentLayer() {
+    return Column(
+      children: <Widget>[
+        _layerHeader('ADAPTIVE ENVIRONMENT', 'Changes with time, mood & context'),
+        Expanded(
+          child: Center(
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 14,
+              runSpacing: 18,
+              children: List<Widget>.generate(environments.length, (int i) {
+                final bool selected = _environment == i;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() => _environment = i);
+                    _speak('${environments[i]} environment selected.');
+                  },
+                  child: Column(
+                    children: <Widget>[
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(colors: <Color>[coreColors[i], fade(Colors.black, .82)]),
+                          border: Border.all(color: fade(coreColors[i], selected ? .95 : .42), width: selected ? 2 : 1),
+                          boxShadow: <BoxShadow>[BoxShadow(color: fade(coreColors[i], .25), blurRadius: 22)],
+                        ),
+                        child: Icon(
+                          <IconData>[Icons.wb_sunny, Icons.work_outline, Icons.nights_stay, Icons.center_focus_strong, Icons.spa][i],
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      Text(environments[i], style: TextStyle(color: selected ? Colors.white : Colors.white54, fontSize: 9)),
+                    ],
+                  ),
+                );
+              }),
+            ),
+          ),
         ),
-      ),
+        _layerFooter(),
+      ],
     );
   }
 
-  Widget _environmentLayer() {
-    return _layerScaffold(
-      'ADAPTIVE ENVIRONMENT',
-      'Changes with time, mood & context',
-      Center(
-        child: Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 14,
-          runSpacing: 18,
-          children: List.generate(environments.length, (i) {
-            final selected = _environment == i;
-            return GestureDetector(
-              onTap: () {
-                setState(() => _environment = i);
-                _speak('${environments[i]} environment selected.');
-              },
-              child: Column(
-                children: [
-                  Container(width: 72, height: 72, decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [coreColors[i], Colors.black87]), border: Border.all(color: coreColors[i].withOpacity(selected ? .9 : .45), width: selected ? 2 : 1), boxShadow: [BoxShadow(color: coreColors[i].withOpacity(.25), blurRadius: 22)]), child: Icon([Icons.wb_sunny, Icons.work_outline, Icons.nights_stay, Icons.center_focus_strong, Icons.spa][i], color: Colors.white, size: 28)),
-                  const SizedBox(height: 7),
-                  Text(environments[i], style: TextStyle(color: selected ? Colors.white : Colors.white54, fontSize: 9)),
-                ],
-              ),
-            );
-          }),
+  Widget _realitiesLayer() {
+    return Column(
+      children: <Widget>[
+        _layerHeader('6 UNIQUE VISUAL REALITIES', 'Each a different world, not just a theme'),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.fromLTRB(14, 16, 14, 20),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: .82),
+            itemCount: realities.length,
+            itemBuilder: (BuildContext context, int i) {
+              final Color color = _realityColor(i);
+              final bool selected = _reality == i;
+              return GestureDetector(
+                onTap: () => _openReality(i),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: fade(color, selected ? .95 : .42), width: selected ? 2 : 1),
+                    gradient: RadialGradient(colors: <Color>[fade(color, .18), fade(Colors.black, .64)]),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Expanded(child: Center(child: CustomPaint(size: const Size(145, 150), painter: _RealityPainter(i, _motion.value, color)))),
+                      Text('${i + 1}. ${realities[i]}', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: .7)),
+                      const SizedBox(height: 4),
+                      Text(realitySubtitles[i], style: TextStyle(color: fade(color, .92), fontSize: 7)),
+                      const SizedBox(height: 9),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
         ),
-      ),
+        _layerFooter(),
+      ],
     );
   }
 
   Widget _realityLayer() {
-    return _layerScaffold(
-      '6 UNIQUE VISUAL REALITIES',
-      'Each a different world, not just a theme',
-      GridView.builder(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 80),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: .82),
-        itemCount: realities.length,
-        itemBuilder: (_, i) {
-          final selected = _reality == i;
-          return GestureDetector(
-            onTap: () {
-              setState(() => _reality = i);
-              _speak('${realities[i]} visual reality selected.');
-            },
-            child: Container(
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(22), border: Border.all(color: coreColors[i % coreColors.length].withOpacity(selected ? .9 : .35), width: selected ? 2 : 1), gradient: RadialGradient(colors: [coreColors[i % coreColors.length].withOpacity(.18), Colors.black.withOpacity(.5)])),
-              child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [CustomPaint(size: const Size(92, 92), painter: _RealityPainter(i, _pulse.value, coreColors[i % coreColors.length])), const SizedBox(height: 10), Text('${i + 1}. ${realities[i]}', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: .8))])),
-            ),
-          );
-        },
-      ),
+    final Color color = _realityColor(_reality);
+    return Column(
+      children: <Widget>[
+        _layerHeader(realities[_reality], realitySubtitles[_reality]),
+        Expanded(
+          child: Center(
+            child: CustomPaint(size: const Size(330, 330), painter: _RealityPainter(_reality, _motion.value, color)),
+          ),
+        ),
+        Text('Living • Adaptive • Moving', style: TextStyle(color: fade(color, .95), fontSize: 10, letterSpacing: 1.4)),
+        const SizedBox(height: 14),
+        _layerFooter(),
+      ],
     );
   }
 
-  Widget _layerScaffold(String title, String subtitle, Widget child) {
+  Widget _coreLayer() {
+    final int i = _activeCore.clamp(0, coreColors.length - 1);
+    final Color color = coreColors[i];
     return Column(
-      children: [
-        const SizedBox(height: 24),
-        Text(title, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: 2)),
-        const SizedBox(height: 5),
-        Text(subtitle, style: const TextStyle(color: Color(0xFF6BEAFF), fontSize: 9, letterSpacing: 1)),
-        const SizedBox(height: 22),
-        Expanded(child: child),
-        Padding(padding: const EdgeInsets.only(bottom: 18), child: GestureDetector(onTap: () => setState(() => _layer = 'home'), child: const Text('RETURN TO YOUR UNIVERSE', style: TextStyle(color: Colors.white54, fontSize: 9, letterSpacing: 1.4)))),
+      children: <Widget>[
+        _layerHeader('LIFE INTELLIGENCE', coreMessages[i]),
+        Expanded(
+          child: Center(
+            child: GestureDetector(
+              onTap: () => _speak(coreMessages[i]),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  CustomPaint(size: const Size(240, 240), painter: _CorePainter(i, color, true, _motion.value)),
+                  const SizedBox(height: 12),
+                  Text('Tap the intelligence core to ask Yansi', style: TextStyle(color: fade(color, .88), fontSize: 10)),
+                ],
+              ),
+            ),
+          ),
+        ),
+        _layerFooter(),
       ],
     );
+  }
+
+  Color _realityColor(int i) {
+    const List<Color> colors = <Color>[
+      Color(0xFF26BFFF),
+      Color(0xFF50E88A),
+      Color(0xFFFFA936),
+      Color(0xFFB56CFF),
+      Color(0xFFFF5E8C),
+      Color(0xFFE8EEF5),
+    ];
+    return colors[i];
   }
 }
 
@@ -349,21 +563,22 @@ class _MasterBackground extends CustomPainter {
   final double phase;
   final int reality;
   _MasterBackground(this.phase, this.reality);
+
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final base = [const Color(0xFF061B2D), const Color(0xFF0A241A), const Color(0xFF1C0B28), const Color(0xFF100A27), const Color(0xFF061A25), const Color(0xFF020206)][reality];
-    canvas.drawRect(rect, Paint()..shader = RadialGradient(colors: [base, const Color(0xFF010207)], radius: 1.08).createShader(rect));
-    final random = math.Random(73 + reality);
-    for (var i = 0; i < 110; i++) {
-      final a = (.04 + .035 * math.sin(phase * math.pi * 2 + i)).clamp(.01, .10);
-      canvas.drawCircle(Offset(random.nextDouble() * size.width, random.nextDouble() * size.height), .5 + random.nextDouble() * 1.3, Paint()..color = (i % 3 == 0 ? const Color(0xFFFFC45A) : const Color(0xFF20D9FF)).withOpacity(a));
-    }
-    final c = Offset(size.width / 2, size.height * .46);
-    for (var i = 0; i < 7; i++) {
-      canvas.drawOval(Rect.fromCenter(center: c, width: 240 + i * 90.0, height: 120 + i * 58.0), Paint()..style = PaintingStyle.stroke..strokeWidth = .65..color = const Color(0xFF20D9FF).withOpacity(.04));
+    final Rect rect = Offset.zero & size;
+    const List<Color> bases = <Color>[
+      Color(0xFF061B2D), Color(0xFF0A241A), Color(0xFF1C0B28),
+      Color(0xFF100A27), Color(0xFF18091E), Color(0xFF020206),
+    ];
+    canvas.drawRect(rect, Paint()..shader = RadialGradient(colors: <Color>[bases[reality], const Color(0xFF010207)], radius: 1.08).createShader(rect));
+    final math.Random random = math.Random(73 + reality);
+    for (int i = 0; i < 130; i++) {
+      final double alpha = .03 + .05 * ((math.sin(phase * math.pi * 2 + i) + 1) / 2);
+      canvas.drawCircle(Offset(random.nextDouble() * size.width, random.nextDouble() * size.height), .5 + random.nextDouble() * 1.3, Paint()..color = Colors.white.withValues(alpha: alpha));
     }
   }
+
   @override
   bool shouldRepaint(covariant _MasterBackground oldDelegate) => true;
 }
@@ -374,20 +589,21 @@ class _MasterNetwork extends CustomPainter {
   final Offset center;
   final int active;
   _MasterNetwork(this.phase, this.nodes, this.center, this.active);
+
   @override
   void paint(Canvas canvas, Size size) {
-    for (var i = 0; i < nodes.length; i++) {
-      final color = _LifeColors.core(i);
-      final path = Path()..moveTo(nodes[i].dx, nodes[i].dy)..cubicTo(nodes[i].dx, nodes[i].dy + (center.dy - nodes[i].dy) * .28, center.dx, center.dy - (center.dy - nodes[i].dy) * .20, center.dx, center.dy);
-      canvas.drawPath(path, Paint()..style = PaintingStyle.stroke..strokeWidth = active == i ? 3.2 : 1.0..color = color.withOpacity(active == i ? .72 : .25));
-      final metrics = path.computeMetrics().toList();
-      if (metrics.isNotEmpty) {
-        final t = (phase + i * .19) % 1.0;
-        final tan = metrics.first.getTangentForOffset(metrics.first.length * t);
-        if (tan != null) canvas.drawCircle(tan.position, active == i ? 4 : 2.5, Paint()..color = color.withOpacity(.9));
-      }
+    for (int i = 0; i < nodes.length; i++) {
+      final Color c = <Color>[
+        const Color(0xFF38E88A), const Color(0xFFFFA63D), const Color(0xFFB46CFF),
+        const Color(0xFF42DFFF), const Color(0xFFD15CFF),
+      ][i];
+      canvas.drawLine(center, nodes[i], Paint()..color = c.withValues(alpha: active == i ? .55 : .20)..strokeWidth = active == i ? 3 : 1.2);
+      final double t = (phase + i * .17) % 1.0;
+      final Offset p = Offset.lerp(center, nodes[i], t)!;
+      canvas.drawCircle(p, 3.5, Paint()..color = c.withValues(alpha: .88));
     }
   }
+
   @override
   bool shouldRepaint(covariant _MasterNetwork oldDelegate) => true;
 }
@@ -395,75 +611,149 @@ class _MasterNetwork extends CustomPainter {
 class _YansiPainter extends CustomPainter {
   final double phase;
   final Color color;
-  final bool large;
-  _YansiPainter(this.phase, this.color, {required this.large});
+  _YansiPainter(this.phase, this.color);
+
   @override
   void paint(Canvas canvas, Size size) {
-    final c = size.center(Offset.zero);
-    final scale = large ? 1.0 : .55;
-    for (var i = 0; i < 8; i++) {
-      final r = size.shortestSide * (.19 + i * .045) * scale;
-      canvas.save();
-      canvas.translate(c.dx, c.dy);
-      canvas.rotate(phase * math.pi * 2 * (i.isEven ? 1 : -1) + i * .38);
-      canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: r * 2.0, height: r * .82), Paint()..style = PaintingStyle.stroke..strokeWidth = i == 2 ? 2.4 : .8..color = (i.isEven ? const Color(0xFF20D9FF) : const Color(0xFFFFC45A)).withOpacity(.28));
-      canvas.restore();
+    final Offset c = Offset(size.width / 2, size.height / 2);
+    final double r = size.shortestSide * .27;
+    canvas.drawCircle(c, r * 1.45, Paint()..color = color.withValues(alpha: .22)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 28));
+    for (int i = 0; i < 3; i++) {
+      final double rr = r * (1.05 + i * .18);
+      canvas.drawOval(Rect.fromCenter(center: c, width: rr * 2, height: rr * .82), Paint()..color = color.withValues(alpha: .30 - i * .06)..style = PaintingStyle.stroke..strokeWidth = 2);
     }
-    final r = size.shortestSide * .15 * scale;
-    canvas.drawCircle(c, r * 1.8, Paint()..color = color.withOpacity(.10)..maskFilter = MaskFilter.blur(BlurStyle.normal, large ? 30 : 16));
-    canvas.drawCircle(c, r, Paint()..shader = RadialGradient(colors: [Colors.white, color, color.withOpacity(0)]).createShader(Rect.fromCircle(center: c, radius: r)));
-    canvas.drawCircle(c, r * .28, Paint()..color = Colors.white..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8));
+    final Path p = Path();
+    for (int i = 0; i <= 80; i++) {
+      final double t = i / 80 * math.pi * 2;
+      final double wave = math.sin(t * 2 + phase * math.pi * 2) * r * .18;
+      final double x = c.dx + math.cos(t) * (r + wave);
+      final double y = c.dy + math.sin(t) * (r + wave) * 1.18;
+      if (i == 0) p.moveTo(x, y); else p.lineTo(x, y);
+    }
+    p.close();
+    canvas.drawPath(p, Paint()..color = color.withValues(alpha: .72)..style = PaintingStyle.stroke..strokeWidth = 3);
+    canvas.drawCircle(c, r * .48, Paint()..color = color.withValues(alpha: .20));
+    canvas.drawCircle(c, r * .28, Paint()..color = color.withValues(alpha: .92));
+    canvas.drawCircle(c, r * .12, Paint()..color = Colors.white);
   }
+
   @override
   bool shouldRepaint(covariant _YansiPainter oldDelegate) => true;
 }
 
 class _CorePainter extends CustomPainter {
-  final int index; final Color color; final bool active; final double phase;
-  _CorePainter(this.index, this.color, this.active, this.phase);
+  final int index;
+  final Color color;
+  final bool selected;
+  final double phase;
+  _CorePainter(this.index, this.color, this.selected, this.phase);
+
   @override
   void paint(Canvas canvas, Size size) {
-    final c = size.center(Offset.zero); final r = size.shortestSide * .30;
-    canvas.drawCircle(c, r, Paint()..color = color.withOpacity(active ? .26 : .10)..maskFilter = MaskFilter.blur(BlurStyle.normal, active ? 20 : 11));
-    canvas.drawCircle(c, r, Paint()..style = PaintingStyle.stroke..strokeWidth = active ? 2.6 : 1.1..color = color.withOpacity(active ? .95 : .58));
-    canvas.save(); canvas.translate(c.dx, c.dy); canvas.rotate(phase * math.pi * 2 + index * .65);
-    canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: r * 2.1, height: r * .62), Paint()..style = PaintingStyle.stroke..strokeWidth = 1.0..color = color.withOpacity(.55)); canvas.restore();
-    final p = Path();
-    if (index == 0) { p.moveTo(c.dx, c.dy + r*.75); p.cubicTo(c.dx-r*.8,c.dy,c.dx-r*.5,c.dy-r*.7,c.dx,c.dy-r*.9); p.cubicTo(c.dx+r*.5,c.dy-r*.7,c.dx+r*.8,c.dy,c.dx,c.dy+r*.75); }
-    if (index == 1) { p.moveTo(c.dx,c.dy+r*.75); p.cubicTo(c.dx-r,c.dy,c.dx-r*.7,c.dy-r*.8,c.dx,c.dy-r*.25); p.cubicTo(c.dx+r*.7,c.dy-r*.8,c.dx+r,c.dy,c.dx,c.dy+r*.75); }
-    if (index == 2) { for(var n=0;n<55;n++){final t=n/54;final a=t*math.pi*5+phase*math.pi*2;final rr=r*(1-t);final q=Offset(c.dx+math.cos(a)*rr,c.dy+math.sin(a)*rr);if(n==0)p.moveTo(q.dx,q.dy);else p.lineTo(q.dx,q.dy);}} 
-    if (index == 3) { canvas.drawCircle(c,r*.65,Paint()..style=PaintingStyle.stroke..strokeWidth=2.5..color=color); canvas.drawLine(c,c+Offset(0,-r*.45),Paint()..color=color..strokeWidth=2.2); canvas.drawLine(c,c+Offset(r*.35,r*.22),Paint()..color=color..strokeWidth=2.2); }
-    if (index == 4) { p.moveTo(c.dx,c.dy-r*.9);p.lineTo(c.dx+r*.58,c.dy-r*.22);p.lineTo(c.dx+r*.42,c.dy+r*.72);p.lineTo(c.dx,c.dy+r*.9);p.lineTo(c.dx-r*.42,c.dy+r*.72);p.lineTo(c.dx-r*.58,c.dy-r*.22);p.close(); }
-    canvas.drawPath(p,Paint()..style=PaintingStyle.stroke..strokeWidth=2.8..strokeCap=StrokeCap.round..color=color);
-    canvas.drawCircle(c,r*.11,Paint()..color=Colors.white..maskFilter=const MaskFilter.blur(BlurStyle.normal,4));
+    final Offset c = Offset(size.width / 2, size.height / 2);
+    final double r = size.shortestSide * .25;
+    canvas.drawCircle(c, r * 1.42, Paint()..color = color.withValues(alpha: selected ? .24 : .12)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18));
+    canvas.drawCircle(c, r * 1.05, Paint()..color = color.withValues(alpha: selected ? .85 : .45)..style = PaintingStyle.stroke..strokeWidth = selected ? 2.4 : 1.2);
+    if (index == 0) {
+      _leaf(canvas, c, r, phase);
+    } else if (index == 1) {
+      _heart(canvas, c, r, phase);
+    } else if (index == 2) {
+      _spiral(canvas, c, r, phase);
+    } else if (index == 3) {
+      _orbital(canvas, c, r, phase);
+    } else {
+      _crystal(canvas, c, r, phase);
+    }
   }
+
+  void _leaf(Canvas canvas, Offset c, double r, double phase) {
+    final Path p = Path()..moveTo(c.dx, c.dy-r)..quadraticBezierTo(c.dx+r*.9,c.dy-r*.25,c.dx,c.dy+r)..quadraticBezierTo(c.dx-r*.9,c.dy-r*.25,c.dx,c.dy-r)..close();
+    canvas.drawPath(p, Paint()..color = color.withValues(alpha: .28));
+    canvas.drawPath(p, Paint()..color = color..style = PaintingStyle.stroke..strokeWidth = 3);
+    canvas.drawLine(Offset(c.dx,c.dy-r*.8), Offset(c.dx+math.sin(phase*math.pi*2)*r*.2,c.dy+r*.8), Paint()..color = Colors.white.withValues(alpha: .75)..strokeWidth = 2);
+  }
+
+  void _heart(Canvas canvas, Offset c, double r, double phase) {
+    final Path p = Path()..moveTo(c.dx,c.dy+r)..cubicTo(c.dx-r*1.35,c.dy+r*.15,c.dx-r*.75,c.dy-r,c.dx,c.dy-r*.25)..cubicTo(c.dx+r*.75,c.dy-r,c.dx+r*1.35,c.dy+r*.15,c.dx,c.dy+r)..close();
+    canvas.drawPath(p, Paint()..color = color.withValues(alpha: .22));
+    canvas.drawPath(p, Paint()..color = color..style = PaintingStyle.stroke..strokeWidth = 3);
+    canvas.drawCircle(Offset(c.dx+math.sin(phase*math.pi*2)*r*.28,c.dy), r*.12, Paint()..color = Colors.white);
+  }
+
+  void _spiral(Canvas canvas, Offset c, double r, double phase) {
+    final Path p = Path();
+    for (int i=0;i<=100;i++) { final double t=i/100*math.pi*5+phase*math.pi*2; final double rr=r*.08+r*.92*(i/100); final double x=c.dx+math.cos(t)*rr; final double y=c.dy+math.sin(t)*rr; if(i==0)p.moveTo(x,y);else p.lineTo(x,y); }
+    canvas.drawPath(p, Paint()..color=color..style=PaintingStyle.stroke..strokeWidth=3);
+    canvas.drawCircle(c,r*.16,Paint()..color=Colors.white);
+  }
+
+  void _orbital(Canvas canvas, Offset c, double r, double phase) {
+    for(int i=0;i<3;i++){ canvas.save(); canvas.translate(c.dx,c.dy); canvas.rotate(phase*math.pi*2+i*math.pi/3); canvas.drawOval(Rect.fromCenter(center:Offset.zero,width:r*1.7,height:r*.55),Paint()..color=color.withValues(alpha:.78)..style=PaintingStyle.stroke..strokeWidth=2.5); canvas.restore(); }
+    canvas.drawCircle(c,r*.22,Paint()..color=color); canvas.drawCircle(c,r*.09,Paint()..color=Colors.white);
+  }
+
+  void _crystal(Canvas canvas, Offset c, double r, double phase) {
+    final Path p=Path()..moveTo(c.dx,c.dy-r)..lineTo(c.dx+r*.55,c.dy-r*.25)..lineTo(c.dx+r*.30,c.dy+r)..lineTo(c.dx-r*.30,c.dy+r)..lineTo(c.dx-r*.55,c.dy-r*.25)..close();
+    canvas.drawPath(p,Paint()..color=color.withValues(alpha:.22)); canvas.drawPath(p,Paint()..color=color..style=PaintingStyle.stroke..strokeWidth=3);
+    canvas.drawCircle(Offset(c.dx+math.cos(phase*math.pi*2)*r*.16,c.dy+math.sin(phase*math.pi*2)*r*.16),r*.12,Paint()..color=Colors.white);
+  }
+
   @override
-  bool shouldRepaint(covariant _CorePainter oldDelegate)=>true;
+  bool shouldRepaint(covariant _CorePainter oldDelegate) => true;
+}
+
+class _RealityPainter extends CustomPainter {
+  final int index;
+  final double phase;
+  final Color color;
+  _RealityPainter(this.index, this.phase, this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Offset c=Offset(size.width/2,size.height*.52); final double r=size.shortestSide*.26;
+    for(int i=0;i<4;i++){ final double rr=r*(1.05+i*.25); canvas.drawOval(Rect.fromCenter(center:c,width:rr*2,height:rr*.72),Paint()..color=color.withValues(alpha:.32-i*.045)..style=PaintingStyle.stroke..strokeWidth=2); }
+    if(index==0){_energy(canvas,c,r);}else if(index==1){_leaves(canvas,c,r);}else if(index==2){_rings(canvas,c,r);}else if(index==3){_crystals(canvas,c,r);}else if(index==4){_flame(canvas,c,r);}else{_shadow(canvas,c,r);}
+    final double a=phase*math.pi*2; canvas.drawCircle(Offset(c.dx+math.cos(a)*r*1.5,c.dy+math.sin(a)*r*.8),3,Paint()..color=Colors.white);
+  }
+
+  void _energy(Canvas canvas, Offset c, double r){ final Path p=Path(); for(int i=0;i<=80;i++){final double t=i/80*math.pi*2;final double x=c.dx+math.sin(t*2)*r*.55;final double y=c.dy+math.cos(t)*r;if(i==0)p.moveTo(x,y);else p.lineTo(x,y);} canvas.drawPath(p,Paint()..color=color..style=PaintingStyle.stroke..strokeWidth=4);canvas.drawCircle(c,r*.16,Paint()..color=Colors.white); }
+  void _leaves(Canvas canvas, Offset c, double r){ for(int i=0;i<5;i++){final Offset p=Offset(c.dx+math.sin(i*1.3)*r*.45,c.dy-r*.25+i*r*.16);final Path q=Path()..moveTo(p.dx,p.dy-r*.24)..quadraticBezierTo(p.dx+r*.32,p.dy,p.dx,p.dy+r*.24)..quadraticBezierTo(p.dx-r*.32,p.dy,p.dx,p.dy-r*.24)..close();canvas.drawPath(q,Paint()..color=color.withValues(alpha:.2));canvas.drawPath(q,Paint()..color=color..style=PaintingStyle.stroke..strokeWidth=2);} }
+  void _rings(Canvas canvas, Offset c, double r){ for(int i=0;i<5;i++){canvas.save();canvas.translate(c.dx,c.dy);canvas.rotate(phase*math.pi*2+i*.55);canvas.drawOval(Rect.fromCenter(center:Offset.zero,width:r*1.7,height:r*.65),Paint()..color=color.withValues(alpha:.75)..style=PaintingStyle.stroke..strokeWidth=2);canvas.restore();}canvas.drawCircle(c,r*.18,Paint()..color=Colors.white); }
+  void _crystals(Canvas canvas, Offset c, double r){ for(int i=0;i<7;i++){final double a=i/7*math.pi*2;final double rr=r*(.45+.08*(i%3));final Offset p=Offset(c.dx+math.cos(a)*r*.75,c.dy+math.sin(a)*r*.75);final Path q=Path()..moveTo(p.dx,p.dy-rr)..lineTo(p.dx+rr*.45,p.dy)..lineTo(p.dx,p.dy+rr)..lineTo(p.dx-rr*.45,p.dy)..close();canvas.drawPath(q,Paint()..color=color.withValues(alpha:.22));canvas.drawPath(q,Paint()..color=color..style=PaintingStyle.stroke..strokeWidth=2);} }
+  void _flame(Canvas canvas, Offset c, double r){ final Path p=Path()..moveTo(c.dx,c.dy-r)..cubicTo(c.dx+r*.9,c.dy-r*.25,c.dx+r*.55,c.dy+r*.7,c.dx,c.dy+r)..cubicTo(c.dx-r*.55,c.dy+r*.7,c.dx-r*.9,c.dy-r*.25,c.dx,c.dy-r)..close();canvas.drawPath(p,Paint()..color=color.withValues(alpha:.22));canvas.drawPath(p,Paint()..color=color..style=PaintingStyle.stroke..strokeWidth=3);canvas.drawCircle(c,r*.15,Paint()..color=Colors.white); }
+  void _shadow(Canvas canvas, Offset c, double r){ for(int i=0;i<3;i++){final double y=c.dy-r*.75+i*r*.75;canvas.drawCircle(Offset(c.dx,y),r*.30,Paint()..color=color.withValues(alpha:.08));canvas.drawCircle(Offset(c.dx,y),r*.30,Paint()..color=color.withValues(alpha:.78)..style=PaintingStyle.stroke..strokeWidth=2);}canvas.drawLine(Offset(c.dx,c.dy-r),Offset(c.dx,c.dy+r),Paint()..color=color.withValues(alpha:.8)..strokeWidth=2); }
+
+  @override
+  bool shouldRepaint(covariant _RealityPainter oldDelegate) => true;
+}
+
+class _HoloNetwork extends CustomPainter {
+  final double phase;
+  _HoloNetwork(this.phase);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Offset c=Offset(size.width/2,size.height/2);
+    final Paint p=Paint()..color=const Color(0xFF20D9FF).withValues(alpha:.34)..style=PaintingStyle.stroke..strokeWidth=1.4;
+    for(int i=0;i<4;i++){canvas.drawCircle(c,60+i*35,p);}
+    final double a=phase*math.pi*2;canvas.drawCircle(Offset(c.dx+math.cos(a)*105,c.dy+math.sin(a)*105),4,Paint()..color=const Color(0xFF20D9FF));
+  }
+
+  @override
+  bool shouldRepaint(covariant _HoloNetwork oldDelegate)=>true;
 }
 
 class _LogoPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final c=size.center(Offset.zero); final r=size.shortestSide*.42;
-    canvas.drawCircle(c,r,Paint()..style=PaintingStyle.stroke..strokeWidth=2..color=const Color(0xFF20D9FF));
-    final p=Path()..moveTo(c.dx,c.dy-r*.72)..cubicTo(c.dx-r*.75,c.dy-r*.2,c.dx-r*.55,c.dy+r*.35,c.dx,c.dy)..cubicTo(c.dx+r*.55,c.dy-r*.35,c.dx+r*.75,c.dy+r*.2,c.dx,c.dy+r*.72);
-    canvas.drawPath(p,Paint()..style=PaintingStyle.stroke..strokeWidth=2.3..strokeCap=StrokeCap.round..color=const Color(0xFF20D9FF));
+    final Offset c=Offset(size.width/2,size.height/2);
+    final Paint p=Paint()..color=const Color(0xFF20D9FF)..style=PaintingStyle.stroke..strokeWidth=2.5;
+    canvas.drawCircle(c,20,p);
+    final Path loop=Path()..moveTo(c.dx-12,c.dy)..cubicTo(c.dx-3,c.dy-12,c.dx+3,c.dy+12,c.dx+12,c.dy)..cubicTo(c.dx+3,c.dy-12,c.dx-3,c.dy+12,c.dx-12,c.dy);
+    canvas.drawPath(loop,p);
   }
-  @override bool shouldRepaint(covariant CustomPainter oldDelegate)=>false;
-}
 
-class _HoloNetwork extends CustomPainter {
-  final double phase; _HoloNetwork(this.phase);
-  @override void paint(Canvas canvas,Size size){final c=size.center(Offset.zero);for(var i=0;i<5;i++){final a=-math.pi/2+i*2*math.pi/5;final p=Offset(c.dx+math.cos(a)*112,c.dy+math.sin(a)*112);canvas.drawLine(c,p,Paint()..color=const Color(0xFF20D9FF).withOpacity(.35)..strokeWidth=1.4);canvas.drawCircle(p,18+math.sin(phase*math.pi*2+i)*2,Paint()..style=PaintingStyle.stroke..strokeWidth=1..color=const Color(0xFF20D9FF).withOpacity(.45));}} 
-  @override bool shouldRepaint(covariant _HoloNetwork oldDelegate)=>true;
-}
-
-class _RealityPainter extends CustomPainter {
-  final int index; final double phase; final Color color; _RealityPainter(this.index,this.phase,this.color);
-  @override void paint(Canvas canvas,Size size){final c=size.center(Offset.zero);for(var i=0;i<4;i++){final r=12+i*10.0;canvas.drawOval(Rect.fromCenter(center:c,width:r*2.5,height:r*1.0),Paint()..style=PaintingStyle.stroke..strokeWidth=1..color=color.withOpacity(.35));}canvas.save();canvas.translate(c.dx,c.dy);canvas.rotate(phase*math.pi*2*(index.isEven?1:-1));canvas.drawCircle(Offset.zero,16,Paint()..shader=RadialGradient(colors:[Colors.white,color,Colors.transparent]).createShader(const Rect.fromCircle(center:Offset.zero,radius:16)));canvas.restore();}
-  @override bool shouldRepaint(covariant _RealityPainter oldDelegate)=>true;
-}
-
-class _LifeColors {
-  static Color core(int i) => const [Color(0xFF55F2B0),Color(0xFFFFC45A),Color(0xFFB77BFF),Color(0xFF20D9FF),Color(0xFFC16BFF)][i];
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate)=>false;
 }
