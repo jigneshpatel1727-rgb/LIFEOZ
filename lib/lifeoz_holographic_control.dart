@@ -28,7 +28,10 @@ class _LifeOZHolographicControlState extends State<LifeOZHolographicControl> wit
               Positioned(
                 left: center.dx + math.cos(i * math.pi * 2 / labels.length - math.pi / 2) * math.min(box.maxWidth * .34, 145) - 48,
                 top: center.dy + math.sin(i * math.pi * 2 / labels.length - math.pi / 2) * math.min(box.maxHeight * .28, 150) - 48,
-                child: GestureDetector(onTap: () => setState(() => selected = i), child: _Node(icon: icons[i], label: labels[i], selected: selected == i)),
+                child: GestureDetector(
+                  onTap: () => setState(() => selected = i),
+                  child: _Node(icon: icons[i], label: labels[i], selected: selected == i),
+                ),
               ),
             Positioned(left: center.dx - 62, top: center.dy - 62, child: GestureDetector(onTap: () => setState(() => selected = 3), child: const _CenterNode())),
             Positioned(bottom: 28, left: 24, right: 24, child: Text(_description(selected), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: .8))),
