@@ -60,7 +60,6 @@ class YansiContextFusion {
         .toList();
   }
 
-  /// Reads both namespaces so existing LifeOS expense data is visible to Yansi.
   List<Map<String, dynamic>> _readMerged(String primary, String legacy) {
     final records = <Map<String, dynamic>>[..._read(primary)];
     final legacyRaw = prefs.getString(legacy);
@@ -101,7 +100,9 @@ class YansiContextFusion {
     }
 
     final themes = <String>[];
-    final focus = prefs.getString('yansi_focus_mode');
+    final configuredFocus = prefs.getString('yansi_active_focus');
+    final legacyFocus = prefs.getString('yansi_focus_mode');
+    final focus = (configuredFocus ?? legacyFocus)?.trim().toLowerCase();
     if (openTasks > 0) themes.add('productivity');
     if (upcoming > 0) themes.add('calendar');
     if (spend > 0) themes.add('money');
@@ -109,7 +110,9 @@ class YansiContextFusion {
     if (household.isNotEmpty) themes.add('household');
     if (diary.isNotEmpty) themes.add('personal memory');
 
-    final selected = focus ?? (themes.isEmpty ? 'ambient' : themes.first);
+    final selected = (focus == null || focus.isEmpty)
+        ? (themes.isEmpty ? 'ambient' : themes.first)
+        : focus;
     final snapshot = YansiContextSnapshot(
       createdAt: now,
       openTasks: openTasks,
