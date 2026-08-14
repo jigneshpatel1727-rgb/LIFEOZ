@@ -1,0 +1,75 @@
+name: Build LifeOS APK Clean
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout LifeOS
+        uses: actions/checkout@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.6'
+          channel: stable
+          cache: true
+
+      - name: Generate Android project
+        run: flutter create --platforms=android .
+
+      - name: Configure LIFEOZ launcher
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          res = Path('android/app/src/main/res')
+          (res / 'drawable').mkdir(parents=True, exist_ok=True)
+          (res / 'mipmap-anydpi-v26').mkdir(parents=True, exist_ok=True)
+          (res / 'mipmap').mkdir(parents=True, exist_ok=True)
+          fg = '''<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+            <path android:fillColor="#00000000" android:strokeColor="#20D9FF" android:strokeWidth="4" android:strokeLineCap="round" android:pathData="M54,10 C40,28 18,30 18,50 C18,68 40,68 54,45 C68,22 90,32 90,50 C90,70 68,68 54,45 C40,68 18,70 18,50 C18,30 40,32 54,10"/>
+            <path android:fillColor="#7EEBFF" android:pathData="M54,42 A12,12 0,1 0,54,66 A12,12 0,1 0,54,42"/>
+            <path android:fillColor="#FFFFFF" android:pathData="M52,48 A4,4 0,1 0,52,56 A4,4 0,1 0,52,48"/>
+          </vector>'''
+          (res / 'drawable/lifeoz_launcher_foreground.xml').write_text(fg)
+          bg = '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle"><solid android:color="#020711"/></shape>'
+          (res / 'drawable/lifeoz_launcher_background.xml').write_text(bg)
+          adaptive = '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@drawable/lifeoz_launcher_background"/><foreground android:drawable="@drawable/lifeoz_launcher_foreground"/></adaptive-icon>'
+          (res / 'mipmap-anydpi-v26/ic_launcher.xml').write_text(adaptive)
+          (res / 'mipmap-anydpi-v26/ic_launcher_round.xml').write_text(adaptive)
+          (res / 'mipmap/ic_launcher.xml').write_text(fg)
+          (res / 'mipmap/ic_launcher_round.xml').write_text(fg)
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          text = manifest.read_text()
+          text = re.sub(r'android:label="[^"]*"', 'android:label="LifeOZ"', text, count=1)
+          text = re.sub(r'android:icon="[^"]*"', 'android:icon="@mipmap/ic_launcher"', text, count=1)
+          text = re.sub(r'android:roundIcon="[^"]*"', 'android:roundIcon="@mipmap/ic_launcher_round"', text, count=1)
+          manifest.write_text(text)
+          PY
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Verify Dart code
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Build LifeOS APK
+        run: flutter build apk --release --no-shrink
+
+      - name: Upload LifeOS APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LifeOS-Yansi-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
