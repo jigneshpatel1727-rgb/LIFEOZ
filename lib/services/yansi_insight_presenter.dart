@@ -1,10 +1,10 @@
-import 'yansi_context_reasoner.dart';
+import 'yansi_proactive_suggestions.dart';
 
 /// Converts reasoning results into an ambient presentation state.
 /// The UI decides how to render the state; this layer never forces a voice
 /// prompt or a navigation action.
 class YansiInsightPresentation {
-  final YansiReasonedInsight? insight;
+  final YansiProactiveSuggestion? insight;
   final bool showOrbActivity;
   final bool suggestVoice;
 
@@ -19,7 +19,7 @@ class YansiInsightPresenter {
   const YansiInsightPresenter();
 
   YansiInsightPresentation present({
-    required List<YansiReasonedInsight> insights,
+    required List<YansiProactiveSuggestion> insights,
     required bool userIsActive,
     required bool voiceAllowed,
   }) {
