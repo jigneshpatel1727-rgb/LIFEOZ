@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'lifeoz_future_shell_v3.dart';
+import 'lifeoz_master_shell.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +22,7 @@ class LifeOZApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFF010207),
       ),
-      home: LifeOZFutureShell(prefs: prefs),
+      home: LifeOZMasterShell(prefs: prefs),
     );
   }
 }
