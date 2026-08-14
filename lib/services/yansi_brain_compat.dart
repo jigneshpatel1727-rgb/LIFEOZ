@@ -58,7 +58,7 @@ extension YansiActionExecutionApi on YansiBrain {
     if(expenses>=5)suggestions.add({'priority':82,'core':'money','title':'Check spending pattern','message':'Your spending history is large enough for a more useful trend check.','action':'analyze_spending'});
     if(goals>0&&openTasks>0)suggestions.add({'priority':86,'core':'goals','title':'Align tasks with goals','message':'I can connect your open work to your active goals and highlight what matters most.','action':'align_goals_tasks'});
     if(household>=4)suggestions.add({'priority':76,'core':'household','title':'Predict recurring needs','message':'Your household history is sufficient to improve recurring-item suggestions.','action':'predict_household'});
-    if(suggestions.isEmpty())suggestions.add({'priority':55,'core':'yansi','title':'Build your LifeOS context','message':'Keep using Yansi naturally. I will learn useful patterns from the information you choose to store.','action':'build_context'});
+    if(suggestions.isEmpty)suggestions.add({'priority':55,'core':'yansi','title':'Build your LifeOS context','message':'Keep using Yansi naturally. I will learn useful patterns from the information you choose to store.','action':'build_context'});
     suggestions.sort((a,b)=>(b['priority'] as int).compareTo(a['priority'] as int));return suggestions.take(5).toList();
   }
 
