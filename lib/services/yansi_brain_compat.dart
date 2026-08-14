@@ -24,9 +24,12 @@ extension YansiActionExecutionApi on YansiBrain {
   Future<Map<String,dynamic>> executePlan(YansiActionPlan plan,YansiResult result,{bool userConfirmed=false}) async {
     final sensitive=_isSensitiveAction(plan.action,result.intent);
     if(sensitive&&!userConfirmed){return {'executed':false,'requiresConfirmation':true,'reason':'This action requires your confirmation before execution.','action':plan.action,'intent':result.intent.name};}
-    final execution=<String,dynamic>{'id':DateTime.now().microsecondsSinceEpoch.toString(),'intent':result.intent.name,'action':plan.action,'title':plan.title,'confidence':plan.confidence,'confirmed':userConfirmed,'executed':true,'date':DateTime.now().toIso8601String(),'data':result.data};
+    final targetCore=_targetCoreFor(result.intent);
+    final execution=<String,dynamic>{'id':DateTime.now().microsecondsSinceEpoch.toString(),'intent':result.intent.name,'action':plan.action,'title':plan.title,'confidence':plan.confidence,'confirmed':userConfirmed,'executed':true,'targetCore':targetCore,'operation':'local_lifeos_update','date':DateTime.now().toIso8601String(),'data':result.data};
     final raw=prefs.getStringList('yansi_executed_actions')??<String>[];raw.add(jsonEncode(execution));if(raw.length>100){raw.removeRange(0,raw.length-100);}await prefs.setStringList('yansi_executed_actions',raw);return execution;
   }
+
+  String _targetCoreFor(YansiIntent intent){switch(intent){case YansiIntent.expense:case YansiIntent.income:return 'money';case YansiIntent.task:return 'productivity';case YansiIntent.reminder:return 'calendar';case YansiIntent.household:return 'household';case YansiIntent.goal:return 'goals';case YansiIntent.diary:return 'diary';case YansiIntent.question:return 'yansi';case YansiIntent.unknown:return 'yansi';}}
 
   bool _isSensitiveAction(String action,YansiIntent intent){final normalized=action.toLowerCase();if(normalized.contains('transfer')||normalized.contains('send money')||normalized.contains('delete')||normalized.contains('purchase')||normalized.contains('external')||normalized.contains('permission'))return true;return intent==YansiIntent.reminder;}
 
