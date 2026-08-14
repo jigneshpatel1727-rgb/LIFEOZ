@@ -29,7 +29,7 @@ class YansiContextReasoner {
                 title: item.title,
                 message: item.message,
                 core: item.core,
-                priority: (item.priority + 8).clamp(0, 100),
+                priority: (item.priority + 8).clamp(0, 100).toInt(),
                 speakable: item.speakable,
               )
             : item)
