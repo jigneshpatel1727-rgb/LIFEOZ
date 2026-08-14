@@ -26,7 +26,7 @@ class YansiProactiveRuntime {
 
     final signals=<Map<String,dynamic>>[
       for(final item in plan.items)
-        {'core':item.core.toLowerCase(),'priority':item.score.clamp(0,100).toInt(),'confidence':item.score.clamp(0,100).toInt(),'readOnly':true,'scoreReason':item.scoreReason},
+        {'core':item.core.toLowerCase(),'priority':item.score.clamp(0,100).toInt(),'confidence':(item.confidence*100).clamp(0,100).toInt(),'readOnly':true,'scoreReason':item.scoreReason},
     ];
     final fused=<String,dynamic>{'signals':{for(final signal in signals)signal['core'].toString():signal}};
     final decision=const YansiProactivePipeline(priorityEngine:YansiCrossCorePriority()).evaluate(
@@ -41,7 +41,7 @@ class YansiProactiveRuntime {
     await prefs.setString('yansi_plan_headline',plan.headline);
     await prefs.setBool('yansi_decision_speak',decision['speak']==true);
     await prefs.setInt('yansi_decision_priority',(decision['priority'] as num?)?.clamp(0,100).toInt()??priority);
-    await prefs.setInt('yansi_decision_confidence',(decision['confidence'] as num?)?.clamp(0,100).toInt()??top.score);
+    await prefs.setInt('yansi_decision_confidence',(decision['confidence'] as num?)?.clamp(0,100).toInt()??(top.confidence*100).clamp(0,100).toInt());
     await prefs.setString('yansi_decision_reason',top.scoreReason);
     return plan;
   }
