@@ -10,11 +10,12 @@ class YansiContextSnapshot {
   final List<String> recentThemes;
   final String focus;
   final String temporalSignal;
+  final int situationalPressure;
 
-  const YansiContextSnapshot({required this.createdAt,required this.openTasks,required this.upcomingReminders,required this.expenseRecords,required this.householdRecords,required this.goals,required this.diaryEntries,required this.recentSpend,required this.recentThemes,required this.focus,required this.temporalSignal});
+  const YansiContextSnapshot({required this.createdAt,required this.openTasks,required this.upcomingReminders,required this.expenseRecords,required this.householdRecords,required this.goals,required this.diaryEntries,required this.recentSpend,required this.recentThemes,required this.focus,required this.temporalSignal,this.situationalPressure=0});
 
-  Map<String,dynamic> toJson()=>{'createdAt':createdAt.toIso8601String(),'openTasks':openTasks,'upcomingReminders':upcomingReminders,'expenseRecords':expenseRecords,'householdRecords':householdRecords,'goals':goals,'diaryEntries':diaryEntries,'recentSpend':recentSpend,'recentThemes':recentThemes,'focus':focus,'temporalSignal':temporalSignal};
-  String get summary=>'Open tasks: $openTasks. Upcoming reminders: $upcomingReminders. Recent spending: $recentSpend. Goals: $goals. Household records: $householdRecords. Current focus: $focus. Temporal signal: $temporalSignal.';
+  Map<String,dynamic> toJson()=>{'createdAt':createdAt.toIso8601String(),'openTasks':openTasks,'upcomingReminders':upcomingReminders,'expenseRecords':expenseRecords,'householdRecords':householdRecords,'goals':goals,'diaryEntries':diaryEntries,'recentSpend':recentSpend,'recentThemes':recentThemes,'focus':focus,'temporalSignal':temporalSignal,'situationalPressure':situationalPressure};
+  String get summary=>'Open tasks: $openTasks. Upcoming reminders: $upcomingReminders. Recent spending: $recentSpend. Goals: $goals. Household records: $householdRecords. Current focus: $focus. Temporal signal: $temporalSignal. Situational pressure: $situationalPressure/100.';
 }
 
 class YansiContextFusion {
@@ -34,6 +35,17 @@ class YansiContextFusion {
     return 'ambient';
   }
 
+  int _pressure(DateTime now,int openTasks,int upcoming,double spend,int goals){
+    var score=0;
+    score+=(openTasks*8).clamp(0,40);
+    score+=(upcoming*10).clamp(0,35);
+    if(now.hour>=18&&upcoming>0)score+=15;
+    if(now.hour<12&&openTasks>0)score+=8;
+    if(spend>0)score+=5;
+    if(goals>0&&openTasks>0)score+=5;
+    return score.clamp(0,100).toInt();
+  }
+
   Future<YansiContextSnapshot> build() async {
     final now=DateTime.now();
     final tasks=_read('yansi_tasks'),reminders=_read('yansi_reminders'),expenses=_readMerged('yansi_expenses','lifeos_expenses'),household=_read('yansi_household'),goals=_read('yansi_goals'),diary=_read('yansi_diary');
@@ -42,9 +54,9 @@ class YansiContextFusion {
     double spend=0;for(final e in expenses){final d=DateTime.tryParse('${e['date']??''}');if(d!=null&&!d.isAfter(now)&&now.difference(d).inDays<=30)spend+=(e['amount']as num?)?.toDouble()??0;}
     final themes=<String>[];final configuredFocus=prefs.getString('yansi_active_focus');final legacyFocus=prefs.getString('yansi_focus_mode');final focus=(configuredFocus??legacyFocus)?.trim().toLowerCase();if(openTasks>0)themes.add('productivity');if(upcoming>0)themes.add('calendar');if(spend>0)themes.add('money');if(goals.isNotEmpty)themes.add('goals');if(household.isNotEmpty)themes.add('household');if(diary.isNotEmpty)themes.add('personal memory');
     final selected=(focus==null||focus.isEmpty)?(themes.isEmpty?'ambient':themes.first):focus;
-    final snapshot=YansiContextSnapshot(createdAt:now,openTasks:openTasks,upcomingReminders:upcoming,expenseRecords:expenses.length,householdRecords:household.length,goals:goals.length,diaryEntries:diary.length,recentSpend:double.parse(spend.toStringAsFixed(2)),recentThemes:themes,focus:selected,temporalSignal:_temporalSignal(now,openTasks,upcoming,spend));
+    final snapshot=YansiContextSnapshot(createdAt:now,openTasks:openTasks,upcomingReminders:upcoming,expenseRecords:expenses.length,householdRecords:household.length,goals:goals.length,diaryEntries:diary.length,recentSpend:double.parse(spend.toStringAsFixed(2)),recentThemes:themes,focus:selected,temporalSignal:_temporalSignal(now,openTasks,upcoming,spend),situationalPressure:_pressure(now,openTasks,upcoming,spend,goals.length));
     await prefs.setString('yansi_context_snapshot',jsonEncode(snapshot.toJson()));return snapshot;
   }
 
-  YansiContextSnapshot? last(){final raw=prefs.getString('yansi_context_snapshot');if(raw==null)return null;try{final m=jsonDecode(raw)as Map;return YansiContextSnapshot(createdAt:DateTime.tryParse('${m['createdAt']}')??DateTime.now(),openTasks:(m['openTasks']as num?)?.toInt()??0,upcomingReminders:(m['upcomingReminders']as num?)?.toInt()??0,expenseRecords:(m['expenseRecords']as num?)?.toInt()??0,householdRecords:(m['householdRecords']as num?)?.toInt()??0,goals:(m['goals']as num?)?.toInt()??0,diaryEntries:(m['diaryEntries']as num?)?.toInt()??0,recentSpend:(m['recentSpend']as num?)?.toDouble()??0,recentThemes:List<String>.from((m['recentThemes']as List?)??const []),focus:'${m['focus']??'ambient'}',temporalSignal:'${m['temporalSignal']??'ambient'}');}catch(_){return null;}}
+  YansiContextSnapshot? last(){final raw=prefs.getString('yansi_context_snapshot');if(raw==null)return null;try{final m=jsonDecode(raw)as Map;return YansiContextSnapshot(createdAt:DateTime.tryParse('${m['createdAt']}')??DateTime.now(),openTasks:(m['openTasks']as num?)?.toInt()??0,upcomingReminders:(m['upcomingReminders']as num?)?.toInt()??0,expenseRecords:(m['expenseRecords']as num?)?.toInt()??0,householdRecords:(m['householdRecords']as num?)?.toInt()??0,goals:(m['goals']as num?)?.toInt()??0,diaryEntries:(m['diaryEntries']as num?)?.toInt()??0,recentSpend:(m['recentSpend']as num?)?.toDouble()??0,recentThemes:List<String>.from((m['recentThemes']as List?)??const []),focus:'${m['focus']??'ambient'}',temporalSignal:'${m['temporalSignal']??'ambient'}',situationalPressure:(m['situationalPressure']as num?)?.toInt()??0);}catch(_){return null;}}
 }
