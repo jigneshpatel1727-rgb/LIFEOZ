@@ -156,5 +156,30 @@ class LifeOSAIService {
 
     expenses.insert(0, newExpense);
     await prefs.setString('lifeos_expenses', jsonEncode(expenses));
+    await _mirrorExpenseToYansi(prefs, newExpense);
+  }
+
+  /// Keeps the canonical LifeOS expense store and Yansi memory synchronized.
+  /// Existing records are not duplicated: the stable record id is checked first.
+  Future<void> _mirrorExpenseToYansi(
+    SharedPreferences prefs,
+    Map<String, dynamic> expense,
+  ) async {
+    final raw = prefs.getStringList('yansi_expenses') ?? <String>[];
+    final id = expense['id'].toString();
+    for (final value in raw) {
+      try {
+        final existing = Map<String, dynamic>.from(jsonDecode(value) as Map);
+        if (existing['id'].toString() == id) return;
+      } catch (_) {}
+    }
+
+    raw.add(jsonEncode({
+      ...expense,
+      'type': 'expense',
+      'source': 'lifeos_expenses',
+    }));
+    if (raw.length > 500) raw.removeRange(0, raw.length - 500);
+    await prefs.setStringList('yansi_expenses', raw);
   }
 }
