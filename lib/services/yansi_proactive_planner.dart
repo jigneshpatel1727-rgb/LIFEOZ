@@ -4,8 +4,8 @@ import 'yansi_context_fusion.dart';
 import 'yansi_predictive_memory.dart';
 import 'yansi_proactive_engine.dart';
 
-/// Converts Yansi signals and recurring memory into a small, explainable plan.
-/// Planning is local-first and never performs sensitive actions by itself.
+/// Converts current context, time-aware signals and recurring memory into an explainable plan.
+/// Local-first: it never performs sensitive actions by itself.
 class YansiPlanItem {
   final String title,reason,action,core,scoreReason;
   final int rank,score;
@@ -43,14 +43,23 @@ class YansiProactivePlanner {
     final insightCore='${insight?.core??''}'.trim().toUpperCase();
     final rawConfidence=insight?.confidence??0;
     final insightConfidence=rawConfidence.isNaN?0.0:rawConfidence.clamp(0,1).toDouble();
+    final temporal=context.temporalSignal.toLowerCase();
+
+    int temporalBonus(String core){
+      if((temporal.contains('productivity')||temporal.contains('task'))&&core=='PRODUCTIVITY')return 12;
+      if((temporal.contains('commitment'))&&core=='CALENDAR')return 12;
+      if(temporal.contains('money')&&core=='MONEY')return 12;
+      return 0;
+    }
 
     for(final prediction in predictions.take(10)){
       final core=prediction.core.toUpperCase();
       final match=candidates.where((c)=>'${c['core']}'.toUpperCase()==core).isNotEmpty;
       final base=match?62:48;
       final predictionBonus=(prediction.confidence*22).round();
-      final recurrenceBonus=(prediction.occurrences>=4?8:prediction.occurrences>=3?5:2);
-      candidates.add({'title':'${prediction.title} may matter again','reason':'${prediction.reason} Yansi can prepare for this pattern without taking action automatically.','action':'PREDICT','core':core,'rank':6,'predictionConfidence':prediction.confidence,'predictionScore':(base+predictionBonus+recurrenceBonus).clamp(0,100),'predictionKey':prediction.key});
+      final recurrenceBonus=prediction.occurrences>=4?8:prediction.occurrences>=3?5:2;
+      final timeBonus=temporalBonus(core);
+      candidates.add({'title':'${prediction.title} may matter again','reason':'${prediction.reason} Yansi can prepare for this pattern without taking action automatically.','action':'PREDICT','core':core,'rank':6,'predictionConfidence':prediction.confidence,'predictionScore':(base+predictionBonus+recurrenceBonus+timeBonus).clamp(0,100),'predictionKey':prediction.key,'temporalBonus':timeBonus});
     }
 
     final scored=candidates.map((candidate){
@@ -61,10 +70,12 @@ class YansiProactivePlanner {
       final confidenceMatch=insightCore.isNotEmpty&&core==insightCore;
       final focusBonus=focusMatch?20:0;
       final confidenceBonus=confidenceMatch?(insightConfidence*20).round():0;
-      final score=(base+focusBonus+confidenceBonus).clamp(0,100);
+      final contextTimeBonus=temporalBonus(core);
+      final score=(base+focusBonus+confidenceBonus+contextTimeBonus).clamp(0,100);
       final confidence=((candidate['predictionConfidence'] as num?)?.toDouble()??(confidenceMatch?insightConfidence:0.5)).clamp(0,1).toDouble();
       final factors=<String>['base $base'];
-      if(candidate['predictionConfidence']!=null)factors.add('recurring pattern +${score-base}');
+      if(candidate['predictionConfidence']!=null)factors.add('recurring pattern');
+      if(contextTimeBonus>0)factors.add('time context +$contextTimeBonus');
       if(focusMatch)factors.add('active focus +$focusBonus');
       if(confidenceMatch)factors.add('insight confidence +$confidenceBonus');
       return YansiPlanItem(title:candidate['title'] as String,reason:candidate['reason'] as String,action:candidate['action'] as String,core:core,rank:rank,score:score,confidence:confidence,scoreReason:factors.join(', '));
