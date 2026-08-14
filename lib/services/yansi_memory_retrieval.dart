@@ -27,9 +27,11 @@ class YansiMemoryRetrieval {
         return false;
       }
       if (normalizedTopics.isEmpty) return true;
-      return memory.tags
-          .map((tag) => tag.toLowerCase())
-          .any(normalizedTopics.contains);
+      final rawTags = memory.metadata['tags'];
+      final tags = rawTags is List
+          ? rawTags.map((tag) => tag.toString().toLowerCase())
+          : const <String>[];
+      return tags.any(normalizedTopics.contains);
     }).toList();
 
     candidates.sort((a, b) {
