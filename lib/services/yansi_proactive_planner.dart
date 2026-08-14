@@ -26,6 +26,23 @@ class YansiProactivePlanner {
   final SharedPreferences prefs;
   const YansiProactivePlanner({required this.prefs});
 
+  double _calibrateConfidence({required double evidence,required int score,required int pressure,required bool temporalMatch,required bool focusMatch}){
+    var value=evidence.clamp(0.0,1.0).toDouble();
+    if(score>=80)value+=0.08;
+    if(pressure>=65)value+=0.05;
+    if(temporalMatch)value+=0.05;
+    if(focusMatch)value+=0.04;
+    return value.clamp(0.0,1.0).toDouble();
+  }
+
+  bool _shouldSurface({required int score,required double confidence,required int pressure,required bool permissionGranted,required bool userActive}){
+    if(!permissionGranted||!userActive)return false;
+    if(score>=82&&confidence>=0.72)return true;
+    if(score>=70&&confidence>=0.82)return true;
+    if(pressure>=75&&score>=65&&confidence>=0.68)return true;
+    return false;
+  }
+
   Future<YansiProactivePlan> build() async {
     final context=await YansiContextFusion(prefs:prefs).build();
     final predictions=await YansiPredictiveMemory(prefs:prefs).scan();
@@ -45,6 +62,8 @@ class YansiProactivePlanner {
     final insightConfidence=rawConfidence.isNaN?0.0:rawConfidence.clamp(0,1).toDouble();
     final temporal=context.temporalSignal.toLowerCase();
     final pressure=context.situationalPressure.clamp(0,100);
+    final notificationPermission=prefs.getBool('permission_notifications')==true;
+    const userActive=true;
 
     int temporalBonus(String core){
       if((temporal.contains('productivity')||temporal.contains('task'))&&core=='PRODUCTIVITY')return 12;
@@ -83,17 +102,20 @@ class YansiProactivePlanner {
       final contextTimeBonus=temporalBonus(core);
       final contextPressureBonus=pressureBonus(core);
       final score=(base+focusBonus+confidenceBonus+contextTimeBonus+contextPressureBonus).clamp(0,100);
-      final confidence=((candidate['predictionConfidence'] as num?)?.toDouble()??(confidenceMatch?insightConfidence:0.5)).clamp(0,1).toDouble();
+      final evidence=((candidate['predictionConfidence'] as num?)?.toDouble()??(confidenceMatch?insightConfidence:0.5)).clamp(0,1).toDouble();
+      final confidence=_calibrateConfidence(evidence:evidence,score:score,pressure:pressure,temporalMatch:contextTimeBonus>0,focusMatch:focusMatch);
       final factors=<String>['base $base'];
       if(candidate['predictionConfidence']!=null)factors.add('recurring pattern');
       if(contextTimeBonus>0)factors.add('time context +$contextTimeBonus');
       if(contextPressureBonus>0)factors.add('situational pressure +$contextPressureBonus');
       if(focusMatch)factors.add('active focus +$focusBonus');
       if(confidenceMatch)factors.add('insight confidence +$confidenceBonus');
-      return YansiPlanItem(title:candidate['title'] as String,reason:candidate['reason'] as String,action:candidate['action'] as String,core:core,rank:rank,score:score,confidence:confidence,scoreReason:factors.join(', '));
+      final shouldSurface=_shouldSurface(score:score,confidence:confidence,pressure:pressure,permissionGranted:notificationPermission,userActive:userActive);
+      return {'item':YansiPlanItem(title:candidate['title'] as String,reason:candidate['reason'] as String,action:candidate['action'] as String,core:core,rank:rank,score:score,confidence:confidence,scoreReason:factors.join(', ')),'shouldSurface':shouldSurface};
     }).toList();
-    scored.sort((a,b){final scoreCompare=b.score.compareTo(a.score);if(scoreCompare!=0)return scoreCompare;return a.rank.compareTo(b.rank);});
-    final plan=YansiProactivePlan(createdAt:DateTime.now(),headline:scored.isEmpty?'Nothing needs your attention right now.':'Here is what matters most right now.',items:scored.take(5).toList());
+    scored.sort((a,b){final ai=a['item'] as YansiPlanItem;final bi=b['item'] as YansiPlanItem;final scoreCompare=bi.score.compareTo(ai.score);if(scoreCompare!=0)return scoreCompare;return ai.rank.compareTo(bi.rank);});
+    final visible=scored.where((e)=>e['shouldSurface']==true).map((e)=>e['item'] as YansiPlanItem).take(5).toList();
+    final plan=YansiProactivePlan(createdAt:DateTime.now(),headline:visible.isEmpty?'Yansi is staying quiet — nothing has enough evidence to interrupt you.':'Here is what matters most right now.',items:visible);
     await prefs.setString('yansi_proactive_plan',jsonEncode(plan.toJson()));
     return plan;
   }
