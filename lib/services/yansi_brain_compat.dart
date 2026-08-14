@@ -18,8 +18,6 @@ extension YansiReportApi on YansiBrain {
 }
 
 /// Controlled execution boundary for Yansi action plans.
-/// Local LifeOS actions can execute automatically; sensitive actions require
-/// an explicit confirmation from the user.
 extension YansiActionExecutionApi on YansiBrain {
   Future<Map<String,dynamic>> executePlan(YansiActionPlan plan,YansiResult result,{bool userConfirmed=false}) async {
     final sensitive=_isSensitiveAction(plan.action,result.intent);
@@ -35,7 +33,6 @@ extension YansiActionExecutionApi on YansiBrain {
     raw.add(jsonEncode(execution));if(raw.length>100){raw.removeRange(0,raw.length-100);}await prefs.setStringList('yansi_executed_actions',raw);return execution;
   }
 
-  /// Reverses the most recent local LifeOS mutation when the originating record is still present.
   Future<Map<String,dynamic>> undoLastAction() async {
     final raw=prefs.getStringList('yansi_executed_actions')??<String>[];
     if(raw.isEmpty)return {'undone':false,'reason':'There is no recent Yansi action to undo.','speak':'There is nothing recent for me to undo.'};
@@ -46,8 +43,7 @@ extension YansiActionExecutionApi on YansiBrain {
     YansiIntent? intent;
     for(final candidate in YansiIntent.values){if(candidate.name==intentName){intent=candidate;break;}}
     if(intent==null)return {'undone':false,'reason':'Unknown action type.','speak':'I cannot safely undo that action.'};
-    final key=_keyForIntent(intent);
-    final id=((execution['data'] as Map)['id']??'').toString();
+    final key=_keyForIntent(intent);final id=((execution['data'] as Map)['id']??'').toString();
     if(id.isEmpty)return {'undone':false,'reason':'The original record has no stable id.','speak':'I cannot safely undo that action.'};
     final records=_readRecords(key);final index=records.indexWhere((r)=>r['id'].toString()==id);
     if(index<0)return {'undone':false,'reason':'The original record is no longer present.','speak':'That item is already gone, so there is nothing to undo.'};
@@ -55,24 +51,47 @@ extension YansiActionExecutionApi on YansiBrain {
     return {'undone':true,'intent':intent.name,'targetCore':_targetCoreFor(intent),'recordId':id,'speak':'Done. I undid my last update.'};
   }
 
-  /// Predicts the most useful next step from current LifeOS signals.
-  /// This is advisory only: it never mutates user data or performs an action.
   Future<List<Map<String,dynamic>>> proactiveSuggestions() async {
+    final snapshot=crossCoreSnapshot();final suggestions=<Map<String,dynamic>>[];final openTasks=(snapshot['openTaskCount'] as int?)??0;final reminders=(snapshot['reminderCount'] as int?)??0;final expenses=(snapshot['expenseCount'] as int?)??0;final goals=(snapshot['goalCount'] as int?)??0;final household=(snapshot['householdCount'] as int?)??0;
+    if(openTasks>=3)suggestions.add({'priority':92,'core':'productivity','title':'Reduce task load','message':'You have $openTasks open tasks. I can help you choose the highest-value next task.','action':'prioritize_tasks'});
+    if(reminders>=3)suggestions.add({'priority':88,'core':'calendar','title':'Review upcoming dates','message':'You have $reminders reminders stored. I can surface the most time-sensitive ones.','action':'review_calendar'});
+    if(expenses>=5)suggestions.add({'priority':82,'core':'money','title':'Check spending pattern','message':'Your spending history is large enough for a more useful trend check.','action':'analyze_spending'});
+    if(goals>0&&openTasks>0)suggestions.add({'priority':86,'core':'goals','title':'Align tasks with goals','message':'I can connect your open work to your active goals and highlight what matters most.','action':'align_goals_tasks'});
+    if(household>=4)suggestions.add({'priority':76,'core':'household','title':'Predict recurring needs','message':'Your household history is sufficient to improve recurring-item suggestions.','action':'predict_household'});
+    if(suggestions.isEmpty())suggestions.add({'priority':55,'core':'yansi','title':'Build your LifeOS context','message':'Keep using Yansi naturally. I will learn useful patterns from the information you choose to store.','action':'build_context'});
+    suggestions.sort((a,b)=>(b['priority'] as int).compareTo(a['priority'] as int));return suggestions.take(5).toList();
+  }
+
+  /// Returns an explainable, data-only trace for the latest Yansi reasoning.
+  /// UI may show or speak a short explanation without exposing private raw history.
+  Map<String,dynamic> decisionTrace(YansiResult result,YansiActionPlan plan){
     final snapshot=crossCoreSnapshot();
-    final suggestions=<Map<String,dynamic>>[];
-    final openTasks=(snapshot['openTaskCount'] as int?)??0;
-    final reminders=(snapshot['reminderCount'] as int?)??0;
-    final expenses=(snapshot['expenseCount'] as int?)??0;
-    final goals=(snapshot['goalCount'] as int?)??0;
-    final household=(snapshot['householdCount'] as int?)??0;
-    if(openTasks>=3){suggestions.add({'priority':92,'core':'productivity','title':'Reduce task load','message':'You have $openTasks open tasks. I can help you choose the highest-value next task.','action':'prioritize_tasks'});}
-    if(reminders>=3){suggestions.add({'priority':88,'core':'calendar','title':'Review upcoming dates','message':'You have $reminders reminders stored. I can surface the most time-sensitive ones.','action':'review_calendar'});}
-    if(expenses>=5){suggestions.add({'priority':82,'core':'money','title':'Check spending pattern','message':'Your spending history is large enough for a more useful trend check.','action':'analyze_spending'});}
-    if(goals>0&&openTasks>0){suggestions.add({'priority':86,'core':'goals','title':'Align tasks with goals','message':'I can connect your open work to your active goals and highlight what matters most.','action':'align_goals_tasks'});}
-    if(household>=4){suggestions.add({'priority':76,'core':'household','title':'Predict recurring needs','message':'Your household history is sufficient to improve recurring-item suggestions.','action':'predict_household'});}
-    if(suggestions.isEmpty){suggestions.add({'priority':55,'core':'yansi','title':'Build your LifeOS context','message':'Keep using Yansi naturally. I will learn useful patterns from the information you choose to store.','action':'build_context'});}
-    suggestions.sort((a,b)=>(b['priority'] as int).compareTo(a['priority'] as int));
-    return suggestions.take(5).toList();
+    final supportingCores=<String>[];
+    final reasons=<String>[];
+    switch(result.intent){
+      case YansiIntent.expense:
+      case YansiIntent.income:
+        supportingCores.add('money'); reasons.add('The request contains a financial signal.'); break;
+      case YansiIntent.task:
+        supportingCores.add('productivity'); reasons.add('The request contains an actionable task signal.'); break;
+      case YansiIntent.reminder:
+        supportingCores.add('calendar'); reasons.add('The request contains a time or reminder signal.'); break;
+      case YansiIntent.household:
+        supportingCores.add('household'); reasons.add('The request matches household or shopping context.'); break;
+      case YansiIntent.goal:
+        supportingCores.add('goals'); reasons.add('The request contains a goal or target signal.'); break;
+      case YansiIntent.diary:
+        supportingCores.add('diary'); reasons.add('The request contains personal reflection context.'); break;
+      case YansiIntent.question:
+        supportingCores.add('yansi'); reasons.add('The request is being handled as a reasoning query.'); break;
+      case YansiIntent.unknown:
+        supportingCores.add('yansi'); reasons.add('The signal is not yet specific enough for a core action.'); break;
+    }
+    if((snapshot['openTaskCount'] as int? ?? 0)>0&&result.intent==YansiIntent.goal){supportingCores.add('productivity');reasons.add('Open tasks provide supporting execution context for the goal.');}
+    if((snapshot['expenseCount'] as int? ?? 0)>=5&&result.intent==YansiIntent.question){supportingCores.add('money');reasons.add('Stored spending history can support the answer.');}
+    final confidence=(plan.confidence*100).round().clamp(0,100);
+    final safe=plan.safeToAutoApply&&confidence>=80;
+    return {'intent':result.intent.name,'confidence':confidence,'autoApplyEligible':safe,'supportingCores':supportingCores.toSet().toList(),'reasons':reasons,'targetCore':_targetCoreFor(result.intent)};
   }
 
   String _keyForIntent(YansiIntent intent){switch(intent){case YansiIntent.expense:return YansiBrain._expenseKey;case YansiIntent.income:return YansiBrain._incomeKey;case YansiIntent.task:return YansiBrain._taskKey;case YansiIntent.reminder:return YansiBrain._reminderKey;case YansiIntent.household:return YansiBrain._householdKey;case YansiIntent.goal:return YansiBrain._goalKey;case YansiIntent.diary:return YansiBrain._diaryKey;case YansiIntent.question:case YansiIntent.unknown:return '';}}
