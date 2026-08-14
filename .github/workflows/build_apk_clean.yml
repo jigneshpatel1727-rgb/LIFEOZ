@@ -32,11 +32,16 @@ jobs:
       - name: Remove generated sample test
         run: rm -rf test
 
-      - name: Configure LIFEOZ launcher
+      - name: Configure release build and LIFEOZ launcher
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
+          gradle = Path('android/app/build.gradle.kts')
+          text = gradle.read_text()
+          if 'isMinifyEnabled = false' not in text:
+              text = text.replace('release {\n', 'release {\n            isMinifyEnabled = false\n            isShrinkResources = false\n', 1)
+          gradle.write_text(text)
           res = Path('android/app/src/main/res')
           (res / 'drawable').mkdir(parents=True, exist_ok=True)
           (res / 'mipmap-anydpi-v26').mkdir(parents=True, exist_ok=True)
