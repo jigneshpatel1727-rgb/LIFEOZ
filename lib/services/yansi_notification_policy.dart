@@ -6,7 +6,10 @@ class YansiNotificationDecision {
   final bool deliver;
   final YansiDeliveryMode mode;
   final String reason;
-  const YansiNotificationDecision({required this.deliver,required this.mode,required this.reason});
+  final double confidence;
+  const YansiNotificationDecision({required this.deliver,required this.mode,required this.reason,this.confidence=0});
+
+  Map<String,dynamic> toJson()=>{'deliver':deliver,'mode':mode.name,'reason':reason,'confidence':confidence};
 }
 
 class YansiNotificationPolicy {
@@ -20,20 +23,20 @@ class YansiNotificationPolicy {
     double confidence = 0,
   }) {
     final p = priority.toUpperCase();
-    final c = confidence.isNaN ? 0.0 : confidence.clamp(0.0, 1.0);
+    final c = confidence.isNaN ? 0.0 : confidence.clamp(0.0, 1.0).toDouble();
     if (!permissionGranted) {
-      return const YansiNotificationDecision(deliver:false, mode:YansiDeliveryMode.silent, reason:'Notification permission is not granted.');
+      return YansiNotificationDecision(deliver:false,mode:YansiDeliveryMode.silent,reason:'Notification permission is not granted.',confidence:c);
     }
     if (quietMode && p != 'HIGH') {
-      return const YansiNotificationDecision(deliver:false, mode:YansiDeliveryMode.silent, reason:'Quiet mode suppresses non-critical signals.');
+      return YansiNotificationDecision(deliver:false,mode:YansiDeliveryMode.silent,reason:'Quiet mode suppresses non-critical signals.',confidence:c);
     }
     if (p == 'HIGH') {
       final mode = userIsActive ? YansiDeliveryMode.ambient : YansiDeliveryMode.alert;
-      return YansiNotificationDecision(deliver:true, mode:mode, reason:c >= .8 ? 'High-priority signal with strong confidence.' : 'High-priority signal; confidence is limited, so delivery stays controlled.');
+      return YansiNotificationDecision(deliver:true,mode:mode,reason:c >= .8 ? 'High-priority signal with strong confidence.' : 'High-priority signal; confidence is limited, so delivery stays controlled.',confidence:c);
     }
     if (userIsActive && c >= .6) {
-      return const YansiNotificationDecision(deliver:true, mode:YansiDeliveryMode.ambient, reason:'User is active and the signal has sufficient confidence.');
+      return YansiNotificationDecision(deliver:true,mode:YansiDeliveryMode.ambient,reason:'User is active and the signal has sufficient confidence.',confidence:c);
     }
-    return YansiNotificationDecision(deliver:false, mode:YansiDeliveryMode.silent, reason:userIsActive ? 'Signal confidence is too low for ambient delivery.' : 'Non-critical signal deferred until useful.');
+    return YansiNotificationDecision(deliver:false,mode:YansiDeliveryMode.silent,reason:userIsActive ? 'Signal confidence is too low for ambient delivery.' : 'Non-critical signal deferred until useful.',confidence:c);
   }
 }
