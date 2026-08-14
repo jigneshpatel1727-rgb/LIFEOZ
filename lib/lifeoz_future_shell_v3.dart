@@ -2,43 +2,557 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'services/yansi_brain.dart';
 
 class LifeOZFutureShell extends StatefulWidget {
   final SharedPreferences prefs;
   const LifeOZFutureShell({super.key, required this.prefs});
-  @override State<LifeOZFutureShell> createState() => _LifeOZFutureShellState();
+
+  @override
+  State<LifeOZFutureShell> createState() => _LifeOZFutureShellState();
 }
 
-class _LifeOZFutureShellState extends State<LifeOZFutureShell> with SingleTickerProviderStateMixin {
-  late final AnimationController _a;
-  late final YansiBrain _brain;
+class _LifeOZFutureShellState extends State<LifeOZFutureShell>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _animation;
   final FlutterTts _tts = FlutterTts();
-  String _name=''; String _reality='OREON PRIME'; String _env='FOCUS'; String _message='';
-  int _active=-1; bool _holo=false; bool _setup=false;
-  final realities=['OREON PRIME','TERRA FLUX','VORTEX NEXUS','CRYSTA LUMEN','NEBULA SOUL','SHADOW CORE'];
-  final envs=['MORNING','WORK','EVENING','FOCUS','REST'];
-  final colors=[const Color(0xFF36E6A4),const Color(0xFFFF6675),const Color(0xFFFFC45A),const Color(0xFF4CCBFF),const Color(0xFFB77BFF)];
+  int _active = -1;
+  bool _hologram = false;
+  String _name = '';
 
-  @override void initState(){super.initState(); _a=AnimationController(vsync:this,duration:const Duration(seconds:16))..repeat(); _brain=YansiBrain(prefs:widget.prefs); _name=widget.prefs.getString('user_name')??''; _reality=widget.prefs.getString('lifeoz_reality')??'OREON PRIME'; _env=widget.prefs.getString('lifeoz_environment')??'FOCUS'; _setup=_name.isEmpty; _tts.setSpeechRate(.44);}
-  @override void dispose(){_a.dispose();_tts.stop();super.dispose();}
-  Future<void> _speak(String s) async {if(s.isEmpty)return; await _tts.stop(); await _tts.speak(s);}
-  void _core(int i){setState(()=>_active=i); _speak(['This is your financial intelligence.','This is your life and growth intelligence.','This is your action and productivity intelligence.','This is your time and calendar intelligence.','This is your home and household intelligence.'][i]);}
-  @override Widget build(BuildContext c)=>AnimatedBuilder(animation:_a,builder:(_,__)=>Scaffold(backgroundColor:const Color(0xFF01030A),body:SafeArea(child:_setup?_onboarding():_home())));
+  final List<Color> coreColors = const [
+    Color(0xFF20D9FF),
+    Color(0xFFFFC45A),
+    Color(0xFFB77BFF),
+    Color(0xFF55F2B0),
+    Color(0xFF6E9CFF),
+  ];
 
-  Widget _onboarding()=>Stack(children:[const _Cosmos(),SingleChildScrollView(padding:const EdgeInsets.all(24),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const SizedBox(height:20),const _Logo(),const SizedBox(height:34),const Text('YOUR LIFE.\nONE INTELLIGENCE.',style:TextStyle(fontSize:32,fontWeight:FontWeight.w900,height:.98)),const SizedBox(height:10),const Text('Create your personal universe.',style:TextStyle(color:Colors.white54)),const SizedBox(height:26),TextField(onChanged:(v)=>_name=v,style:const TextStyle(color:Colors.white),decoration:const InputDecoration(labelText:'YOUR NAME',labelStyle:TextStyle(color:Color(0xFF20D9FF)),border:OutlineInputBorder())),const SizedBox(height:18),const Text('VISUAL REALITY',style:TextStyle(color:Color(0xFF20D9FF),letterSpacing:2,fontSize:11)),const SizedBox(height:10),Wrap(spacing:8,runSpacing:8,children:realities.map((r)=>ChoiceChip(label:Text(r),selected:r==_reality,onSelected:(_){setState(()=>_reality=r);},selectedColor:const Color(0xFF20D9FF).withOpacity(.2))).toList()),const SizedBox(height:20),const Text('ADAPTIVE ENVIRONMENT',style:TextStyle(color:Colors.white60,letterSpacing:1.5,fontSize:11)),const SizedBox(height:8),Wrap(spacing:8,children:envs.map((e)=>ChoiceChip(label:Text(e),selected:e==_env,onSelected:(_){setState(()=>_env=e);},selectedColor:const Color(0xFFB77BFF).withOpacity(.2))).toList()),const SizedBox(height:28),SizedBox(width:double.infinity,height:56,child:FilledButton(onPressed:(){if(_name.trim().isEmpty)return;widget.prefs.setString('user_name',_name.trim());widget.prefs.setString('lifeoz_reality',_reality);widget.prefs.setString('lifeoz_environment',_env);setState(()=>_setup=false);_speak('Welcome, $_name. I am Yansi, your personal LifeOS intelligence.');},child:const Text('ENTER LIFEOZ',style:TextStyle(fontWeight:FontWeight.w900,letterSpacing:1.4))))]))]);
+  final List<String> coreMessages = const [
+    'I am opening your financial intelligence.',
+    'I am opening your goals and growth intelligence.',
+    'I am opening your productivity intelligence.',
+    'I am opening your time and calendar intelligence.',
+    'I am opening your home and household intelligence.',
+  ];
 
-  Widget _home()=>Stack(children:[const _Cosmos(),Positioned(top:12,left:18,right:18,child:Row(children:[const _Logo(),const Spacer(),_circle(Icons.hub_rounded,()=>setState(()=>_holo=true))])),Positioned.fill(top:65,child:LayoutBuilder(builder:(_,s){final c=Offset(s.maxWidth/2,s.maxHeight*.45);final pts=[Offset(s.maxWidth*.22,s.maxHeight*.28),Offset(s.maxWidth*.78,s.maxHeight*.28),Offset(s.maxWidth*.16,s.maxHeight*.68),Offset(s.maxWidth*.84,s.maxHeight*.68),Offset(s.maxWidth*.5,s.maxHeight*.08)];return Stack(children:[CustomPaint(size:s.size,painter:_Network(_a.value,_active)),...pts.asMap().entries.map((e)=>Positioned(left:e.value.dx-48,top:e.value.dy-48,child:_node(e.key))),Positioned(left:c.dx-125,top:c.dy-125,child:GestureDetector(onTap:()=>setState(()=>_holo=true),child:CustomPaint(size:const Size(250,250),painter:_Yansi(_a.value,colors[_active<0?3:_active],_active>=0)))),Positioned(left:18,right:18,bottom:66,child:Column(children:[const Text('YANSI',style:TextStyle(fontSize:16,fontWeight:FontWeight.w900,letterSpacing:5)),Text('Your Silent Intelligence',style:TextStyle(color:colors[3],fontSize:11,letterSpacing:1.2)),if(_message.isNotEmpty)Text(_message,textAlign:TextAlign.center,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white70,fontSize:12))]))]);})),if(_holo)_hologram()]);
+  @override
+  void initState() {
+    super.initState();
+    _animation = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 14),
+    )..repeat();
+    _name = widget.prefs.getString('user_name') ?? '';
+    _tts.setSpeechRate(0.44);
+  }
 
-  Widget _node(int i)=>GestureDetector(onTap:()=>_core(i),child:CustomPaint(size:const Size(96,96),painter:_Symbol(i,colors[i],_active==i,_a.value)));
-  Widget _circle(IconData icon,VoidCallback f)=>GestureDetector(onTap:f,child:Container(width:44,height:44,decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(color:colors[3].withOpacity(.55)),color:Colors.white.withOpacity(.03)),child:Icon(icon,color:colors[3])));
-  Widget _hologram()=>Positioned.fill(child:GestureDetector(onTap:()=>setState(()=>_holo=false),child:Container(color:Colors.black.withOpacity(.9),child:Center(child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[const Text('HOLOGRAPHIC CONTROL',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w800,letterSpacing:2)),const SizedBox(height:24),Wrap(spacing:18,runSpacing:18,alignment:WrapAlignment.center,children:[_control('PROFILE',Icons.person),_control('DESIGN',Icons.auto_awesome),_control('PERMISSIONS',Icons.shield),_control('YANSI',Icons.psychology),_control('SETTINGS',Icons.tune)]),const SizedBox(height:28),const Text('Tap anywhere to close',style:TextStyle(color:Colors.white38,fontSize:10))])))));
-  Widget _control(String n,IconData i)=>Column(children:[_circle(i,()=>_speak(n=='YANSI'?'I am Yansi. I listen, understand, organize, remind, protect and grow with you.':'$n control is ready.')),const SizedBox(height:4),Text(n,style:const TextStyle(color:Colors.white70,fontSize:9))]);
+  @override
+  void dispose() {
+    _animation.dispose();
+    _tts.stop();
+    super.dispose();
+  }
+
+  Future<void> _speak(String text) async {
+    await _tts.stop();
+    await _tts.speak(text);
+  }
+
+  void _selectCore(int index) {
+    setState(() => _active = index);
+    _speak(coreMessages[index]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF01040A),
+      body: SafeArea(
+        child: AnimatedBuilder(
+          animation: _animation,
+          builder: (context, child) {
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                CustomPaint(painter: _CosmicPainter(_animation.value)),
+                _topBar(),
+                _mainUniverse(),
+                if (_hologram) _holographicControl(),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _topBar() {
+    return Positioned(
+      top: 14,
+      left: 18,
+      right: 18,
+      child: Row(
+        children: [
+          const _LifeOZLogo(),
+          const Spacer(),
+          _roundButton(Icons.hub_rounded, () {
+            setState(() => _hologram = true);
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _mainUniverse() {
+    return Positioned.fill(
+      top: 60,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final height = constraints.maxHeight;
+          final center = Offset(width / 2, height * 0.45);
+          final points = <Offset>[
+            Offset(width * 0.20, height * 0.23),
+            Offset(width * 0.80, height * 0.23),
+            Offset(width * 0.13, height * 0.66),
+            Offset(width * 0.87, height * 0.66),
+            Offset(width * 0.50, height * 0.06),
+          ];
+
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _NetworkPainter(
+                    animation: _animation.value,
+                    active: _active,
+                    points: points,
+                    center: center,
+                    colors: coreColors,
+                  ),
+                ),
+              ),
+              ...List.generate(5, (index) {
+                return Positioned(
+                  left: points[index].dx - 48,
+                  top: points[index].dy - 48,
+                  child: GestureDetector(
+                    onTap: () => _selectCore(index),
+                    child: CustomPaint(
+                      size: const Size(96, 96),
+                      painter: _CoreSymbolPainter(
+                        index: index,
+                        color: coreColors[index],
+                        active: _active == index,
+                        phase: _animation.value,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              Positioned(
+                left: center.dx - 130,
+                top: center.dy - 130,
+                child: GestureDetector(
+                  onTap: () => _speak(
+                    _name.isEmpty
+                        ? 'I am Yansi, your LifeOS intelligence.'
+                        : 'Welcome back, $_name. I am Yansi, your LifeOS intelligence.',
+                  ),
+                  child: CustomPaint(
+                    size: const Size(260, 260),
+                    painter: _YansiPainter(
+                      phase: _animation.value,
+                      color: _active >= 0
+                          ? coreColors[_active]
+                          : coreColors[0],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 18,
+                right: 18,
+                bottom: 32,
+                child: Column(
+                  children: [
+                    const Text(
+                      'YANSI',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _active >= 0 ? coreMessages[_active] : 'YOUR SILENT INTELLIGENCE',
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: _active >= 0 ? coreColors[_active] : coreColors[0],
+                        fontSize: 11,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _roundButton(IconData icon, VoidCallback action) {
+    return GestureDetector(
+      onTap: action,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withOpacity(0.035),
+          border: Border.all(color: coreColors[0].withOpacity(0.55)),
+          boxShadow: [
+            BoxShadow(color: coreColors[0].withOpacity(0.18), blurRadius: 18),
+          ],
+        ),
+        child: Icon(icon, color: coreColors[0]),
+      ),
+    );
+  }
+
+  Widget _holographicControl() {
+    return Positioned.fill(
+      child: GestureDetector(
+        onTap: () => setState(() => _hologram = false),
+        child: Container(
+          color: Colors.black.withOpacity(0.90),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'HOLOGRAPHIC CONTROL',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2.2,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 18,
+                  runSpacing: 18,
+                  children: [
+                    _holoItem('PROFILE', Icons.person_outline),
+                    _holoItem('DESIGN', Icons.auto_awesome),
+                    _holoItem('PERMISSIONS', Icons.shield_outlined),
+                    _holoItem('YANSI', Icons.psychology_outlined),
+                    _holoItem('SETTINGS', Icons.tune),
+                  ],
+                ),
+                const SizedBox(height: 26),
+                const Text(
+                  'Tap anywhere to return',
+                  style: TextStyle(color: Colors.white38, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _holoItem(String label, IconData icon) {
+    return GestureDetector(
+      onTap: () => _speak('$label control is ready.'),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _roundButton(icon, () => _speak('$label control is ready.')),
+          const SizedBox(height: 5),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 9)),
+        ],
+      ),
+    );
+  }
 }
 
-class _Logo extends StatelessWidget{const _Logo();@override Widget build(BuildContext c)=>Row(children:[Container(width:42,height:42,decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(color:const Color(0xFF20D9FF),width:1.5),boxShadow:[BoxShadow(color:const Color(0xFF20D9FF),blurRadius:18)]),child:const Icon(Icons.all_inclusive,color:Color(0xFF20D9FF))),const SizedBox(width:9),const Text('LifeOZ',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,letterSpacing:2.8,fontSize:17))]);}
-class _Cosmos extends StatelessWidget{const _Cosmos();@override Widget build(BuildContext c)=>Positioned.fill(child:CustomPaint(painter:_Bg()));}
-class _Bg extends CustomPainter{@override void paint(Canvas x,Size s){x.drawRect(Offset.zero&s,Paint()..shader=const RadialGradient(colors:[Color(0xFF07182A),Color(0xFF01030A)],radius:1.1).createShader(Offset.zero&s));final r=math.Random(7);for(var i=0;i<90;i++){x.drawCircle(Offset(r.nextDouble()*s.width,r.nextDouble()*s.height),.5+r.nextDouble()*1.5,Paint()..color=(i.isEven?const Color(0xFF20D9FF):const Color(0xFFFFB84A)).withOpacity(.08));}final c=Offset(s.width/2,s.height*.45);for(var i=0;i<7;i++)x.drawOval(Rect.fromCenter(center:c,width:220+i*85.0,height:100+i*55.0),Paint()..style=PaintingStyle.stroke..strokeWidth:.7..color=const Color(0xFF20D9FF).withOpacity(.06));}@override bool shouldRepaint(covariant _Bg o)=>false;}
-class _Network extends CustomPainter{final double p;final int a;_Network(this.p,this.a);@override void paint(Canvas x,Size s){final c=Offset(s.width/2,s.height*.45);final pts=[Offset(s.width*.22,s.height*.28),Offset(s.width*.78,s.height*.28),Offset(s.width*.16,s.height*.68),Offset(s.width*.84,s.height*.68),Offset(s.width*.5,s.height*.08)];for(var i=0;i<pts.length;i++){final q=pts[i];final col=i.isEven?const Color(0xFF20D9FF):const Color(0xFFFFB84A);final path=Path()..moveTo(q.dx,q.dy)..cubicTo(q.dx,q.dy+(c.dy-q.dy)*.25,c.dx,c.dy-(c.dy-q.dy)*.25,c.dx,c.dy);x.drawPath(path,Paint()..style=PaintingStyle.stroke..strokeWidth:i==a?2.2:1..color=col.withOpacity(i==a ? .65 : .2));}}@override bool shouldRepaint(covariant _Network o)=>true;}
-class _Yansi extends CustomPainter{final double p;final Color col;final bool active;_Yansi(this.p,this.col,this.active);@override void paint(Canvas x,Size s){final c=Offset(s.width/2,s.height/2),z=s.shortestSide;for(var i=0;i<6;i++){final rr=z*(.23+i*.06);x.drawOval(Rect.fromCenter(center:c,width:rr*2,height:rr*1.45),Paint()..style=PaintingStyle.stroke..strokeWidth=i==2?1.8:.8..color=(i.isEven?const Color(0xFF20D9FF):const Color(0xFFFFB84A)).withOpacity(active ? .4 : .2));}x.drawCircle(c,z*.17,Paint()..shader=RadialGradient(colors:[Colors.white,col,const Color(0x00000000)]).createShader(Rect.fromCircle(center:c,radius:z*.17)));x.drawCircle(c,z*.05,Paint()..color=Colors.white..maskFilter=const MaskFilter.blur(BlurStyle.normal,10));}@override bool shouldRepaint(covariant _Yansi o)=>true;}
-class _Symbol extends CustomPainter{final int i;final Color col;final bool active;final double p;_Symbol(this.i,this.col,this.active,this.p);@override void paint(Canvas x,Size s){final c=Offset(s.width/2,s.height/2),z=s.shortestSide;x.drawCircle(c,z*.31,Paint()..color=col.withOpacity(active ? .28 : .12)..maskFilter=MaskFilter.blur(BlurStyle.normal,active?18:10));x.drawOval(Rect.fromCenter(center:c,width:z*.8,height:z*.62),Paint()..style=PaintingStyle.stroke..strokeWidth=active?2:1..color=col.withOpacity(active ? .7 : .35));final q=Paint()..style=PaintingStyle.stroke..strokeWidth=2.3..strokeCap=StrokeCap.round..color=col;final path=Path();if(i==0){path.moveTo(c.dx,c.dy+z*.28);path.cubicTo(c.dx-z*.25,c.dy,c.dx-z*.2,c.dy-z*.25,c.dx,c.dy-z*.3);path.cubicTo(c.dx+z*.2,c.dy-z*.25,c.dx+z*.25,c.dy,c.dx,c.dy+z*.28);}else if(i==1){path.moveTo(c.dx,c.dy+z*.28);path.cubicTo(c.dx-z*.35,c.dy,c.dx-z*.25,c.dy-z*.3,c.dx,c.dy-z*.12);path.cubicTo(c.dx+z*.25,c.dy-z*.3,c.dx+z*.35,c.dy,c.dx,c.dy+z*.28);}else if(i==2){for(var n=0;n<70;n++){final t=n/69,a=t*math.pi*4.5,r=z*.28*(1-t),xx=c.dx+math.cos(a)*r,yy=c.dy+math.sin(a)*r;if(n==0)path.moveTo(xx,yy);else path.lineTo(xx,yy);}}else if(i==3){x.drawCircle(c,z*.2,q);x.drawOval(Rect.fromCenter(center:c,width:z*.72,height:z*.25),q);return;}else{path.moveTo(c.dx,c.dy-z*.3);path.lineTo(c.dx+z*.18,c.dy-z*.04);path.lineTo(c.dx+z*.12,c.dy+z*.25);path.lineTo(c.dx,c.dy+z*.3);path.lineTo(c.dx-z*.12,c.dy+z*.25);path.lineTo(c.dx-z*.18,c.dy-z*.04);path.close();}x.drawPath(path,q);x.drawCircle(c,z*.035,Paint()..color=Colors.white..maskFilter=const MaskFilter.blur(BlurStyle.normal,4));}@override bool shouldRepaint(covariant _Symbol o)=>true;}
+class _LifeOZLogo extends StatelessWidget {
+  const _LifeOZLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFF20D9FF), width: 1.5),
+            boxShadow: const [BoxShadow(color: Color(0x5520D9FF), blurRadius: 18)],
+          ),
+          child: const Icon(Icons.all_inclusive, color: Color(0xFF20D9FF)),
+        ),
+        const SizedBox(width: 9),
+        const Text(
+          'LifeOZ',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 2.8,
+            fontSize: 17,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CosmicPainter extends CustomPainter {
+  final double phase;
+  _CosmicPainter(this.phase);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = const RadialGradient(
+          colors: [Color(0xFF09233B), Color(0xFF01040A)],
+          radius: 1.05,
+        ).createShader(rect),
+    );
+
+    final random = math.Random(19);
+    for (var i = 0; i < 100; i++) {
+      final x = random.nextDouble() * size.width;
+      final y = random.nextDouble() * size.height;
+      final twinkle = 0.06 + 0.04 * math.sin(phase * math.pi * 2 + i);
+      canvas.drawCircle(
+        Offset(x, y),
+        0.5 + random.nextDouble() * 1.3,
+        Paint()..color = (i.isEven ? const Color(0xFF20D9FF) : const Color(0xFFFFC45A)).withOpacity(twinkle),
+      );
+    }
+
+    final center = Offset(size.width / 2, size.height * 0.45);
+    for (var i = 0; i < 7; i++) {
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: center,
+          width: 210 + i * 88.0,
+          height: 100 + i * 55.0,
+        ),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.7
+          ..color = const Color(0xFF20D9FF).withOpacity(0.045),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CosmicPainter oldDelegate) => true;
+}
+
+class _NetworkPainter extends CustomPainter {
+  final double animation;
+  final int active;
+  final List<Offset> points;
+  final Offset center;
+  final List<Color> colors;
+
+  _NetworkPainter({
+    required this.animation,
+    required this.active,
+    required this.points,
+    required this.center,
+    required this.colors,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var i = 0; i < points.length; i++) {
+      final color = colors[i];
+      final path = Path()
+        ..moveTo(points[i].dx, points[i].dy)
+        ..cubicTo(
+          points[i].dx,
+          points[i].dy + (center.dy - points[i].dy) * 0.25,
+          center.dx,
+          center.dy - (center.dy - points[i].dy) * 0.25,
+          center.dx,
+          center.dy,
+        );
+
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = active == i ? 3.0 : 1.0
+          ..color = color.withOpacity(active == i ? 0.68 : 0.22),
+      );
+
+      final t = (animation + i * 0.18) % 1.0;
+      final particle = PathMetrics(path.computeMetrics()).isEmpty
+          ? center
+          : _pointOnPath(path, t);
+      canvas.drawCircle(particle, 3.0, Paint()..color = color.withOpacity(0.9));
+    }
+  }
+
+  Offset _pointOnPath(Path path, double t) {
+    final metric = path.computeMetrics().first;
+    final tangent = metric.getTangentForOffset(metric.length * t);
+    return tangent?.position ?? center;
+  }
+
+  @override
+  bool shouldRepaint(covariant _NetworkPainter oldDelegate) => true;
+}
+
+class _YansiPainter extends CustomPainter {
+  final double phase;
+  final Color color;
+  _YansiPainter({required this.phase, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.shortestSide * 0.17;
+
+    for (var i = 0; i < 7; i++) {
+      final r = size.shortestSide * (0.22 + i * 0.055);
+      final rotation = phase * math.pi * 2 + i * 0.45;
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.rotate(rotation);
+      canvas.drawOval(
+        Rect.fromCenter(center: Offset.zero, width: r * 2, height: r * 1.35),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = i == 2 ? 2.0 : 0.8
+          ..color = (i.isEven ? const Color(0xFF20D9FF) : const Color(0xFFFFC45A)).withOpacity(0.22),
+      );
+      canvas.restore();
+    }
+
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [Colors.white, color, color.withOpacity(0.0)],
+        ).createShader(Rect.fromCircle(center: center, radius: radius)),
+    );
+    canvas.drawCircle(
+      center,
+      radius * 0.30,
+      Paint()
+        ..color = Colors.white
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _YansiPainter oldDelegate) => true;
+}
+
+class _CoreSymbolPainter extends CustomPainter {
+  final int index;
+  final Color color;
+  final bool active;
+  final double phase;
+
+  _CoreSymbolPainter({
+    required this.index,
+    required this.color,
+    required this.active,
+    required this.phase,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final r = size.shortestSide * 0.31;
+
+    canvas.drawCircle(
+      center,
+      r,
+      Paint()
+        ..color = color.withOpacity(active ? 0.28 : 0.10)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, active ? 20 : 10),
+    );
+
+    canvas.drawOval(
+      Rect.fromCenter(center: center, width: r * 2.7, height: r * 2.05),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = active ? 2.2 : 1.0
+        ..color = color.withOpacity(active ? 0.78 : 0.30),
+    );
+
+    final pen = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round
+      ..color = color;
+    final path = Path();
+
+    if (index == 0) {
+      path.moveTo(center.dx, center.dy + r * 0.85);
+      path.cubicTo(center.dx - r * 0.8, center.dy, center.dx - r * 0.55, center.dy - r * 0.7, center.dx, center.dy - r * 0.8);
+      path.cubicTo(center.dx + r * 0.55, center.dy - r * 0.7, center.dx + r * 0.8, center.dy, center.dx, center.dy + r * 0.85);
+    } else if (index == 1) {
+      path.moveTo(center.dx, center.dy + r * 0.85);
+      path.cubicTo(center.dx - r, center.dy, center.dx - r * 0.7, center.dy - r * 0.8, center.dx, center.dy - r * 0.25);
+      path.cubicTo(center.dx + r * 0.7, center.dy - r * 0.8, center.dx + r, center.dy, center.dx, center.dy + r * 0.85);
+    } else if (index == 2) {
+      for (var n = 0; n < 70; n++) {
+        final t = n / 69;
+        final angle = t * math.pi * 5.0 + phase * math.pi * 2;
+        final rr = r * (1.0 - t);
+        final point = Offset(center.dx + math.cos(angle) * rr, center.dy + math.sin(angle) * rr);
+        if (n == 0) {
+          path.moveTo(point.dx, point.dy);
+        } else {
+          path.lineTo(point.dx, point.dy);
+        }
+      }
+    } else if (index == 3) {
+      canvas.drawCircle(center, r * 0.62, pen);
+      canvas.drawOval(Rect.fromCenter(center: center, width: r * 2.0, height: r * 0.65), pen);
+      return;
+    } else {
+      path.moveTo(center.dx, center.dy - r);
+      path.lineTo(center.dx + r * 0.60, center.dy - r * 0.25);
+      path.lineTo(center.dx + r * 0.42, center.dy + r * 0.82);
+      path.lineTo(center.dx, center.dy + r);
+      path.lineTo(center.dx - r * 0.42, center.dy + r * 0.82);
+      path.lineTo(center.dx - r * 0.60, center.dy - r * 0.25);
+      path.close();
+    }
+
+    canvas.drawPath(path, pen);
+    canvas.drawCircle(
+      center,
+      r * 0.11,
+      Paint()
+        ..color = Colors.white
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _CoreSymbolPainter oldDelegate) => true;
+}
