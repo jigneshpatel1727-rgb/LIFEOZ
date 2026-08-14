@@ -21,24 +21,18 @@ class YansiProactiveRuntime {
     final memory=YansiPriorityMemory(prefs:prefs);
     final escalation=memory.isEscalation(priority);
     final history=YansiBriefingHistory(prefs:prefs);
-    if(!escalation&&!await history.shouldSurface(plan.headline))return null;
+    final historyAllows=await history.shouldSurface(plan.headline);
+    if(!escalation&&!historyAllows)return null;
 
     final signals=<Map<String,dynamic>>[
       for(final item in plan.items)
-        {
-          'core':item.core.toLowerCase(),
-          'priority':item.score.clamp(0,100).toInt(),
-          'confidence':item.score.clamp(0,100).toInt(),
-          'readOnly':true,
-          'scoreReason':item.scoreReason,
-        },
+        {'core':item.core.toLowerCase(),'priority':item.score.clamp(0,100).toInt(),'confidence':item.score.clamp(0,100).toInt(),'readOnly':true,'scoreReason':item.scoreReason},
     ];
-
     final fused=<String,dynamic>{'signals':{for(final signal in signals)signal['core'].toString():signal}};
     final decision=const YansiProactivePipeline(priorityEngine:YansiCrossCorePriority()).evaluate(
       fusedSignals:fused,
       insight:top.reason,
-      repeated:!escalation,
+      repeated:false,
       quietHours:quietMode,
     );
     if(decision['surface']!=true)return null;
