@@ -13,9 +13,7 @@ class YansiPlanItem {
   final int rank;
   final int score;
   final String scoreReason;
-
   const YansiPlanItem({required this.title,required this.reason,required this.action,required this.core,required this.rank,required this.score,required this.scoreReason});
-
   Map<String,dynamic> toJson()=>{'title':title,'reason':reason,'action':action,'core':core,'rank':rank,'score':score,'scoreReason':scoreReason};
 }
 
@@ -41,7 +39,9 @@ class YansiProactivePlanner {
     if(context.goals>0)candidates.add({'title':'Take one step toward a goal','reason':'${context.goals} goals are stored in LifeOS.','action':'ACTIVATE','core':'GOALS','rank':4});
     if(context.householdRecords>0)candidates.add({'title':'Review recurring household needs','reason':'Household history is available for prediction.','action':'PREDICT','core':'HOUSEHOLD','rank':5});
 
-    final focus=(prefs.getString('yansi_active_focus')??'').trim().toUpperCase();
+    final configuredFocus=(prefs.getString('yansi_active_focus')??'').trim();
+    final legacyFocus=(prefs.getString('yansi_focus_mode')??'').trim();
+    final focus=(configuredFocus.isNotEmpty?configuredFocus:legacyFocus).toUpperCase();
     final insightCore='${insight?.core??''}'.trim().toUpperCase();
     final rawConfidence=insight?.confidence??0;
     final insightConfidence=rawConfidence.isNaN?0:rawConfidence.clamp(0,1);
