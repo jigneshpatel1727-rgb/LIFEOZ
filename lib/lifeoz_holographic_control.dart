@@ -65,7 +65,10 @@ class _HoloPainter extends CustomPainter {
     final m = Offset(s.width / 2, s.height * .42);
     for (int i = 0; i < 5; i++) {
       final r = 90.0 + i * 34;
-      final p = Paint()..style = PaintingStyle.stroke..strokeWidth = i == selected ? 2 : .7..color = const Color(0xFF42DFFF).withValues(alpha: .10 + i * .025);
+      final p = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = i == selected ? 2 : .7
+        ..color = const Color(0xFF42DFFF).withValues(alpha: .10 + i * .025);
       c.save();
       c.translate(m.dx, m.dy);
       c.rotate(phase * math.pi * 2 * (i.isEven ? .08 : -.06) + selected * .12);
