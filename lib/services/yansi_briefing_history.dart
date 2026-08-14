@@ -29,12 +29,31 @@ class YansiBriefingHistory {
     return DateTime.now().difference(shownAt) >= repeatAfter;
   }
 
-  Future<void> markPresented(String headline, {DateTime? presentedAt}) async {
+  Future<bool> shouldSurfaceWithContext(
+    String headline, {
+    required int priority,
+    required int confidence,
+    Duration repeatAfter = const Duration(hours: 6),
+  }) async {
+    final normalized = headline.trim();
+    if (normalized.isEmpty) return false;
+    if (lastHeadline == null || normalized != lastHeadline) return true;
+
+    final oldPriority = prefs.getInt('yansi_last_briefing_priority');
+    final oldConfidence = prefs.getInt('yansi_last_briefing_confidence');
+    final priorityChanged = oldPriority == null || (priority - oldPriority).abs() >= 10;
+    final confidenceChanged = oldConfidence == null || (confidence - oldConfidence).abs() >= 10;
+    return shouldSurface(normalized, repeatAfter: repeatAfter, materiallyChanged: priorityChanged || confidenceChanged);
+  }
+
+  Future<void> markPresented(String headline, {DateTime? presentedAt, int? priority, int? confidence}) async {
     final normalized = headline.trim();
     if (normalized.isEmpty) return;
     final at = presentedAt ?? DateTime.now();
     await prefs.setString('yansi_last_briefing_headline', normalized);
     await prefs.setInt('yansi_last_briefing_at_ms', at.millisecondsSinceEpoch);
+    if (priority != null) await prefs.setInt('yansi_last_briefing_priority', priority.clamp(0, 100));
+    if (confidence != null) await prefs.setInt('yansi_last_briefing_confidence', confidence.clamp(0, 100));
   }
 
   /// Backward-compatible alias for older callers.
@@ -43,5 +62,7 @@ class YansiBriefingHistory {
   Future<void> clear() async {
     await prefs.remove('yansi_last_briefing_headline');
     await prefs.remove('yansi_last_briefing_at_ms');
+    await prefs.remove('yansi_last_briefing_priority');
+    await prefs.remove('yansi_last_briefing_confidence');
   }
 }
