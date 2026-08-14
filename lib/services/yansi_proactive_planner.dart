@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'yansi_context_fusion.dart';
 import 'yansi_predictive_memory.dart';
 import 'yansi_proactive_engine.dart';
+import 'yansi_cross_core_priority.dart';
+import 'yansi_situation_synthesis.dart';
 
 /// Converts current context, time-aware signals and recurring memory into an explainable plan.
 /// Local-first: it never performs sensitive actions by itself.
@@ -43,10 +45,27 @@ class YansiProactivePlanner {
     return false;
   }
 
+  Map<String,dynamic> _buildSituationSignals(YansiContextSnapshot context){
+    final signals=<String,dynamic>{};
+    if(context.openTasks>0)signals['tasks']={'readOnly':true,'priority':(55+context.openTasks*6).clamp(0,100),'confidence':75};
+    if(context.upcomingReminders>0)signals['calendar']={'readOnly':true,'priority':(60+context.upcomingReminders*7).clamp(0,100),'confidence':80};
+    if(context.recentSpend>0)signals['expense']={'readOnly':true,'priority':65,'confidence':70};
+    if(context.goals>0)signals['goals']={'readOnly':true,'priority':60,'confidence':65};
+    if(context.householdRecords>0)signals['household']={'readOnly':true,'priority':55,'confidence':65};
+    return {'signals':signals};
+  }
+
   Future<YansiProactivePlan> build() async {
     final context=await YansiContextFusion(prefs:prefs).build();
     final predictions=await YansiPredictiveMemory(prefs:prefs).scan();
     final insight=await YansiProactiveEngine(prefs:prefs).scan(userIsActive:true,notificationPermissionGranted:prefs.getBool('permission_notifications')==true);
+    final rankedSituation=const YansiCrossCorePriority().rank(_buildSituationSignals(context));
+    final situation=YansiSituationSynthesis(prefs:prefs).synthesize(rankedSituation);
+    if(situation!=null){
+      await prefs.setString('yansi_situation_json',jsonEncode(situation));
+      await prefs.setString('yansi_situation_title','${situation['title']??''}');
+    }
+
     final attentionRaw=prefs.getString('yansi_last_attention');
     Map<String,dynamic>? attention;
     if(attentionRaw!=null){try{attention=Map<String,dynamic>.from(jsonDecode(attentionRaw) as Map);}catch(_){attention=null;}}
@@ -58,6 +77,15 @@ class YansiProactivePlanner {
     if(context.recentSpend>0)candidates.add({'title':'Keep an eye on recent spending','reason':'Recent 30-day spending is ${context.recentSpend}.','action':'ANALYZE','core':'MONEY','rank':3});
     if(context.goals>0)candidates.add({'title':'Take one step toward a goal','reason':'${context.goals} goals are stored in LifeOS.','action':'ACTIVATE','core':'GOALS','rank':4});
     if(context.householdRecords>0)candidates.add({'title':'Review recurring household needs','reason':'Household history is available for prediction.','action':'PREDICT','core':'HOUSEHOLD','rank':5});
+
+    if(situation!=null){
+      final situationCore='${situation['primaryCore']??''}'.trim().toUpperCase();
+      final situationConfidence=((situation['confidence'] as num?)?.toInt()??0).clamp(0,100);
+      final situationPriority=((situation['priority'] as num?)?.toInt()??0).clamp(0,100);
+      if(situationCore.isNotEmpty){
+        candidates.add({'title':'${situation['title']}','reason':'${situation['message']}','action':'REVIEW_SITUATION','core':situationCore,'rank':0,'situationScore':situationPriority,'situationConfidence':situationConfidence});
+      }
+    }
 
     final configuredFocus=(prefs.getString('yansi_active_focus')??'').trim();
     final legacyFocus=(prefs.getString('yansi_focus_mode')??'').trim();
@@ -71,17 +99,17 @@ class YansiProactivePlanner {
     const userActive=true;
 
     int temporalBonus(String core){
-      if((temporal.contains('productivity')||temporal.contains('task'))&&core=='PRODUCTIVITY')return 12;
+      if((temporal.contains('productivity')||temporal.contains('task'))&&(core=='PRODUCTIVITY'||core=='TASKS'))return 12;
       if(temporal.contains('commitment')&&core=='CALENDAR')return 12;
-      if(temporal.contains('money')&&core=='MONEY')return 12;
+      if(temporal.contains('money')&&(core=='MONEY'||core=='EXPENSE'))return 12;
       return 0;
     }
 
     int pressureBonus(String core){
       if(pressure<35)return 0;
-      if(core=='PRODUCTIVITY'&&context.openTasks>0)return (pressure*0.16).round();
+      if((core=='PRODUCTIVITY'||core=='TASKS')&&context.openTasks>0)return (pressure*0.16).round();
       if(core=='CALENDAR'&&context.upcomingReminders>0)return (pressure*0.18).round();
-      if(core=='MONEY'&&context.recentSpend>0)return (pressure*0.08).round();
+      if((core=='MONEY'||core=='EXPENSE')&&context.recentSpend>0)return (pressure*0.08).round();
       return (pressure*0.04).round();
     }
 
@@ -107,7 +135,7 @@ class YansiProactivePlanner {
     final scored=candidates.map((candidate){
       final core='${candidate['core']}'.toUpperCase();
       final rank=candidate['rank'] as int;
-      final base=(candidate['predictionScore'] as int?)??(100-rank*10).clamp(0,100);
+      final base=(candidate['situationScore'] as int?)??(candidate['predictionScore'] as int?)??(100-rank*10).clamp(0,100);
       final focusMatch=focus.isNotEmpty&&core==focus;
       final confidenceMatch=insightCore.isNotEmpty&&core==insightCore;
       final focusBonus=focusMatch?20:0;
@@ -116,9 +144,10 @@ class YansiProactivePlanner {
       final contextPressureBonus=pressureBonus(core);
       final attentionBonus=attentionAdjustment(core);
       final score=(base+focusBonus+confidenceBonus+contextTimeBonus+contextPressureBonus+attentionBonus).clamp(0,100);
-      final evidence=((candidate['predictionConfidence'] as num?)?.toDouble()??(confidenceMatch?insightConfidence:0.5)).clamp(0,1).toDouble();
+      final evidence=((candidate['situationConfidence'] as num?)?.toDouble()??(candidate['predictionConfidence'] as num?)?.toDouble()??(confidenceMatch?insightConfidence:0.5)).clamp(0,1).toDouble();
       final confidence=_calibrateConfidence(evidence:evidence,score:score,pressure:pressure,temporalMatch:contextTimeBonus>0,focusMatch:focusMatch);
       final factors=<String>['base $base'];
+      if(candidate['situationConfidence']!=null)factors.add('synthesized situation');
       if(candidate['predictionConfidence']!=null)factors.add('recurring pattern');
       if(contextTimeBonus>0)factors.add('time context +$contextTimeBonus');
       if(contextPressureBonus>0)factors.add('situational pressure +$contextPressureBonus');
