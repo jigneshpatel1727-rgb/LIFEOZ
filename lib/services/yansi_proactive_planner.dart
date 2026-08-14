@@ -41,7 +41,19 @@ class YansiProactivePlanner {
     // automatically overriding stronger LifeOS signals.
     final focus=(prefs.getString('yansi_active_focus')??'').trim().toUpperCase();
     int focusBonus(YansiPlanItem item) => focus.isNotEmpty && item.core.toUpperCase()==focus ? 20 : 0;
-    int signalScore(YansiPlanItem item) => (100 - item.rank * 10 + focusBonus(item)).clamp(0, 100);
+
+    // Confidence is another soft signal. Only the insight's matching core gets
+    // the confidence bonus, so unrelated low-confidence signals cannot rise.
+    final insightCore='${insight?.core??''}'.trim().toUpperCase();
+    final rawConfidence=insight?.confidence??0;
+    final insightConfidence=rawConfidence.isNaN?0:rawConfidence.clamp(0,1);
+    int confidenceBonus(YansiPlanItem item) =>
+        insightCore.isNotEmpty && item.core.toUpperCase()==insightCore
+            ? (insightConfidence*20).round()
+            : 0;
+
+    int signalScore(YansiPlanItem item) =>
+        (100 - item.rank * 10 + focusBonus(item) + confidenceBonus(item)).clamp(0, 100);
 
     items.sort((a,b){
       final scoreCompare=signalScore(b).compareTo(signalScore(a));
@@ -49,14 +61,6 @@ class YansiProactivePlanner {
       return a.rank.compareTo(b.rank);
     });
 
-    if(insight!=null && items.isNotEmpty){
-      // Keep the engine as a gate/validation layer; the planner remains read-only.
-      items.sort((a,b){
-        final scoreCompare=signalScore(b).compareTo(signalScore(a));
-        if(scoreCompare!=0)return scoreCompare;
-        return a.rank.compareTo(b.rank);
-      });
-    }
     final plan=YansiProactivePlan(createdAt:DateTime.now(),headline:items.isEmpty?'Nothing needs your attention right now.':'Here is what matters most right now.',items:items.take(5).toList());
     await prefs.setString('yansi_proactive_plan',jsonEncode(plan.toJson()));
     return plan;
