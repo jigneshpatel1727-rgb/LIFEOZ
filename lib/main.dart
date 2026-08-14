@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'lifeoz_future_shell.dart';
+import 'lifeoz_future_shell_v3.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
