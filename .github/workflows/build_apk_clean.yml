@@ -29,6 +29,9 @@ jobs:
       - name: Generate Android project
         run: flutter create --platforms=android .
 
+      - name: Remove generated sample test
+        run: rm -rf test
+
       - name: Configure LIFEOZ launcher
         run: |
           python3 - <<'PY'
