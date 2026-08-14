@@ -62,37 +62,37 @@ extension YansiActionExecutionApi on YansiBrain {
     suggestions.sort((a,b)=>(b['priority'] as int).compareTo(a['priority'] as int));return suggestions.take(5).toList();
   }
 
-  /// Returns an explainable, data-only trace for the latest Yansi reasoning.
-  /// UI may show or speak a short explanation without exposing private raw history.
   Map<String,dynamic> decisionTrace(YansiResult result,YansiActionPlan plan){
-    final snapshot=crossCoreSnapshot();
-    final supportingCores=<String>[];
-    final reasons=<String>[];
-    switch(result.intent){
-      case YansiIntent.expense:
-      case YansiIntent.income:
-        supportingCores.add('money'); reasons.add('The request contains a financial signal.'); break;
-      case YansiIntent.task:
-        supportingCores.add('productivity'); reasons.add('The request contains an actionable task signal.'); break;
-      case YansiIntent.reminder:
-        supportingCores.add('calendar'); reasons.add('The request contains a time or reminder signal.'); break;
-      case YansiIntent.household:
-        supportingCores.add('household'); reasons.add('The request matches household or shopping context.'); break;
-      case YansiIntent.goal:
-        supportingCores.add('goals'); reasons.add('The request contains a goal or target signal.'); break;
-      case YansiIntent.diary:
-        supportingCores.add('diary'); reasons.add('The request contains personal reflection context.'); break;
-      case YansiIntent.question:
-        supportingCores.add('yansi'); reasons.add('The request is being handled as a reasoning query.'); break;
-      case YansiIntent.unknown:
-        supportingCores.add('yansi'); reasons.add('The signal is not yet specific enough for a core action.'); break;
-    }
+    final snapshot=crossCoreSnapshot();final supportingCores=<String>[];final reasons=<String>[];
+    switch(result.intent){case YansiIntent.expense:case YansiIntent.income:supportingCores.add('money');reasons.add('The request contains a financial signal.');break;case YansiIntent.task:supportingCores.add('productivity');reasons.add('The request contains an actionable task signal.');break;case YansiIntent.reminder:supportingCores.add('calendar');reasons.add('The request contains a time or reminder signal.');break;case YansiIntent.household:supportingCores.add('household');reasons.add('The request matches household or shopping context.');break;case YansiIntent.goal:supportingCores.add('goals');reasons.add('The request contains a goal or target signal.');break;case YansiIntent.diary:supportingCores.add('diary');reasons.add('The request contains personal reflection context.');break;case YansiIntent.question:supportingCores.add('yansi');reasons.add('The request is being handled as a reasoning query.');break;case YansiIntent.unknown:supportingCores.add('yansi');reasons.add('The signal is not yet specific enough for a core action.');break;}
     if((snapshot['openTaskCount'] as int? ?? 0)>0&&result.intent==YansiIntent.goal){supportingCores.add('productivity');reasons.add('Open tasks provide supporting execution context for the goal.');}
     if((snapshot['expenseCount'] as int? ?? 0)>=5&&result.intent==YansiIntent.question){supportingCores.add('money');reasons.add('Stored spending history can support the answer.');}
-    final confidence=(plan.confidence*100).round().clamp(0,100);
-    final safe=plan.safeToAutoApply&&confidence>=80;
+    final confidence=(plan.confidence*100).round().clamp(0,100);final safe=plan.safeToAutoApply&&confidence>=80;
     return {'intent':result.intent.name,'confidence':confidence,'autoApplyEligible':safe,'supportingCores':supportingCores.toSet().toList(),'reasons':reasons,'targetCore':_targetCoreFor(result.intent)};
   }
+
+  /// Stores a compact session focus so follow-up turns can retain context without exposing raw history.
+  Future<void> setSessionFocus(String focus,{String? core}) async {
+    await prefs.setString('yansi_session_focus',jsonEncode({'focus':focus.trim(),'core':core,'date':DateTime.now().toIso8601String()}));
+  }
+
+  Map<String,dynamic>? getSessionFocus(){
+    final raw=prefs.getString('yansi_session_focus');
+    if(raw==null||raw.trim().isEmpty)return null;
+    try{return Map<String,dynamic>.from(jsonDecode(raw) as Map);}catch(_){return null;}
+  }
+
+  /// Returns a safe contextual cue for a follow-up turn, without returning private history.
+  Map<String,dynamic> contextualCue(){
+    final focus=getSessionFocus();
+    if(focus==null)return {'hasContext':false,'cue':'No active session focus.'};
+    final value=(focus['focus']??'').toString().trim();
+    final core=(focus['core']??'').toString().trim();
+    if(value.isEmpty)return {'hasContext':false,'cue':'No active session focus.'};
+    return {'hasContext':true,'focus':value,'core':core.isEmpty?null:core,'cue':'Continue the current $value context.'};
+  }
+
+  Future<void> clearSessionFocus() async => prefs.remove('yansi_session_focus');
 
   String _keyForIntent(YansiIntent intent){switch(intent){case YansiIntent.expense:return YansiBrain._expenseKey;case YansiIntent.income:return YansiBrain._incomeKey;case YansiIntent.task:return YansiBrain._taskKey;case YansiIntent.reminder:return YansiBrain._reminderKey;case YansiIntent.household:return YansiBrain._householdKey;case YansiIntent.goal:return YansiBrain._goalKey;case YansiIntent.diary:return YansiBrain._diaryKey;case YansiIntent.question:case YansiIntent.unknown:return '';}}
   Future<void> _replaceRecords(String key,List<Map<String,dynamic>> records) async {if(key.isEmpty)return;await prefs.setStringList(key,records.map(jsonEncode).toList());}
