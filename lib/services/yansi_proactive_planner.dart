@@ -12,9 +12,10 @@ class YansiPlanItem {
   final String core;
   final int rank;
   final int score;
+  final double confidence;
   final String scoreReason;
-  const YansiPlanItem({required this.title,required this.reason,required this.action,required this.core,required this.rank,required this.score,required this.scoreReason});
-  Map<String,dynamic> toJson()=>{'title':title,'reason':reason,'action':action,'core':core,'rank':rank,'score':score,'scoreReason':scoreReason};
+  const YansiPlanItem({required this.title,required this.reason,required this.action,required this.core,required this.rank,required this.score,required this.confidence,required this.scoreReason});
+  Map<String,dynamic> toJson()=>{'title':title,'reason':reason,'action':action,'core':core,'rank':rank,'score':score,'confidence':confidence,'scoreReason':scoreReason};
 }
 
 class YansiProactivePlan {
@@ -44,7 +45,7 @@ class YansiProactivePlanner {
     final focus=(configuredFocus.isNotEmpty?configuredFocus:legacyFocus).toUpperCase();
     final insightCore='${insight?.core??''}'.trim().toUpperCase();
     final rawConfidence=insight?.confidence??0;
-    final insightConfidence=rawConfidence.isNaN?0:rawConfidence.clamp(0,1);
+    final insightConfidence=rawConfidence.isNaN?0.0:rawConfidence.clamp(0,1).toDouble();
 
     final scored=candidates.map((candidate){
       final core='${candidate['core']}'.toUpperCase();
@@ -55,11 +56,12 @@ class YansiProactivePlanner {
       final focusBonus=focusMatch?20:0;
       final confidenceBonus=confidenceMatch?(insightConfidence*20).round():0;
       final score=(base+focusBonus+confidenceBonus).clamp(0,100);
+      final confidence=confidenceMatch?insightConfidence:0.5;
       final factors=<String>[];
       factors.add('base $base');
       if(focusMatch)factors.add('active focus +$focusBonus');
       if(confidenceMatch)factors.add('insight confidence +$confidenceBonus');
-      return YansiPlanItem(title:candidate['title'] as String,reason:candidate['reason'] as String,action:candidate['action'] as String,core:core,rank:rank,score:score,scoreReason:factors.join(', '));
+      return YansiPlanItem(title:candidate['title'] as String,reason:candidate['reason'] as String,action:candidate['action'] as String,core:core,rank:rank,score:score,confidence:confidence,scoreReason:factors.join(', '));
     }).toList();
 
     scored.sort((a,b){final scoreCompare=b.score.compareTo(a.score);if(scoreCompare!=0)return scoreCompare;return a.rank.compareTo(b.rank);});
