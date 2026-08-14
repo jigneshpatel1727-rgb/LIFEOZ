@@ -37,26 +37,23 @@ class YansiProactivePlanner {
     if(context.goals>0) items.add(YansiPlanItem(title:'Take one step toward a goal',reason:'${context.goals} goals are stored in LifeOS.',action:'ACTIVATE',core:'GOALS',rank:4));
     if(context.householdRecords>0) items.add(YansiPlanItem(title:'Review recurring household needs',reason:'Household history is available for prediction.',action:'PREDICT',core:'HOUSEHOLD',rank:5));
 
-    // Adaptive focus: a recent user-selected core can move its insight upward,
-    // without changing the underlying signal or executing any action.
+    // Adaptive focus is a soft signal: it receives a score bonus rather than
+    // automatically overriding stronger LifeOS signals.
     final focus=(prefs.getString('yansi_active_focus')??'').trim().toUpperCase();
-    if(focus.isNotEmpty){
-      items.sort((a,b){
-        final af=a.core.toUpperCase()==focus?0:1;
-        final bf=b.core.toUpperCase()==focus?0:1;
-        if(af!=bf)return af.compareTo(bf);
-        return a.rank.compareTo(b.rank);
-      });
-    }else{
-      items.sort((a,b)=>a.rank.compareTo(b.rank));
-    }
+    int focusBonus(YansiPlanItem item) => focus.isNotEmpty && item.core.toUpperCase()==focus ? 20 : 0;
+    int signalScore(YansiPlanItem item) => (100 - item.rank * 10 + focusBonus(item)).clamp(0, 100);
+
+    items.sort((a,b){
+      final scoreCompare=signalScore(b).compareTo(signalScore(a));
+      if(scoreCompare!=0)return scoreCompare;
+      return a.rank.compareTo(b.rank);
+    });
 
     if(insight!=null && items.isNotEmpty){
       // Keep the engine as a gate/validation layer; the planner remains read-only.
       items.sort((a,b){
-        final ar=a.core.toUpperCase()==focus?0:1;
-        final br=b.core.toUpperCase()==focus?0:1;
-        if(ar!=br)return ar.compareTo(br);
+        final scoreCompare=signalScore(b).compareTo(signalScore(a));
+        if(scoreCompare!=0)return scoreCompare;
         return a.rank.compareTo(b.rank);
       });
     }
