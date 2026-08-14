@@ -47,6 +47,11 @@ class YansiProactivePlanner {
     final context=await YansiContextFusion(prefs:prefs).build();
     final predictions=await YansiPredictiveMemory(prefs:prefs).scan();
     final insight=await YansiProactiveEngine(prefs:prefs).scan(userIsActive:true,notificationPermissionGranted:prefs.getBool('permission_notifications')==true);
+    final attentionRaw=prefs.getString('yansi_last_attention');
+    Map<String,dynamic>? attention;
+    if(attentionRaw!=null){try{attention=Map<String,dynamic>.from(jsonDecode(attentionRaw) as Map);}catch(_){attention=null;}}
+    final attentionState='${attention?['state']??''}'.toLowerCase();
+    final attentionCore='${attention?['core']??''}'.trim().toUpperCase();
     final candidates=<Map<String,dynamic>>[];
     if(context.openTasks>0)candidates.add({'title':'Handle the highest-impact task','reason':'There are ${context.openTasks} open tasks.','action':'PRIORITIZE','core':'PRODUCTIVITY','rank':1});
     if(context.upcomingReminders>0)candidates.add({'title':'Review upcoming commitments','reason':'${context.upcomingReminders} reminders are approaching.','action':'REVIEW','core':'CALENDAR','rank':2});
@@ -80,6 +85,14 @@ class YansiProactivePlanner {
       return (pressure*0.04).round();
     }
 
+    int attentionAdjustment(String core){
+      if(attentionCore.isEmpty||attentionCore!=core)return 0;
+      if(attentionState=='dismissed')return -18;
+      if(attentionState=='ignored')return -10;
+      if(attentionState=='acted')return -14;
+      return 0;
+    }
+
     for(final prediction in predictions.take(10)){
       final core=prediction.core.toUpperCase();
       final match=candidates.where((c)=>'${c['core']}'.toUpperCase()==core).isNotEmpty;
@@ -101,7 +114,8 @@ class YansiProactivePlanner {
       final confidenceBonus=confidenceMatch?(insightConfidence*20).round():0;
       final contextTimeBonus=temporalBonus(core);
       final contextPressureBonus=pressureBonus(core);
-      final score=(base+focusBonus+confidenceBonus+contextTimeBonus+contextPressureBonus).clamp(0,100);
+      final attentionBonus=attentionAdjustment(core);
+      final score=(base+focusBonus+confidenceBonus+contextTimeBonus+contextPressureBonus+attentionBonus).clamp(0,100);
       final evidence=((candidate['predictionConfidence'] as num?)?.toDouble()??(confidenceMatch?insightConfidence:0.5)).clamp(0,1).toDouble();
       final confidence=_calibrateConfidence(evidence:evidence,score:score,pressure:pressure,temporalMatch:contextTimeBonus>0,focusMatch:focusMatch);
       final factors=<String>['base $base'];
@@ -110,6 +124,7 @@ class YansiProactivePlanner {
       if(contextPressureBonus>0)factors.add('situational pressure +$contextPressureBonus');
       if(focusMatch)factors.add('active focus +$focusBonus');
       if(confidenceMatch)factors.add('insight confidence +$confidenceBonus');
+      if(attentionBonus<0)factors.add('recent user response $attentionBonus');
       final shouldSurface=_shouldSurface(score:score,confidence:confidence,pressure:pressure,permissionGranted:notificationPermission,userActive:userActive);
       return {'item':YansiPlanItem(title:candidate['title'] as String,reason:candidate['reason'] as String,action:candidate['action'] as String,core:core,rank:rank,score:score,confidence:confidence,scoreReason:factors.join(', ')),'shouldSurface':shouldSurface};
     }).toList();
