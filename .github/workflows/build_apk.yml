@@ -40,6 +40,56 @@ jobs:
       - name: Generate Android project
         run: flutter create --platforms=android .
 
+      - name: Install exact LIFEOZ launcher icon
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          res = Path('android/app/src/main/res')
+          for d in ['drawable', 'mipmap-anydpi-v26', 'mipmap']:
+              (res / d).mkdir(parents=True, exist_ok=True)
+
+          # Master-reference inspired LIFEOZ mark: luminous blue/gold infinity
+          # intelligence form with a central living core. Android VectorDrawable
+          # keeps it crisp at every launcher density.
+          foreground = '''<vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+              <path android:fillColor="#00000000" android:strokeColor="#20D9FF" android:strokeWidth="4.2" android:strokeLineCap="round" android:strokeLineJoin="round"
+                    android:pathData="M54,10 C47,18 40,24 32,28 C22,33 16,42 18,51 C20,61 30,65 39,61 C46,58 50,52 54,45 C58,38 62,31 70,27 C79,22 90,27 91,37 C92,46 85,54 76,58 C67,62 61,68 57,77 C53,86 45,94 36,97"/>
+              <path android:fillColor="#00000000" android:strokeColor="#FFB84A" android:strokeWidth="3.6" android:strokeLineCap="round" android:strokeLineJoin="round"
+                    android:pathData="M54,10 C61,18 68,24 76,28 C86,33 92,42 90,51 C88,61 78,65 69,61 C62,58 58,52 54,45 C50,38 46,31 38,27 C29,22 18,27 17,37 C16,46 23,54 32,58 C41,62 47,68 51,77 C55,86 63,94 72,97"/>
+              <path android:fillColor="#061321" android:strokeColor="#48E8FF" android:strokeWidth="2.4" android:pathData="M54,39 A15,15 0,1 0,54,69 A15,15 0,1 0,54,39"/>
+              <path android:fillColor="#7EEBFF" android:pathData="M54,47 A7,7 0,1 0,54,61 A7,7 0,1 0,54,47"/>
+              <path android:fillColor="#FFFFFF" android:pathData="M52,49 A3,3 0,1 0,52,55 A3,3 0,1 0,52,49"/>
+              <path android:fillColor="#FFCF73" android:pathData="M76,22 L79,28 L85,31 L79,34 L76,40 L73,34 L67,31 L73,28 Z"/>
+          </vector>'''
+          (res / 'drawable/lifeoz_launcher_foreground.xml').write_text(foreground)
+
+          adaptive = '''<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@drawable/lifeoz_launcher_background" />
+              <foreground android:drawable="@drawable/lifeoz_launcher_foreground" />
+          </adaptive-icon>'''
+          (res / 'mipmap-anydpi-v26/ic_launcher.xml').write_text(adaptive)
+          (res / 'mipmap-anydpi-v26/ic_launcher_round.xml').write_text(adaptive)
+
+          background = '''<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <solid android:color="#020711" />
+          </shape>'''
+          (res / 'drawable/lifeoz_launcher_background.xml').write_text(background)
+
+          # Pre-26 fallback: use the same vector mark directly.
+          (res / 'mipmap/ic_launcher.xml').write_text(foreground)
+          (res / 'mipmap/ic_launcher_round.xml').write_text(foreground)
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          m = manifest.read_text()
+          m = re.sub(r'android:label="[^"]*"', 'android:label="LifeOZ"', m, count=1)
+          m = re.sub(r'android:icon="[^"]*"', 'android:icon="@mipmap/ic_launcher"', m, count=1)
+          m = re.sub(r'android:roundIcon="[^"]*"', 'android:roundIcon="@mipmap/ic_launcher_round"', m, count=1)
+          manifest.write_text(m)
+          PY
+
       - name: Configure Android release build
         run: |
           python3 - <<'PY'
@@ -92,28 +142,15 @@ jobs:
               override fun onCreate() {{
                   super.onCreate()
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {{
-                      val channel = NotificationChannel(
-                          CHANNEL_ID,
-                          "Yansi ambient AI",
-                          NotificationManager.IMPORTANCE_LOW
-                      )
+                      val channel = NotificationChannel(CHANNEL_ID, "Yansi ambient AI", NotificationManager.IMPORTANCE_LOW)
                       getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
                   }}
                   startForeground(NOTIFICATION_ID, buildNotification())
               }}
 
               private fun buildNotification(): Notification {{
-                  val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {{
-                      Notification.Builder(this, CHANNEL_ID)
-                  }} else {{
-                      Notification.Builder(this)
-                  }}
-                  return builder
-                      .setSmallIcon(android.R.drawable.ic_dialog_info)
-                      .setContentTitle("Yansi")
-                      .setContentText("Ambient AI is active")
-                      .setOngoing(true)
-                      .build()
+                  val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(this, CHANNEL_ID) else Notification.Builder(this)
+                  return builder.setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle("Yansi").setContentText("Ambient AI is active").setOngoing(true).build()
               }}
 
               override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
@@ -129,37 +166,23 @@ jobs:
               replacement = '''class MainActivity : FlutterActivity() {{
               override fun configureFlutterEngine(flutterEngine: FlutterEngine) {{
                   super.configureFlutterEngine(flutterEngine)
-                  MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "lifeos/yansi_background")
-                      .setMethodCallHandler {{ call, result ->
-                          val serviceIntent = Intent(this, YansiBackgroundService::class.java)
-                          when (call.method) {{
-                              "start" -> {{
-                                  if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {{
-                                      startForegroundService(serviceIntent)
-                                  }} else {{
-                                      startService(serviceIntent)
-                                  }}
-                                  result.success(true)
-                              }}
-                              "stop" -> {{
-                                  result.success(stopService(serviceIntent))
-                              }}
-                              else -> result.notImplemented()
-                          }}
+                  MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "lifeos/yansi_background").setMethodCallHandler {{ call, result ->
+                      val serviceIntent = Intent(this, YansiBackgroundService::class.java)
+                      when (call.method) {{
+                          "start" -> {{ if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) startForegroundService(serviceIntent) else startService(serviceIntent); result.success(true) }}
+                          "stop" -> result.success(stopService(serviceIntent))
+                          else -> result.notImplemented()
                       }}
+                  }}
               }}'''
               text = text.replace(marker, replacement)
           main.write_text(text)
 
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           m = manifest.read_text()
-          for permission in [
-              'android.permission.FOREGROUND_SERVICE',
-              'android.permission.FOREGROUND_SERVICE_MICROPHONE',
-          ]:
+          for permission in ['android.permission.FOREGROUND_SERVICE', 'android.permission.FOREGROUND_SERVICE_MICROPHONE']:
               tag = f'<uses-permission android:name="{permission}"/>'
               if tag not in m:
-                  m = m.replace('<manifest ', '<manifest ', 1)
                   end = m.find('>', m.find('<manifest '))
                   m = m[:end + 1] + '\\n    ' + tag + m[end + 1:]
           if 'YansiBackgroundService' not in m:
@@ -175,11 +198,8 @@ jobs:
           text = path.read_text()
           permission = '<uses-permission android:name="android.permission.RECORD_AUDIO"/>'
           if permission not in text:
-              marker = '<manifest '
-              index = text.find(marker)
-              if index >= 0:
-                  end = text.find('>', index)
-                  text = text[:end + 1] + '\n    ' + permission + text[end + 1:]
+              end = text.find('>', text.find('<manifest '))
+              text = text[:end + 1] + '\n    ' + permission + text[end + 1:]
           queries = '''\n    <queries>\n        <intent>\n            <action android:name="android.speech.RecognitionService"/>\n        </intent>\n    </queries>'''
           if 'android.speech.RecognitionService' not in text:
               text = text.replace('</manifest>', queries + '\n</manifest>')
@@ -198,10 +218,7 @@ jobs:
           from pathlib import Path
           path = Path('lib/lifeoz_future_shell.dart')
           text = path.read_text()
-          text = text.replace(
-              'onResult: (stt.SpeechRecognitionResult result)',
-              'onResult: (result)',
-          )
+          text = text.replace('onResult: (stt.SpeechRecognitionResult result)', 'onResult: (result)')
           path.write_text(text)
           PY
 
