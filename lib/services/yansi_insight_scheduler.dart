@@ -1,15 +1,14 @@
 import 'yansi_intelligence_bridge.dart';
+import 'yansi_proactive_suggestions.dart';
 import 'yansi_speech_decision.dart';
 
 /// Runtime policy that decides which useful insight should be surfaced next.
-/// It deliberately separates intelligence from presentation and side effects.
+/// It separates intelligence from presentation and side effects.
 class YansiInsightScheduler {
   final YansiIntelligenceBridge bridge;
-  final YansiSpeechDecision speechDecision;
 
   const YansiInsightScheduler({
     this.bridge = const YansiIntelligenceBridge(),
-    this.speechDecision = const YansiSpeechDecision(),
   });
 
   YansiScheduledInsight? next({
@@ -35,17 +34,18 @@ class YansiInsightScheduler {
     if (insights.isEmpty) return null;
 
     final insight = insights.first;
-    final speak = speechDecision.shouldSpeak(
+    final decision = YansiSpeechDecision.evaluate(
       priority: insight.priority,
       userIsActive: userIsActive,
       quietMode: quietMode,
-      voiceAllowed: voiceAllowed,
+      voicePermission: voiceAllowed,
       urgent: insight.priority >= 90,
     );
 
     return YansiScheduledInsight(
       suggestion: insight,
-      shouldSpeak: speak,
+      shouldSpeak: decision.shouldSpeak,
+      speechReason: decision.reason,
     );
   }
 }
@@ -53,9 +53,11 @@ class YansiInsightScheduler {
 class YansiScheduledInsight {
   final YansiProactiveSuggestion suggestion;
   final bool shouldSpeak;
+  final String speechReason;
 
   const YansiScheduledInsight({
     required this.suggestion,
     required this.shouldSpeak,
+    required this.speechReason,
   });
 }
