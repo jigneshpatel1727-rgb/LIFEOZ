@@ -23,10 +23,30 @@ extension YansiReportApi on YansiBrain {
 extension YansiActionExecutionApi on YansiBrain {
   Future<Map<String,dynamic>> executePlan(YansiActionPlan plan,YansiResult result,{bool userConfirmed=false}) async {
     final sensitive=_isSensitiveAction(plan.action,result.intent);
-    if(sensitive&&!userConfirmed){return {'executed':false,'requiresConfirmation':true,'reason':'This action requires your confirmation before execution.','action':plan.action,'intent':result.intent.name};}
     final targetCore=_targetCoreFor(result.intent);
+    if(sensitive&&!userConfirmed){return {'executed':false,'requiresConfirmation':true,'reason':'This action requires your confirmation before execution.','action':plan.action,'intent':result.intent.name,'targetCore':targetCore};}
     final execution=<String,dynamic>{'id':DateTime.now().microsecondsSinceEpoch.toString(),'intent':result.intent.name,'action':plan.action,'title':plan.title,'confidence':plan.confidence,'confirmed':userConfirmed,'executed':true,'targetCore':targetCore,'operation':'local_lifeos_update','date':DateTime.now().toIso8601String(),'data':result.data};
     final raw=prefs.getStringList('yansi_executed_actions')??<String>[];raw.add(jsonEncode(execution));if(raw.length>100){raw.removeRange(0,raw.length-100);}await prefs.setStringList('yansi_executed_actions',raw);return execution;
+  }
+
+  /// Produces a concise receipt for the ambient Yansi layer/UI after an action.
+  /// The receipt is data-only so the UI can speak or render it without adding
+  /// a chatbot-style screen.
+  Map<String,dynamic> actionReceipt(Map<String,dynamic> execution){
+    final core=(execution['targetCore']??'yansi').toString();
+    final action=(execution['action']??'Action').toString();
+    final executed=execution['executed']==true;
+    final confirmed=execution['confirmed']==true;
+    final needsConfirmation=execution['requiresConfirmation']==true;
+    String message;
+    if(needsConfirmation){
+      message='I need your confirmation before I do that.';
+    }else if(executed){
+      message=confirmed?'Done. I completed the $core action.':'Done. I updated $core in LifeOS.';
+    }else{
+      message='I could not complete that action.';
+    }
+    return {'speak':message,'core':core,'action':action,'completed':executed,'requiresConfirmation':needsConfirmation,'timestamp':execution['date']??DateTime.now().toIso8601String()};
   }
 
   String _targetCoreFor(YansiIntent intent){switch(intent){case YansiIntent.expense:case YansiIntent.income:return 'money';case YansiIntent.task:return 'productivity';case YansiIntent.reminder:return 'calendar';case YansiIntent.household:return 'household';case YansiIntent.goal:return 'goals';case YansiIntent.diary:return 'diary';case YansiIntent.question:return 'yansi';case YansiIntent.unknown:return 'yansi';}}
