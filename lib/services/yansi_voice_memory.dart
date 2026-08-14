@@ -38,7 +38,7 @@ class YansiVoiceMemoryEntry {
 }
 
 /// Persistent bridge between Yansi's speech-to-text layer and the original
-/// voice recording. It stores metadata locally and never uploads audio.
+/// voice recording. Audio stays on-device in this layer; no upload is done.
 class YansiVoiceMemory {
   static const _key = 'yansi_voice_memory_v1';
   final SharedPreferences prefs;
@@ -54,12 +54,15 @@ class YansiVoiceMemory {
     }
     final directory = await getApplicationDocumentsDirectory();
     final path = '${directory.path}/yansi_voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
-    await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
+    await _recorder.start(
+      const RecordConfig(encoder: AudioEncoder.aacLc),
+      path: path,
+    );
   }
 
   Future<String?> stopRecording() => _recorder.stop();
 
-  bool get isRecording => _recorder.isRecording();
+  Future<bool> get isRecording => _recorder.isRecording();
 
   Future<YansiVoiceMemoryEntry> saveTranscript({
     required String transcript,
