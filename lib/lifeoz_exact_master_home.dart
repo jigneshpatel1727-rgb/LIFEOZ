@@ -130,7 +130,7 @@ class _LifeOZExactMasterHomeState extends State<LifeOZExactMasterHome> {
                         fit: StackFit.expand,
                         children: [
                           Image.asset(realities[i], fit: BoxFit.cover),
-                          Container(
+                          DecoratedBox(
                             decoration: BoxDecoration(
                               border: Border.all(color: _reality == i ? Colors.cyanAccent : Colors.white12, width: _reality == i ? 3 : 1),
                               borderRadius: BorderRadius.circular(16),
@@ -158,67 +158,69 @@ class _LifeOZExactMasterHomeState extends State<LifeOZExactMasterHome> {
           builder: (context, c) {
             final w = c.maxWidth;
             final h = c.maxHeight;
+            final center = Offset(w * .50, h * .48);
             final positions = <Offset>[
               Offset(w * .50, h * .27),
-              Offset(w * .24, h * .43),
-              Offset(w * .76, h * .43),
-              Offset(w * .29, h * .66),
-              Offset(w * .71, h * .66),
+              Offset(w * .23, h * .44),
+              Offset(w * .77, h * .44),
+              Offset(w * .30, h * .67),
+              Offset(w * .70, h * .67),
             ];
 
             return Stack(
               children: [
                 Positioned.fill(child: CustomPaint(painter: _CosmicPainter(reality: _reality))),
 
-                // Brand is rendered independently; no reference-board poster is placed on the home screen.
+                // The master-board images are references/selection assets only.
+                // They must never be painted as posters on the home screen.
                 Positioned(
-                  left: 24,
-                  top: 12,
-                  width: w * .65,
-                  height: 74,
-                  child: Image.asset('02_LifeOZ_Full_Logo.png', fit: BoxFit.contain, alignment: Alignment.centerLeft),
+                  left: 26,
+                  top: 16,
+                  child: GestureDetector(
+                    onTap: () => _speak('LifeOZ. Living intelligence for your life.'),
+                    child: const SizedBox(width: 62, height: 62, child: CustomPaint(painter: _LifeOZMarkPainter())),
+                  ),
                 ),
                 Positioned(
-                  right: 16,
-                  top: 12,
-                  width: 64,
-                  height: 64,
+                  left: 98,
+                  top: 22,
+                  child: Text(
+                    'L I F E O Z',
+                    style: TextStyle(color: Colors.white.withOpacity(.96), fontSize: 30, fontWeight: FontWeight.w500, letterSpacing: 6),
+                  ),
+                ),
+                Positioned(
+                  right: 22,
+                  top: 19,
                   child: GestureDetector(
                     onTap: _controls,
-                    child: Image.asset('04_Holographic_Control.png', fit: BoxFit.contain),
+                    child: const SizedBox(width: 56, height: 56, child: CustomPaint(painter: _ControlGlyphPainter())),
                   ),
                 ),
 
-                // Five clean intelligence symbols surround the central Yansi presence.
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: CustomPaint(
-                      painter: _EnergyNetworkPainter(positions: positions),
-                    ),
-                  ),
-                ),
+                Positioned.fill(child: IgnorePointer(child: CustomPaint(painter: _EnergyNetworkPainter(positions: positions, center: center)))),
 
                 Positioned(
                   left: w * .22,
-                  top: h * .31,
+                  top: h * .29,
                   width: w * .56,
-                  height: h * .31,
+                  height: h * .37,
                   child: GestureDetector(
-                    onTap: () => _speak('I am Yansi, your silent LifeOS intelligence. Tap a core when you want me to help.'),
-                    child: const CustomPaint(painter: _YansiOrbPainter()),
+                    onTap: () => _speak(_name.isEmpty ? 'I am Yansi, your silent LifeOS intelligence.' : 'I am Yansi, your silent LifeOS intelligence, ${_name}.'),
+                    child: const CustomPaint(painter: _YansiLivingPainter()),
                   ),
                 ),
 
                 ...List.generate(
                   5,
                   (i) => Positioned(
-                    left: positions[i].dx - 44,
-                    top: positions[i].dy - 44,
-                    width: 88,
-                    height: 88,
+                    left: positions[i].dx - 46,
+                    top: positions[i].dy - 46,
+                    width: 92,
+                    height: 92,
                     child: GestureDetector(
                       onTap: () => _core(i),
-                      child: CustomPaint(painter: _CorePainter(index: i)),
+                      child: CustomPaint(painter: _CoreSymbolPainter(index: i)),
                     ),
                   ),
                 ),
@@ -229,8 +231,8 @@ class _LifeOZExactMasterHomeState extends State<LifeOZExactMasterHome> {
                   right: 0,
                   child: Center(
                     child: Text(
-                      _name.isEmpty ? 'LIVING INTELLIGENCE' : 'LIVING INTELLIGENCE  •  ${_name.toUpperCase()}',
-                      style: const TextStyle(color: Colors.white70, letterSpacing: 3, fontSize: 11, fontWeight: FontWeight.w600),
+                      'LIVING INTELLIGENCE',
+                      style: TextStyle(color: Colors.white.withOpacity(.68), letterSpacing: 3.2, fontSize: 11, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
@@ -243,113 +245,146 @@ class _LifeOZExactMasterHomeState extends State<LifeOZExactMasterHome> {
   }
 }
 
-class _YansiOrbPainter extends CustomPainter {
-  const _YansiOrbPainter();
-
-  @override
-  void paint(Canvas c, Size s) {
-    final center = Offset(s.width / 2, s.height * .52);
-    final radius = math.min(s.width, s.height) * .23;
-
-    final glow = Paint()
-      ..shader = RadialGradient(colors: [const Color(0xFF4BE7FF).withOpacity(.65), const Color(0xFF5265FF).withOpacity(.25), Colors.transparent]).createShader(Rect.fromCircle(center: center, radius: radius * 2.3));
-    c.drawCircle(center, radius * 2.3, glow);
-
-    final sphere = Paint()
-      ..shader = const LinearGradient(colors: [Color(0xFF39E6FF), Color(0xFF3C8DFF), Color(0xFF8055E8)]).createShader(Rect.fromCircle(center: center, radius: radius));
-    c.drawCircle(center, radius, sphere);
-
-    final wire = Paint()..color = Colors.white.withOpacity(.72)..style = PaintingStyle.stroke..strokeWidth = 1.5;
-    for (var i = -2; i <= 2; i++) {
-      final y = center.dy + i * radius * .25;
-      c.drawOval(Rect.fromCenter(center: Offset(center.dx, y), width: radius * 1.85, height: radius * .28), wire);
-    }
-    c.drawOval(Rect.fromCenter(center: center, width: radius * 1.9, height: radius * .62), wire);
-
-    final coreGlow = Paint()..color = Colors.white.withOpacity(.24)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16);
-    c.drawCircle(center, radius * .28, coreGlow);
-    c.drawCircle(center, radius * .12, Paint()..color = Colors.white);
-
-    final gold = Paint()..color = const Color(0xFFFFC15A).withOpacity(.95)..style = PaintingStyle.stroke..strokeWidth = 2.2;
-    final path = Path();
-    path.moveTo(center.dx, center.dy - radius * 1.25);
-    path.cubicTo(center.dx - radius * .72, center.dy - radius * .55, center.dx - radius * .72, center.dy + radius * .6, center.dx, center.dy + radius * 1.3);
-    path.cubicTo(center.dx + radius * .72, center.dy + radius * .6, center.dx + radius * .72, center.dy - radius * .55, center.dx, center.dy - radius * 1.25);
-    c.drawPath(path, gold);
-  }
-
-  @override
-  bool shouldRepaint(covariant _YansiOrbPainter oldDelegate) => false;
-}
-
-class _CorePainter extends CustomPainter {
-  final int index;
-  const _CorePainter({required this.index});
-
+class _LifeOZMarkPainter extends CustomPainter {
+  const _LifeOZMarkPainter();
   @override
   void paint(Canvas c, Size s) {
     final center = Offset(s.width / 2, s.height / 2);
-    const colors = [Color(0xFF4FEF83), Color(0xFFFF5A61), Color(0xFFFFB83D), Color(0xFF42D9FF), Color(0xFFC86BFF)];
+    final gold = Paint()..color = const Color(0xFFFFC15A)..style = PaintingStyle.stroke..strokeWidth = 2.4;
+    c.drawCircle(center, s.width * .46, gold);
+    final p = Path()
+      ..moveTo(center.dx - 20, center.dy)
+      ..cubicTo(center.dx - 10, center.dy - 13, center.dx + 5, center.dy - 13, center.dx + 17, center.dy)
+      ..cubicTo(center.dx + 5, center.dy + 13, center.dx - 10, center.dy + 13, center.dx - 20, center.dy)
+      ..moveTo(center.dx - 5, center.dy)
+      ..cubicTo(center.dx + 3, center.dy - 8, center.dx + 14, center.dy - 7, center.dx + 20, center.dy)
+      ..cubicTo(center.dx + 12, center.dy + 8, center.dx + 2, center.dy + 7, center.dx - 5, center.dy);
+    c.drawPath(p, gold);
+    c.drawCircle(Offset(center.dx + 5, center.dy), 3.2, Paint()..color = const Color(0xFF54E69A));
+  }
+  @override
+  bool shouldRepaint(covariant _LifeOZMarkPainter oldDelegate) => false;
+}
+
+class _ControlGlyphPainter extends CustomPainter {
+  const _ControlGlyphPainter();
+  @override
+  void paint(Canvas c, Size s) {
+    final p = Paint()..color = const Color(0xFFFFC15A)..style = PaintingStyle.stroke..strokeWidth = 2.2..strokeCap = StrokeCap.round;
+    final x = s.width / 2;
+    for (var i = 0; i < 3; i++) {
+      final y = 16.0 + i * 12;
+      c.drawLine(13, y, 43, y, p);
+    }
+    c.drawCircle(25, 16, 3.5, Paint()..color = const Color(0xFFFFC15A));
+    c.drawCircle(36, 28, 3.5, Paint()..color = const Color(0xFFFFC15A));
+    c.drawCircle(22, 40, 3.5, Paint()..color = const Color(0xFFFFC15A));
+    c.drawCircle(0, 0, 0, Paint()..color = Colors.transparent);
+  }
+  @override
+  bool shouldRepaint(covariant _ControlGlyphPainter oldDelegate) => false;
+}
+
+class _YansiLivingPainter extends CustomPainter {
+  const _YansiLivingPainter();
+  @override
+  void paint(Canvas c, Size s) {
+    final center = Offset(s.width / 2, s.height * .54);
+    final r = math.min(s.width, s.height) * .22;
+
+    final glow = Paint()
+      ..shader = RadialGradient(colors: [const Color(0xFF4DEBFF).withOpacity(.55), const Color(0xFF5B61FF).withOpacity(.22), Colors.transparent]).createShader(Rect.fromCircle(center: center, radius: r * 2.2));
+    c.drawCircle(center, r * 2.2, glow);
+
+    final sphere = Paint()
+      ..shader = const LinearGradient(colors: [Color(0xFF42E9FF), Color(0xFF4389FF), Color(0xFF8053E8)]).createShader(Rect.fromCircle(center: center, radius: r));
+    c.drawCircle(center, r, sphere);
+
+    final wire = Paint()..color = Colors.white.withOpacity(.76)..style = PaintingStyle.stroke..strokeWidth = 1.4;
+    for (var i = -2; i <= 2; i++) {
+      final y = center.dy + i * r * .25;
+      c.drawOval(Rect.fromCenter(center: Offset(center.dx, y), width: r * 1.85, height: r * .27), wire);
+    }
+    c.drawOval(Rect.fromCenter(center: center, width: r * 1.9, height: r * .62), wire);
+
+    final gold = Paint()..color = const Color(0xFFFFC15A).withOpacity(.95)..style = PaintingStyle.stroke..strokeWidth = 2.1;
+    final yansi = Path()
+      ..moveTo(center.dx, center.dy - r * 1.32)
+      ..cubicTo(center.dx - r * .76, center.dy - r * .66, center.dx - r * .72, center.dy + r * .62, center.dx, center.dy + r * 1.32)
+      ..cubicTo(center.dx + r * .72, center.dy + r * .62, center.dx + r * .76, center.dy - r * .66, center.dx, center.dy - r * 1.32);
+    c.drawPath(yansi, gold);
+
+    final core = Paint()..color = Colors.white..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+    c.drawCircle(center, r * .12, core);
+    c.drawCircle(center, r * .07, Paint()..color = Colors.white);
+  }
+  @override
+  bool shouldRepaint(covariant _YansiLivingPainter oldDelegate) => false;
+}
+
+class _CoreSymbolPainter extends CustomPainter {
+  final int index;
+  const _CoreSymbolPainter({required this.index});
+  @override
+  void paint(Canvas c, Size s) {
+    final center = Offset(s.width / 2, s.height / 2);
+    const colors = [Color(0xFF58EF88), Color(0xFFFF6470), Color(0xFFFFC04D), Color(0xFF4BE1FF), Color(0xFFC66BFF)];
     final color = colors[index];
-    final glow = Paint()..color = color.withOpacity(.20)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16);
-    c.drawCircle(center, 23, glow);
-    final p = Paint()..color = color..style = PaintingStyle.stroke..strokeWidth = 2.2;
+    c.drawCircle(center, 28, Paint()..color = color.withOpacity(.16)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18));
+    final p = Paint()..color = color..style = PaintingStyle.stroke..strokeWidth = 2.3..strokeCap = StrokeCap.round;
 
     switch (index) {
-      case 0: // organic leaf
-        final path = Path()..moveTo(center.dx, center.dy + 24)..cubicTo(center.dx - 26, center.dy + 5, center.dx - 23, center.dy - 20, center.dx, center.dy - 28)..cubicTo(center.dx + 24, center.dy - 18, center.dx + 20, center.dy + 8, center.dx, center.dy + 24)..close();
-        c.drawPath(path, p);
-        c.drawLine(center.dx, center.dy + 17, center.dx, center.dy - 18, p);
+      case 0:
+        final leaf = Path()..moveTo(center.dx, center.dy + 26)..cubicTo(center.dx - 29, center.dy + 4, center.dx - 23, center.dy - 23, center.dx, center.dy - 29)..cubicTo(center.dx + 25, center.dy - 20, center.dx + 25, center.dy + 8, center.dx, center.dy + 26)..close();
+        c.drawPath(leaf, p);
+        c.drawLine(Offset(center.dx, center.dy + 20), Offset(center.dx, center.dy - 20), p);
         break;
-      case 1: // heart / care
-        final path = Path()..moveTo(center.dx, center.dy + 25)..cubicTo(center.dx - 42, center.dy - 2, center.dx - 25, center.dy - 30, center.dx, center.dy - 12)..cubicTo(center.dx + 25, center.dy - 30, center.dx + 42, center.dy - 2, center.dx, center.dy + 25)..close();
-        c.drawPath(path, p);
+      case 1:
+        final heart = Path()..moveTo(center.dx, center.dy + 27)..cubicTo(center.dx - 39, center.dy, center.dx - 27, center.dy - 29, center.dx, center.dy - 10)..cubicTo(center.dx + 27, center.dy - 29, center.dx + 39, center.dy, center.dx, center.dy + 27)..close();
+        c.drawPath(heart, p);
         break;
-      case 2: // prosperity spiral
-        final path = Path();
-        for (var i = 0; i <= 40; i++) {
-          final t = i / 40 * math.pi * 2.5;
-          final r = 2 + i * .55;
-          final point = Offset(center.dx + math.cos(t) * r, center.dy + math.sin(t) * r);
-          if (i == 0) path.moveTo(point.dx, point.dy); else path.lineTo(point.dx, point.dy);
+      case 2:
+        final spiral = Path();
+        for (var i = 0; i <= 52; i++) {
+          final t = i / 52 * math.pi * 2.7;
+          final radius = 2.0 + i * .48;
+          final point = Offset(center.dx + math.cos(t) * radius, center.dy + math.sin(t) * radius);
+          if (i == 0) spiral.moveTo(point.dx, point.dy); else spiral.lineTo(point.dx, point.dy);
         }
-        c.drawPath(path, p);
+        c.drawPath(spiral, p);
         break;
-      case 3: // time / orbital clock
-        c.drawCircle(center, 22, p);
-        c.drawCircle(center, 5, p);
-        c.drawLine(center, Offset(center.dx, center.dy - 15), p);
-        c.drawLine(center, Offset(center.dx + 13, center.dy + 9), p);
+      case 3:
+        c.drawCircle(center, 23, p);
+        c.drawCircle(center, 4, p);
+        c.drawLine(center, Offset(center.dx, center.dy - 17), p);
+        c.drawLine(center, Offset(center.dx + 14, center.dy + 10), p);
         break;
-      case 4: // crystal / mind
-        final path = Path()..moveTo(center.dx, center.dy - 28)..lineTo(center.dx + 23, center.dy - 7)..lineTo(center.dx + 14, center.dy + 24)..lineTo(center.dx, center.dy + 30)..lineTo(center.dx - 14, center.dy + 24)..lineTo(center.dx - 23, center.dy - 7)..close();
-        c.drawPath(path, p);
-        c.drawLine(center.dx, center.dy - 28, center.dx, center.dy + 30, p);
+      case 4:
+        final crystal = Path()..moveTo(center.dx, center.dy - 30)..lineTo(center.dx + 25, center.dy - 8)..lineTo(center.dx + 15, center.dy + 25)..lineTo(center.dx, center.dy + 31)..lineTo(center.dx - 15, center.dy + 25)..lineTo(center.dx - 25, center.dy - 8)..close();
+        c.drawPath(crystal, p);
+        c.drawLine(Offset(center.dx, center.dy - 30), Offset(center.dx, center.dy + 31), p);
         break;
     }
     c.drawCircle(center, 3.5, Paint()..color = Colors.white);
   }
-
   @override
-  bool shouldRepaint(covariant _CorePainter oldDelegate) => oldDelegate.index != index;
+  bool shouldRepaint(covariant _CoreSymbolPainter oldDelegate) => oldDelegate.index != index;
 }
 
 class _EnergyNetworkPainter extends CustomPainter {
   final List<Offset> positions;
-  const _EnergyNetworkPainter({required this.positions});
-
+  final Offset center;
+  const _EnergyNetworkPainter({required this.positions, required this.center});
   @override
   void paint(Canvas c, Size s) {
-    final center = Offset(s.width / 2, s.height * .47);
-    final paint = Paint()..style = PaintingStyle.stroke..strokeWidth = 1..color = const Color(0xFF46B7E8).withOpacity(.18);
-    for (final p in positions) {
-      c.drawLine(center, p, paint);
+    final p = Paint()..style = PaintingStyle.stroke..strokeWidth = 1..color = const Color(0xFF4DB9D6).withOpacity(.15);
+    for (final point in positions) {
+      c.drawLine(center, point, p);
     }
-    final ring = Paint()..style = PaintingStyle.stroke..strokeWidth = 1..color = const Color(0xFF3AA9C5).withOpacity(.14);
-    c.drawOval(Rect.fromCenter(center: center, width: s.width * .95, height: s.width * .30), ring);
-    c.drawOval(Rect.fromCenter(center: center, width: s.width * .72, height: s.width * .22), ring);
+    final ring = Paint()..style = PaintingStyle.stroke..strokeWidth = 1..color = const Color(0xFF4DB9D6).withOpacity(.13);
+    c.drawOval(Rect.fromCenter(center: center, width: s.width * .98, height: s.width * .30), ring);
+    c.drawOval(Rect.fromCenter(center: center, width: s.width * .74, height: s.width * .22), ring);
   }
-
   @override
   bool shouldRepaint(covariant _EnergyNetworkPainter oldDelegate) => false;
 }
@@ -357,26 +392,24 @@ class _EnergyNetworkPainter extends CustomPainter {
 class _CosmicPainter extends CustomPainter {
   final int reality;
   const _CosmicPainter({required this.reality});
-
   @override
   void paint(Canvas c, Size s) {
-    final base = Paint()..shader = const RadialGradient(center: Alignment(0, .05), radius: 1.1, colors: [Color(0xFF071A29), Color(0xFF030811), Color(0xFF01030A)]).createShader(Offset.zero & s);
+    final base = Paint()..shader = const RadialGradient(center: Alignment(0, .05), radius: 1.15, colors: [Color(0xFF071A29), Color(0xFF030811), Color(0xFF01030A)]).createShader(Offset.zero & s);
     c.drawRect(Offset.zero & s, base);
 
-    final star = Paint()..color = Colors.white.withOpacity(.22 + (reality * .008));
-    for (var i = 0; i < 95; i++) {
+    final star = Paint()..color = Colors.white.withOpacity(.22 + reality * .008);
+    for (var i = 0; i < 105; i++) {
       final x = (i * 83.0 + 17) % s.width;
       final y = (i * 137.0 + 31) % s.height;
       c.drawCircle(Offset(x, y), i % 9 == 0 ? 1.5 : .8, star);
     }
 
-    final ring = Paint()..color = const Color(0xFF1C8CA0).withOpacity(.15)..style = PaintingStyle.stroke..strokeWidth = 1;
-    final center = Offset(s.width / 2, s.height * .47);
+    final ring = Paint()..color = const Color(0xFF1C8CA0).withOpacity(.14)..style = PaintingStyle.stroke..strokeWidth = 1;
+    final center = Offset(s.width / 2, s.height * .48);
     for (final r in [s.width * .33, s.width * .45, s.width * .57]) {
       c.drawOval(Rect.fromCenter(center: center, width: r * 2, height: r * .56), ring);
     }
   }
-
   @override
   bool shouldRepaint(covariant _CosmicPainter oldDelegate) => oldDelegate.reality != reality;
 }
