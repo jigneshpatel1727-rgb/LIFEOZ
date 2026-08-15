@@ -38,10 +38,18 @@ class _LifeOZDesignHomeState extends State<LifeOZDesignHome> with SingleTickerPr
     _tts.setSpeechRate(.44);
     _motion = AnimationController(vsync: this, duration: const Duration(seconds: 9))..repeat();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _welcomeYansi());
   }
+
   @override void dispose() { _motion.dispose(); _tts.stop(); SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge); super.dispose(); }
 
   Future<void> _speak(String text) async { await _tts.stop(); await _tts.speak(text); }
+
+  Future<void> _welcomeYansi() async {
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    if (!mounted) return;
+    await _speak('Welcome to LifeOS. I am Yansi, your personal AI.');
+  }
 
   Future<void> _yansi() async {
     setState(() { _yansiActive = true; _activeCore = null; });
