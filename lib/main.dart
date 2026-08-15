@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'yansi_voice_integrated_home.dart';
+import 'lifeoz_design_home.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,13 +14,13 @@ class LifeOZApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-    debugShowCheckedModeBanner: false,
-    title: 'LIFEOZ',
-    theme: ThemeData(
-      brightness: Brightness.dark,
-      useMaterial3: true,
-      scaffoldBackgroundColor: const Color(0xFF01030A),
-    ),
-    home: YansiVoiceIntegratedHome(prefs: prefs),
-  );
+        debugShowCheckedModeBanner: false,
+        title: 'LIFEOZ',
+        theme: ThemeData(
+          brightness: Brightness.dark,
+          useMaterial3: true,
+          scaffoldBackgroundColor: const Color(0xFF01030A),
+        ),
+        home: LifeOZDesignHome(prefs: prefs),
+      );
 }
