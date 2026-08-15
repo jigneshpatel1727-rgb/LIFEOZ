@@ -1,0 +1,1 @@
+The exact supplied LifeOZ master logo artwork is stored in this directory and must be used as artwork, not redrawn with Flutter shapes.
