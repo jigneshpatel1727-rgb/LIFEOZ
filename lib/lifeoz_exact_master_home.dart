@@ -81,7 +81,7 @@ class _LifeOZExactMasterHomeState extends State<LifeOZExactMasterHome> {
 class _CoreSymbol extends StatelessWidget { final int index; const _CoreSymbol({required this.index}); @override Widget build(BuildContext context) { const colors=[Color(0xFF54F58A),Color(0xFFB55CFF),Color(0xFFFFB83D),Color(0xFF42D9FF),Color(0xFFC66BFF)]; return CustomPaint(painter:_CorePainter(colors[index])); } }
 class _CorePainter extends CustomPainter {
   final Color color; _CorePainter(this.color);
-  @override void paint(Canvas c, Size s) { final p=Paint()..color=color.withOpacity(.9)..style=PaintingStyle.stroke..strokeWidth=2.4; final g=Paint()..color=color.withOpacity(.22)..maskFilter=const MaskFilter.blur(BlurStyle.normal,14); c.drawCircle(s.center,18,g); c.drawOval(Rect.fromCenter(center:s.center,width:72,height:25),p); c.save(); c.translate(s.center.dx,s.center.dy); c.rotate(.95); c.drawOval(const Rect.fromCenter(center:Offset.zero,width:72,height:25),p); c.restore(); c.drawCircle(s.center,4,Paint()..color=Colors.white); }
+  @override void paint(Canvas c, Size s) { final center=Offset(s.width/2,s.height/2); final p=Paint()..color=color.withOpacity(.9)..style=PaintingStyle.stroke..strokeWidth=2.4; final g=Paint()..color=color.withOpacity(.22)..maskFilter=const MaskFilter.blur(BlurStyle.normal,14); c.drawCircle(center,18,g); c.drawOval(Rect.fromCenter(center:center,width:72,height:25),p); c.save(); c.translate(center.dx,center.dy); c.rotate(.95); c.drawOval(const Rect.fromCenter(center:Offset.zero,width:72,height:25),p); c.restore(); c.drawCircle(center,4,Paint()..color=Colors.white); }
   @override bool shouldRepaint(covariant _CorePainter oldDelegate)=>oldDelegate.color!=color;
 }
 class _CosmicPainter extends CustomPainter {
