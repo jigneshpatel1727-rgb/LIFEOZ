@@ -32,48 +32,19 @@ jobs:
       - name: Remove generated sample test
         run: rm -rf test
 
-      - name: Configure release build and exact LifeOZ launcher artwork
+      - name: Configure release build
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
           gradle = Path('android/app/build.gradle.kts')
           text = gradle.read_text()
           if 'isMinifyEnabled = false' not in text:
               text = text.replace('release {\n', 'release {\n            isMinifyEnabled = false\n            isShrinkResources = false\n', 1)
           gradle.write_text(text)
-          res = Path('android/app/src/main/res')
-          (res / 'drawable').mkdir(parents=True, exist_ok=True)
-          (res / 'mipmap-anydpi-v26').mkdir(parents=True, exist_ok=True)
-          (res / 'mipmap').mkdir(parents=True, exist_ok=True)
-
-          # Use the supplied LifeOZ artwork itself. Do NOT redraw the mark with vectors.
-          source = Path('01_LifeOZ_App_Icon.png')
-          if not source.exists():
-              raise SystemExit('Missing supplied artwork: 01_LifeOZ_App_Icon.png')
-          (res / 'drawable/lifeoz_supplied_app_icon.png').write_bytes(source.read_bytes())
-
-          # Adaptive foreground uses the exact supplied PNG as a bitmap drawable.
-          bitmap = '''<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
-              android:src="@drawable/lifeoz_supplied_app_icon"
-              android:gravity="center" />'''
-          (res / 'drawable/lifeoz_supplied_app_icon_foreground.xml').write_text(bitmap)
-          bg = '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle"><solid android:color="#000000"/></shape>'
-          (res / 'drawable/lifeoz_supplied_app_icon_background.xml').write_text(bg)
-          adaptive = '''<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-            <background android:drawable="@drawable/lifeoz_supplied_app_icon_background"/>
-            <foreground android:drawable="@drawable/lifeoz_supplied_app_icon_foreground"/>
-          </adaptive-icon>'''
-          (res / 'mipmap-anydpi-v26/ic_launcher_lifeoz.xml').write_text(adaptive)
-          (res / 'mipmap-anydpi-v26/ic_launcher_lifeoz_round.xml').write_text(adaptive)
-          (res / 'mipmap/ic_launcher_lifeoz.png').write_bytes(source.read_bytes())
-          (res / 'mipmap/ic_launcher_lifeoz_round.png').write_bytes(source.read_bytes())
-
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           text = manifest.read_text()
+          import re
           text = re.sub(r'android:label="[^"]*"', 'android:label="LifeOZ"', text, count=1)
-          text = re.sub(r'android:icon="[^"]*"', 'android:icon="@mipmap/ic_launcher_lifeoz"', text, count=1)
-          text = re.sub(r'android:roundIcon="[^"]*"', 'android:roundIcon="@mipmap/ic_launcher_lifeoz_round"', text, count=1)
           manifest.write_text(text)
           PY
 
