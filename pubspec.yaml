@@ -28,6 +28,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/home_master_b64.txt
     - 01_LifeOZ_App_Icon.png
     - 01_Oreon_Prime.png
     - 02_LifeOZ_Full_Logo.png
