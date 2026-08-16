@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'lifeoz_3d_home.dart';
+import 'lifeoz_3d_theme_home.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,8 +19,8 @@ class LifeOZApp extends StatelessWidget {
         theme: ThemeData(
           brightness: Brightness.dark,
           useMaterial3: true,
-          scaffoldBackgroundColor: const Color(0xFF01030A),
+          scaffoldBackgroundColor: const Color(0xFF020A18),
         ),
-        home: LifeOZ3DHome(prefs: prefs),
+        home: LifeOZ3DThemeHome(prefs: prefs),
       );
 }
