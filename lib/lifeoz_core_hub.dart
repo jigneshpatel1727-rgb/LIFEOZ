@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'screens/core_report_screen.dart';
+import 'lifeoz_themed_core_shell.dart';
 
 class LifeOZCoreHub extends StatelessWidget {
   final SharedPreferences prefs;
@@ -9,15 +9,6 @@ class LifeOZCoreHub extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CoreReportScreen(
-      core: coreIndex,
-      currency: widgetCurrency(prefs),
-    );
+    return LifeOZThemedCoreShell(prefs: prefs, coreIndex: coreIndex);
   }
-}
-
-String widgetCurrency(SharedPreferences prefs) {
-  final value = prefs.getString('currency');
-  if (value == null || value.trim().isEmpty) return '₹';
-  return value.trim();
 }
