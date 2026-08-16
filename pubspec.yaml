@@ -29,13 +29,3 @@ flutter:
   uses-material-design: true
   assets:
     - assets/home_master_b64.txt
-    - 01_LifeOZ_App_Icon.png
-    - 01_Oreon_Prime.png
-    - 02_LifeOZ_Full_Logo.png
-    - 02_Terra_Flux.png
-    - 03_Vortex_Nexus.png
-    - 03_Yansi_Silent_Intelligence.png
-    - 04_Crysta_Lumen.png
-    - 04_Holographic_Control.png
-    - 09_Nebula_Soul-1.png
-    - 10_Shadow_Core-1.png
