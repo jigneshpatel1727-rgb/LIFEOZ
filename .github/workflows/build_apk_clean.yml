@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout LifeOS
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Set up Java
         uses: actions/setup-java@v5
@@ -87,14 +89,16 @@ jobs:
 
           values = res / 'values'
           values.mkdir(parents=True, exist_ok=True)
-          colors = values / 'lifeoz_icon_colors.xml'
-          colors.write_text('''<resources><color name="lifeoz_icon_background">#030912</color></resources>''')
+          (values / 'lifeoz_icon_colors.xml').write_text('<resources><color name="lifeoz_icon_background">#030912</color></resources>')
           PY
 
       - name: Install required CMake for 3D renderer
         run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/cmdline-tools/bin:$ANDROID_HOME/platform-tools:$PATH"
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "cmake;3.31.4"
+          sdkmanager --update || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "cmake;3.31.4"
+          cmake --version || true
 
       - name: Get dependencies
         run: flutter pub get
