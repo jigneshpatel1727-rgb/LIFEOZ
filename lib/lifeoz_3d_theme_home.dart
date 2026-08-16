@@ -102,7 +102,6 @@ class _LifeOZ3DThemeHomeState extends State<LifeOZ3DThemeHome> {
         g.scale.setValues(next, next, next);
         final a = (t * .26 + i * .18) % 1.0;
         final p = positions[i];
-        p == positions[i];
         pulses[i].position.setValues(p.x * (1 - a), p.y * (1 - a), .3 + math.sin(t * 2 + i) * .25);
       }
     });
