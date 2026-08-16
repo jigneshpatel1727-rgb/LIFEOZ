@@ -91,6 +91,11 @@ jobs:
           colors.write_text('''<resources><color name="lifeoz_icon_background">#030912</color></resources>''')
           PY
 
+      - name: Install required CMake for 3D renderer
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "cmake;3.31.4"
+
       - name: Get dependencies
         run: flutter pub get
 
