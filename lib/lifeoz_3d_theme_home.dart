@@ -27,8 +27,7 @@ const lifeOZThemes = <LifeOZTheme>[
 class LifeOZ3DThemeHome extends StatefulWidget {
   final SharedPreferences prefs;
   const LifeOZ3DThemeHome({super.key, required this.prefs});
-  @override
-  State<LifeOZ3DThemeHome> createState() => _LifeOZ3DThemeHomeState();
+  @override State<LifeOZ3DThemeHome> createState() => _LifeOZ3DThemeHomeState();
 }
 
 class _LifeOZ3DThemeHomeState extends State<LifeOZ3DThemeHome> {
@@ -49,28 +48,35 @@ class _LifeOZ3DThemeHomeState extends State<LifeOZ3DThemeHome> {
   @override
   void initState() {
     super.initState();
-    themeIndex = widget.prefs.getInt('lifeoz_theme') ?? 0;
-    theme = lifeOZThemes[themeIndex.clamp(0, lifeOZThemes.length - 1)];
+    themeIndex = (widget.prefs.getInt('lifeoz_theme') ?? 0).clamp(0, lifeOZThemes.length - 1);
+    theme = lifeOZThemes[themeIndex];
     threeJs = three.ThreeJS(onSetupComplete: () { if (mounted) setState(() {}); }, setup: setup3d);
   }
 
   Future<void> setup3d() async {
-    threeJs.camera = three.PerspectiveCamera(48, threeJs.width / threeJs.height, .1, 100);
-    threeJs.camera.position.setValues(0, .4, 14.5);
+    threeJs.camera = three.PerspectiveCamera(45, threeJs.width / threeJs.height, .05, 120);
+    threeJs.camera.position.setValues(0, .35, 15.5);
     threeJs.camera.lookAt(three.Vector3(0, 0, 0));
     threeJs.scene = three.Scene();
     threeJs.scene.background = theme.background;
-    threeJs.scene.add(three.AmbientLight(theme.secondary, .38));
-    final light = three.PointLight(theme.primary, 3.0)..position.setValues(0, 2, 6);
+    threeJs.scene.add(three.AmbientLight(theme.secondary, .42));
+    final light = three.PointLight(theme.primary, 3.4)..position.setValues(0, 2.5, 6);
     threeJs.scene.add(light);
-    final rim = three.PointLight(theme.secondary, 1.6)..position.setValues(-5, -2, 3);
+    final rim = three.PointLight(theme.secondary, 2.0)..position.setValues(-5, -3, 3);
     threeJs.scene.add(rim);
 
-    final centerMat = three.MeshPhongMaterial.fromMap({'color': theme.primary, 'emissive': theme.primary, 'emissiveIntensity': 2.4, 'shininess': 150, 'transparent': true, 'opacity': .9});
-    center = three.Mesh(three.SphereGeometry(1.35, 64, 48), centerMat);
+    final centerMat = three.MeshPhongMaterial.fromMap({'color': theme.primary, 'emissive': theme.primary, 'emissiveIntensity': 2.8, 'shininess': 180, 'transparent': true, 'opacity': .94});
+    center = three.Mesh(three.SphereGeometry(1.35, 72, 56), centerMat);
     threeJs.scene.add(center);
-    for (var i = 0; i < 4; i++) {
-      final ring = three.Mesh(three.TorusGeometry(1.7 + i * .32, .018 + i * .006, 12, 96), three.MeshBasicMaterial.fromMap({'color': i.isEven ? theme.primary : theme.secondary, 'transparent': true, 'opacity': .48 - i * .07}));
+
+    // Layered transparent shells create a volumetric energy-core effect instead of a flat orb.
+    final shell1 = three.Mesh(three.SphereGeometry(1.62, 48, 36), three.MeshPhongMaterial.fromMap({'color': theme.secondary, 'emissive': theme.primary, 'emissiveIntensity': 1.2, 'transparent': true, 'opacity': .10, 'side': 2}));
+    final shell2 = three.Mesh(three.SphereGeometry(2.02, 40, 32), three.MeshBasicMaterial.fromMap({'color': theme.secondary, 'transparent': true, 'opacity': .045, 'side': 2}));
+    center.add(shell1);
+    center.add(shell2);
+
+    for (var i = 0; i < 5; i++) {
+      final ring = three.Mesh(three.TorusGeometry(1.62 + i * .34, .018 + i * .006, 14, 112), three.MeshBasicMaterial.fromMap({'color': i.isEven ? theme.primary : theme.secondary, 'transparent': true, 'opacity': .50 - i * .065}));
       ring.rotation.x = i * .42;
       ring.rotation.y = .3 + i * .2;
       center.add(ring);
@@ -82,7 +88,7 @@ class _LifeOZ3DThemeHomeState extends State<LifeOZ3DThemeHome> {
       final g = buildCore(i, theme.coreColors[i], positions[i]);
       groups.add(g);
       threeJs.scene.add(g);
-      final p = three.Mesh(three.SphereGeometry(.07, 10, 8), three.MeshBasicMaterial.fromMap({'color': theme.coreColors[i], 'transparent': true, 'opacity': .9}));
+      final p = three.Mesh(three.SphereGeometry(.075, 12, 10), three.MeshBasicMaterial.fromMap({'color': theme.coreColors[i], 'transparent': true, 'opacity': .95}));
       pulses.add(p);
       threeJs.scene.add(p);
       addPath(positions[i], theme.coreColors[i]);
@@ -90,41 +96,49 @@ class _LifeOZ3DThemeHomeState extends State<LifeOZ3DThemeHome> {
     addParticles();
     threeJs.addAnimationEvent((dt) {
       final t = DateTime.now().millisecondsSinceEpoch / 1000.0;
-      center.rotation.y += dt * .2;
-      final s = 1 + math.sin(t * 2.0) * .045;
+      center.rotation.y += dt * .23;
+      center.rotation.x = math.sin(t * .32) * .055;
+      final s = 1 + math.sin(t * 2.2) * .05;
       center.scale.setValues(s, s, s);
+
+      // Subtle camera breathing gives the scene depth without turning it into a video.
+      threeJs.camera.position.x = math.sin(t * .16) * .28;
+      threeJs.camera.position.y = .35 + math.sin(t * .21) * .18;
+      threeJs.camera.position.z = 15.5 + math.sin(t * .13) * .28;
+      threeJs.camera.lookAt(three.Vector3(0, 0, 0));
+
       for (var i = 0; i < groups.length; i++) {
         final g = groups[i];
-        g.rotation.y += dt * (.18 + i * .035);
-        g.rotation.z = math.sin(t * .65 + i) * .1;
-        final target = activeCore == i ? 1.2 : 1.0;
+        g.rotation.y += dt * (.20 + i * .04);
+        g.rotation.z = math.sin(t * .70 + i) * .12;
+        final target = activeCore == i ? 1.24 : 1.0;
         final next = g.scale.x + (target - g.scale.x) * math.min(1, dt * 7);
         g.scale.setValues(next, next, next);
-        final a = (t * .26 + i * .18) % 1.0;
+        final a = (t * (.28 + i * .012) + i * .18) % 1.0;
         final p = positions[i];
-        pulses[i].position.setValues(p.x * (1 - a), p.y * (1 - a), .3 + math.sin(t * 2 + i) * .25);
+        pulses[i].position.setValues(p.x * (1 - a), p.y * (1 - a), .35 + math.sin(t * 2 + i) * .3);
       }
     });
   }
 
   three.Group buildCore(int i, int color, three.Vector3 pos) {
     final g = three.Group()..position = pos;
-    g.add(three.Mesh(three.SphereGeometry(.9, 32, 24), three.MeshPhongMaterial.fromMap({'color': color, 'emissive': color, 'emissiveIntensity': .8, 'transparent': true, 'opacity': .13})));
-    g.add(three.Mesh(three.SphereGeometry(.5, 32, 24), three.MeshPhongMaterial.fromMap({'color': color, 'emissive': color, 'emissiveIntensity': 1.8, 'shininess': 120})));
-    for (var j = 0; j < 3; j++) {
-      final r = three.Mesh(three.TorusGeometry(1.0 + j * .16, .014 + j * .006, 10, 72), three.MeshBasicMaterial.fromMap({'color': color, 'transparent': true, 'opacity': .62 - j * .13}));
+    g.add(three.Mesh(three.SphereGeometry(1.0, 36, 28), three.MeshPhongMaterial.fromMap({'color': color, 'emissive': color, 'emissiveIntensity': .9, 'transparent': true, 'opacity': .15, 'side': 2})));
+    g.add(three.Mesh(three.SphereGeometry(.52, 36, 28), three.MeshPhongMaterial.fromMap({'color': color, 'emissive': color, 'emissiveIntensity': 2.0, 'shininess': 150})));
+    for (var j = 0; j < 4; j++) {
+      final r = three.Mesh(three.TorusGeometry(1.02 + j * .17, .014 + j * .006, 12, 84), three.MeshBasicMaterial.fromMap({'color': color, 'transparent': true, 'opacity': .64 - j * .12}));
       r.rotation.x = .35 + j * .72;
       r.rotation.z = j * .52;
       g.add(r);
     }
     final shape = switch (i) {
       0 => three.DodecahedronGeometry(.34, 0),
-      1 => three.ConeGeometry(.3, .55, 6),
+      1 => three.ConeGeometry(.3, .58, 6),
       2 => three.TorusGeometry(.25, .07, 12, 40),
       3 => three.OctahedronGeometry(.34, 1),
       _ => three.IcosahedronGeometry(.34, 1),
     };
-    final icon = three.Mesh(shape, three.MeshPhongMaterial.fromMap({'color': 0xF8FCFF, 'emissive': color, 'emissiveIntensity': 1.7, 'shininess': 150}));
+    final icon = three.Mesh(shape, three.MeshPhongMaterial.fromMap({'color': 0xF8FCFF, 'emissive': color, 'emissiveIntensity': 1.8, 'shininess': 170}));
     icon.rotation.x = .4;
     icon.rotation.y = .5;
     g.add(icon);
@@ -132,28 +146,24 @@ class _LifeOZ3DThemeHomeState extends State<LifeOZ3DThemeHome> {
   }
 
   void addPath(three.Vector3 target, int color) {
-    final curve = three.CatmullRomCurve3(points: [three.Vector3(0, 0, 0), three.Vector3(target.x * .42, target.y * .42, 1.1), three.Vector3(target.x * .78, target.y * .78, .4), target.clone()]);
-    threeJs.scene.add(three.Mesh(three.TubeGeometry(curve, 36, .018, 6, false), three.MeshBasicMaterial.fromMap({'color': color, 'transparent': true, 'opacity': .26})));
+    final curve = three.CatmullRomCurve3(points: [three.Vector3(0, 0, 0), three.Vector3(target.x * .42, target.y * .42, 1.35), three.Vector3(target.x * .78, target.y * .78, .45), target.clone()]);
+    threeJs.scene.add(three.Mesh(three.TubeGeometry(curve, 42, .020, 7, false), three.MeshBasicMaterial.fromMap({'color': color, 'transparent': true, 'opacity': .28})));
   }
 
   void addParticles() {
     final r = math.Random(7);
-    for (var i = 0; i < 80; i++) {
+    for (var i = 0; i < 110; i++) {
       final a = r.nextDouble() * math.pi * 2;
       final b = math.acos(2 * r.nextDouble() - 1);
-      final d = 6 + r.nextDouble() * 8;
-      final p = three.Mesh(three.SphereGeometry(.015 + r.nextDouble() * .025, 6, 4), three.MeshBasicMaterial.fromMap({'color': theme.secondary, 'transparent': true, 'opacity': .2 + r.nextDouble() * .45}));
+      final d = 5.5 + r.nextDouble() * 10;
+      final p = three.Mesh(three.SphereGeometry(.012 + r.nextDouble() * .032, 7, 5), three.MeshBasicMaterial.fromMap({'color': i.isEven ? theme.secondary : theme.primary, 'transparent': true, 'opacity': .18 + r.nextDouble() * .5}));
       p.position.setValues(d * math.sin(b) * math.cos(a), d * math.sin(b) * math.sin(a), d * math.cos(b));
       threeJs.scene.add(p);
     }
   }
 
   Future<void> chooseTheme(int i) async {
-    setState(() {
-      themeIndex = i;
-      theme = lifeOZThemes[i];
-      themeMenu = false;
-    });
+    setState(() { themeIndex = i; theme = lifeOZThemes[i]; themeMenu = false; });
     await widget.prefs.setInt('lifeoz_theme', i);
     threeJs.dispose();
     threeJs = three.ThreeJS(onSetupComplete: () { if (mounted) setState(() {}); }, setup: setup3d);
@@ -167,10 +177,7 @@ class _LifeOZ3DThemeHomeState extends State<LifeOZ3DThemeHome> {
   }
 
   @override
-  void dispose() {
-    threeJs.dispose();
-    super.dispose();
-  }
+  void dispose() { threeJs.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -191,13 +198,7 @@ class _LifeOZ3DThemeHomeState extends State<LifeOZ3DThemeHome> {
     ]),
   );
 
-  Widget _zone(int i, Alignment a) => Align(
-    alignment: a,
-    child: Container(
-      constraints: const BoxConstraints.tightFor(width: 140, height: 120),
-      child: Material(color: Colors.transparent, child: InkWell(borderRadius: BorderRadius.circular(60), onTap: () => openCore(i))),
-    ),
-  );
+  Widget _zone(int i, Alignment a) => Align(alignment: a, child: Container(constraints: const BoxConstraints.tightFor(width: 140, height: 120), child: Material(color: Colors.transparent, child: InkWell(borderRadius: BorderRadius.circular(60), onTap: () => openCore(i)))));
 
   Widget _button(IconData icon, VoidCallback onTap) => Container(decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Color(theme.primary).withValues(alpha: .55)), color: const Color(0xB309121A)), child: IconButton(onPressed: onTap, icon: Icon(icon, color: Color(theme.secondary))));
 
