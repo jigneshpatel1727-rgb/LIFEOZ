@@ -32,20 +32,63 @@ jobs:
       - name: Remove generated sample test
         run: rm -rf test
 
-      - name: Configure release build
+      - name: Configure release build and custom LIFEOZ icon
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           gradle = Path('android/app/build.gradle.kts')
           text = gradle.read_text()
           if 'isMinifyEnabled = false' not in text:
               text = text.replace('release {\n', 'release {\n            isMinifyEnabled = false\n            isShrinkResources = false\n', 1)
           gradle.write_text(text)
+
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           text = manifest.read_text()
-          import re
           text = re.sub(r'android:label="[^"]*"', 'android:label="LifeOZ"', text, count=1)
           manifest.write_text(text)
+
+          res = Path('android/app/src/main/res')
+          drawable = res / 'drawable'
+          anydpi21 = res / 'mipmap-anydpi-v21'
+          anydpi26 = res / 'mipmap-anydpi-v26'
+          drawable.mkdir(parents=True, exist_ok=True)
+          anydpi21.mkdir(parents=True, exist_ok=True)
+          anydpi26.mkdir(parents=True, exist_ok=True)
+
+          foreground = '''<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+            <path android:fillColor="#07101A" android:pathData="M0,0h108v108h-108z"/>
+            <path android:fillColor="#123DFF" android:pathData="M54,20A34,34 0,1 0,54 88A34,34 0,1 0,54 20" android:fillAlpha="0.18"/>
+            <path android:strokeColor="#00E5FF" android:strokeWidth="1.6" android:fillColor="@android:color/transparent" android:pathData="M54,16A38,38 0,1 0,54 92A38,38 0,1 0,54 16"/>
+            <path android:strokeColor="#38D9FF" android:strokeWidth="1" android:fillColor="@android:color/transparent" android:pathData="M54,25A29,29 0,1 0,54 83A29,29 0,1 0,54 25"/>
+            <path android:strokeColor="#7AFFFF" android:strokeWidth="0.9" android:fillColor="@android:color/transparent" android:pathData="M54,31L77,43M77,43L75,68M75,68L54,80M54,80L32,68M32,68L31,43M31,43L54,31"/>
+            <path android:fillColor="#E8FFFF" android:pathData="M54,38A16,16 0,1 0,54 70A16,16 0,1 0,54 38"/>
+            <path android:fillColor="#24A8FF" android:pathData="M54,41A13,13 0,1 0,54 67A13,13 0,1 0,54 41"/>
+            <path android:fillColor="#8FFFFF" android:pathData="M54,46A8,8 0,1 0,54 62A8,8 0,1 0,54 46"/>
+            <path android:fillColor="#FFFFFF" android:pathData="M54,51A3,3 0,1 0,54 57A3,3 0,1 0,54 51"/>
+          </vector>'''
+          (drawable / 'lifeoz_launcher_foreground.xml').write_text(foreground)
+
+          adaptive = '''<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+            <background android:drawable="@color/lifeoz_icon_background"/>
+            <foreground android:drawable="@drawable/lifeoz_launcher_foreground"/>
+          </adaptive-icon>'''
+          (anydpi26 / 'ic_launcher.xml').write_text(adaptive)
+          (anydpi26 / 'ic_launcher_round.xml').write_text(adaptive)
+
+          fallback = '''<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+            <path android:fillColor="#07101A" android:pathData="M0,0h108v108h-108z"/>
+            <path android:strokeColor="#00E5FF" android:strokeWidth="2" android:fillColor="@android:color/transparent" android:pathData="M54,14A40,40 0,1 0,54 94A40,40 0,1 0,54 14"/>
+            <path android:fillColor="#35D9FF" android:pathData="M54,31A23,23 0,1 0,54 77A23,23 0,1 0,54 31"/>
+            <path android:fillColor="#FFFFFF" android:pathData="M54,42A12,12 0,1 0,54 66A12,12 0,1 0,54 42"/>
+          </vector>'''
+          (anydpi21 / 'ic_launcher.xml').write_text(fallback)
+          (anydpi21 / 'ic_launcher_round.xml').write_text(fallback)
+
+          values = res / 'values'
+          values.mkdir(parents=True, exist_ok=True)
+          colors = values / 'lifeoz_icon_colors.xml'
+          colors.write_text('''<resources><color name="lifeoz_icon_background">#030912</color></resources>''')
           PY
 
       - name: Get dependencies
