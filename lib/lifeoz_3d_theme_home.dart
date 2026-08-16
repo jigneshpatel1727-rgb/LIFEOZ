@@ -71,15 +71,20 @@ class _LifeOZ3DThemeHomeState extends State<LifeOZ3DThemeHome> {
     threeJs.scene.add(center);
     for (var i = 0; i < 4; i++) {
       final ring = three.Mesh(three.TorusGeometry(1.7 + i * .32, .018 + i * .006, 12, 96), three.MeshBasicMaterial.fromMap({'color': i.isEven ? theme.primary : theme.secondary, 'transparent': true, 'opacity': .48 - i * .07}));
-      ring.rotation.x = i * .42; ring.rotation.y = .3 + i * .2; center.add(ring);
+      ring.rotation.x = i * .42;
+      ring.rotation.y = .3 + i * .2;
+      center.add(ring);
     }
 
-    groups.clear(); pulses.clear();
+    groups.clear();
+    pulses.clear();
     for (var i = 0; i < 5; i++) {
       final g = buildCore(i, theme.coreColors[i], positions[i]);
-      groups.add(g); threeJs.scene.add(g);
+      groups.add(g);
+      threeJs.scene.add(g);
       final p = three.Mesh(three.SphereGeometry(.07, 10, 8), three.MeshBasicMaterial.fromMap({'color': theme.coreColors[i], 'transparent': true, 'opacity': .9}));
-      pulses.add(p); threeJs.scene.add(p);
+      pulses.add(p);
+      threeJs.scene.add(p);
       addPath(positions[i], theme.coreColors[i]);
     }
     addParticles();
@@ -97,6 +102,7 @@ class _LifeOZ3DThemeHomeState extends State<LifeOZ3DThemeHome> {
         g.scale.setValues(next, next, next);
         final a = (t * .26 + i * .18) % 1.0;
         final p = positions[i];
+        p == positions[i];
         pulses[i].position.setValues(p.x * (1 - a), p.y * (1 - a), .3 + math.sin(t * 2 + i) * .25);
       }
     });
@@ -108,7 +114,9 @@ class _LifeOZ3DThemeHomeState extends State<LifeOZ3DThemeHome> {
     g.add(three.Mesh(three.SphereGeometry(.5, 32, 24), three.MeshPhongMaterial.fromMap({'color': color, 'emissive': color, 'emissiveIntensity': 1.8, 'shininess': 120})));
     for (var j = 0; j < 3; j++) {
       final r = three.Mesh(three.TorusGeometry(1.0 + j * .16, .014 + j * .006, 10, 72), three.MeshBasicMaterial.fromMap({'color': color, 'transparent': true, 'opacity': .62 - j * .13}));
-      r.rotation.x = .35 + j * .72; r.rotation.z = j * .52; g.add(r);
+      r.rotation.x = .35 + j * .72;
+      r.rotation.z = j * .52;
+      g.add(r);
     }
     final shape = switch (i) {
       0 => three.DodecahedronGeometry(.34, 0),
@@ -118,28 +126,36 @@ class _LifeOZ3DThemeHomeState extends State<LifeOZ3DThemeHome> {
       _ => three.IcosahedronGeometry(.34, 1),
     };
     final icon = three.Mesh(shape, three.MeshPhongMaterial.fromMap({'color': 0xF8FCFF, 'emissive': color, 'emissiveIntensity': 1.7, 'shininess': 150}));
-    icon.rotation.x = .4; icon.rotation.y = .5; g.add(icon);
+    icon.rotation.x = .4;
+    icon.rotation.y = .5;
+    g.add(icon);
     return g;
   }
 
   void addPath(three.Vector3 target, int color) {
-    final curve = three.CatmullRomCurve3(points: [three.Vector3(0,0,0), three.Vector3(target.x*.42,target.y*.42,1.1), three.Vector3(target.x*.78,target.y*.78,.4), target.clone()]);
+    final curve = three.CatmullRomCurve3(points: [three.Vector3(0, 0, 0), three.Vector3(target.x * .42, target.y * .42, 1.1), three.Vector3(target.x * .78, target.y * .78, .4), target.clone()]);
     threeJs.scene.add(three.Mesh(three.TubeGeometry(curve, 36, .018, 6, false), three.MeshBasicMaterial.fromMap({'color': color, 'transparent': true, 'opacity': .26})));
   }
 
   void addParticles() {
     final r = math.Random(7);
     for (var i = 0; i < 80; i++) {
-      final a = r.nextDouble() * math.pi * 2, b = math.acos(2*r.nextDouble()-1), d = 6 + r.nextDouble()*8;
-      final p = three.Mesh(three.SphereGeometry(.015+r.nextDouble()*.025, 6, 4), three.MeshBasicMaterial.fromMap({'color': theme.secondary, 'transparent': true, 'opacity': .2+r.nextDouble()*.45}));
-      p.position.setValues(d*math.sin(b)*math.cos(a), d*math.sin(b)*math.sin(a), d*math.cos(b)); threeJs.scene.add(p);
+      final a = r.nextDouble() * math.pi * 2;
+      final b = math.acos(2 * r.nextDouble() - 1);
+      final d = 6 + r.nextDouble() * 8;
+      final p = three.Mesh(three.SphereGeometry(.015 + r.nextDouble() * .025, 6, 4), three.MeshBasicMaterial.fromMap({'color': theme.secondary, 'transparent': true, 'opacity': .2 + r.nextDouble() * .45}));
+      p.position.setValues(d * math.sin(b) * math.cos(a), d * math.sin(b) * math.sin(a), d * math.cos(b));
+      threeJs.scene.add(p);
     }
   }
 
   Future<void> chooseTheme(int i) async {
-    setState(() { themeIndex = i; theme = lifeOZThemes[i]; themeMenu = false; });
+    setState(() {
+      themeIndex = i;
+      theme = lifeOZThemes[i];
+      themeMenu = false;
+    });
     await widget.prefs.setInt('lifeoz_theme', i);
-    // Recreate the renderer so lighting, materials and geometry all adopt the selected theme.
     threeJs.dispose();
     threeJs = three.ThreeJS(onSetupComplete: () { if (mounted) setState(() {}); }, setup: setup3d);
   }
@@ -152,7 +168,10 @@ class _LifeOZ3DThemeHomeState extends State<LifeOZ3DThemeHome> {
   }
 
   @override
-  void dispose() { threeJs.dispose(); super.dispose(); }
+  void dispose() {
+    threeJs.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -163,13 +182,25 @@ class _LifeOZ3DThemeHomeState extends State<LifeOZ3DThemeHome> {
         const Positioned(top: 18, left: 0, right: 0, child: Center(child: Text('L I F E O Z', style: TextStyle(color: Colors.white, fontSize: 11, letterSpacing: 5.5, fontWeight: FontWeight.w500)))),
         Positioned(top: 9, left: 12, child: _button(Icons.menu_rounded, () => setState(() => themeMenu = !themeMenu))),
         if (themeMenu) Positioned(top: 58, left: 12, right: 12, child: _themePanel()),
-        _zone(0, Alignment(-.58,-.34)), _zone(1, Alignment(.58,-.34)), _zone(2, Alignment(-.62,.34)), _zone(3, Alignment(.62,.34)), _zone(4, Alignment(0,.74)),
-        Positioned(left: 18, right: 18, bottom: 18, child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11), decoration: BoxDecoration(color: const Color(0xD9071018), borderRadius: BorderRadius.circular(16), border: Border.all(color: Color(theme.primary).withValues(alpha: .25)), boxShadow: [BoxShadow(color: Color(theme.primary).withValues(alpha: .12), blurRadius: 24)]), child: Row(children: [Icon(Icons.auto_awesome, size: 15, color: Color(theme.secondary)), const SizedBox(width: 8), Expanded(child: Text('LifeOS is quietly connecting your life systems.', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white60, fontSize: 9))), Container(width: 7,height:7,decoration: BoxDecoration(shape: BoxShape.circle,color: Color(theme.secondary),boxShadow:[BoxShadow(color:Color(theme.secondary).withValues(alpha:.65),blurRadius:8)]))]))),
+        _zone(0, const Alignment(-.58, -.34)),
+        _zone(1, const Alignment(.58, -.34)),
+        _zone(2, const Alignment(-.62, .34)),
+        _zone(3, const Alignment(.62, .34)),
+        _zone(4, const Alignment(0, .74)),
+        Positioned(left: 18, right: 18, bottom: 18, child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11), decoration: BoxDecoration(color: const Color(0xD9071018), borderRadius: BorderRadius.circular(16), border: Border.all(color: Color(theme.primary).withValues(alpha: .25)), boxShadow: [BoxShadow(color: Color(theme.primary).withValues(alpha: .12), blurRadius: 24)]), child: Row(children: [Icon(Icons.auto_awesome, size: 15, color: Color(theme.secondary)), const SizedBox(width: 8), Expanded(child: Text('LifeOS is quietly connecting your life systems.', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white60, fontSize: 9))), Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: Color(theme.secondary), boxShadow: [BoxShadow(color: Color(theme.secondary).withValues(alpha: .65), blurRadius: 8)]))]))),
       ])),
     ]),
   );
 
-  Widget _zone(int i, Alignment a) => Align(alignment: a, child: FractionallySizedBox(width: .34, height: .27, child: Material(color: Colors.transparent, child: InkWell(borderRadius: BorderRadius.circular(60), onTap: () => openCore(i)))));
-  Widget _button(IconData icon, VoidCallback onTap) => Container(decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Color(theme.primary).withValues(alpha:.55)), color: const Color(0xB309121A)), child: IconButton(onPressed:onTap, icon:Icon(icon,color:Color(theme.secondary))));
-  Widget _themePanel() => Material(color: const Color(0xEE071019), borderRadius: BorderRadius.circular(18), child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Choose your LIFEOZ experience', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)), const SizedBox(height: 8), Wrap(spacing: 8, runSpacing: 8, children: List.generate(lifeOZThemes.length, (i) { final t=lifeOZThemes[i]; return ChoiceChip(label: Text(t.name), selected: themeIndex==i, onSelected: (_) => chooseTheme(i), selectedColor: Color(t.primary).withValues(alpha:.3), labelStyle: TextStyle(color: themeIndex==i?Color(t.secondary):Colors.white70)); }))])));
+  Widget _zone(int i, Alignment a) => Align(
+    alignment: a,
+    child: Container(
+      constraints: const BoxConstraints.tightFor(width: 140, height: 120),
+      child: Material(color: Colors.transparent, child: InkWell(borderRadius: BorderRadius.circular(60), onTap: () => openCore(i))),
+    ),
+  );
+
+  Widget _button(IconData icon, VoidCallback onTap) => Container(decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Color(theme.primary).withValues(alpha: .55)), color: const Color(0xB309121A)), child: IconButton(onPressed: onTap, icon: Icon(icon, color: Color(theme.secondary))));
+
+  Widget _themePanel() => Material(color: const Color(0xEE071019), borderRadius: BorderRadius.circular(18), child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Choose your LIFEOZ experience', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)), const SizedBox(height: 8), Wrap(spacing: 8, runSpacing: 8, children: List.generate(lifeOZThemes.length, (i) { final t = lifeOZThemes[i]; return ChoiceChip(label: Text(t.name), selected: themeIndex == i, onSelected: (_) => chooseTheme(i), selectedColor: Color(t.primary).withValues(alpha: .3), labelStyle: TextStyle(color: themeIndex == i ? Color(t.secondary) : Colors.white70)); }))])));
 }
