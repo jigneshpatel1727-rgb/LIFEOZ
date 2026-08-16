@@ -144,7 +144,7 @@ class _EnergyPainter extends CustomPainter {
       if(point!=null){canvas.drawCircle(point,3.2,Paint()..color=const Color(0xCC56F8FF)..maskFilter=const MaskFilter.blur(BlurStyle.normal,5));canvas.drawCircle(point,1.1,Paint()..color=Colors.white);}
     }
     final particle=Paint()..color=const Color(0x6648DFFF);
-    for(int i=0;i<30;i++){final a=t*math.pi*2*(i.isEven?.18:-.13)+i*2.399;final r=size.width*(.16+(i%7)*.055);canvas.drawCircle(Offset(c.dx+math.cos(a)*r,c.dy+math.sin(a)*r*.62),i%4==0?1.5:.7,particle);}
+    for(int i=0;i<30;i++){final a=t*math.pi*2*(i.isEven ? .18 : -.13)+i*2.399;final r=size.width*(.16+(i%7)*.055);canvas.drawCircle(Offset(c.dx+math.cos(a)*r,c.dy+math.sin(a)*r*.62),i%4==0 ? 1.5 : .7,particle);}
   }
   @override bool shouldRepaint(covariant _EnergyPainter oldDelegate)=>true;
 }
@@ -153,12 +153,12 @@ class _YansiPainter extends CustomPainter {
   final double t; final bool active; _YansiPainter({required this.t,required this.active});
   @override void paint(Canvas canvas, Size size) {
     final c=Offset(size.width/2,size.height/2); final r=size.shortestSide/2; final pulse=(math.sin(t*math.pi*2)+1)/2;
-    for(int i=4;i>=1;i--){final rr=r*(.34+i*.12)+pulse*i;final p=Paint()..style=PaintingStyle.stroke..strokeWidth=active?2.0:1.0..color=const Color(0xFF00D9FF).withOpacity(.16+.07*(5-i));canvas.drawCircle(c,rr,p);}
-    final glow=Paint()..color=const Color(0xFF00CFFF).withOpacity(active?.40:.20)..maskFilter=MaskFilter.blur(BlurStyle.normal,active?28:20);canvas.drawCircle(c,r*.50,glow);
+    for(int i=4;i>=1;i--){final rr=r*(.34+i*.12)+pulse*i;final p=Paint()..style=PaintingStyle.stroke..strokeWidth=active ? 2.0 : 1.0..color=const Color(0xFF00D9FF).withOpacity(.16+.07*(5-i));canvas.drawCircle(c,rr,p);}
+    final glow=Paint()..color=const Color(0xFF00CFFF).withOpacity(active ? .40 : .20)..maskFilter=MaskFilter.blur(BlurStyle.normal,active ? 28 : 20);canvas.drawCircle(c,r*.50,glow);
     final core=Paint()..shader=RadialGradient(colors:[Colors.white,const Color(0xFF72EFFF),const Color(0xFF087BFF),const Color(0x000B4BFF)]).createShader(Rect.fromCircle(center:c,radius:r*.52));canvas.drawCircle(c,r*.48+pulse*3,core);
     final net=Paint()..style=PaintingStyle.stroke..strokeWidth=.8..color=const Color(0xFF8CFFFF).withOpacity(.50);
-    for(int i=0;i<12;i++){final a=t*math.pi*2*(i.isEven?.35:-.22)+i*math.pi*2/12;final p1=Offset(c.dx+math.cos(a)*r*.18,c.dy+math.sin(a)*r*.18);final p2=Offset(c.dx+math.cos(a+.9)*r*.75,c.dy+math.sin(a+.9)*r*.75);canvas.drawLine(p1,p2,net);canvas.drawCircle(p2,2,Paint()..color=const Color(0xFF62FFFF).withOpacity(.75));}
-    final sweep=Paint()..style=PaintingStyle.stroke..strokeWidth=active?3:1.5..color=const Color(0xFFB8FFFF).withOpacity(.85);canvas.drawArc(Rect.fromCircle(center:c,radius:r*.88),t*math.pi*2,math.pi*.55,false,sweep);
+    for(int i=0;i<12;i++){final a=t*math.pi*2*(i.isEven ? .35 : -.22)+i*math.pi*2/12;final p1=Offset(c.dx+math.cos(a)*r*.18,c.dy+math.sin(a)*r*.18);final p2=Offset(c.dx+math.cos(a+.9)*r*.75,c.dy+math.sin(a+.9)*r*.75);canvas.drawLine(p1,p2,net);canvas.drawCircle(p2,2,Paint()..color=const Color(0xFF62FFFF).withOpacity(.75));}
+    final sweep=Paint()..style=PaintingStyle.stroke..strokeWidth=active ? 3 : 1.5..color=const Color(0xFFB8FFFF).withOpacity(.85);canvas.drawArc(Rect.fromCircle(center:c,radius:r*.88),t*math.pi*2,math.pi*.55,false,sweep);
   }
   @override bool shouldRepaint(covariant _YansiPainter oldDelegate)=>true;
 }
