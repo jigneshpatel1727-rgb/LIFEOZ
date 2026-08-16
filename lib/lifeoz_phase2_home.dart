@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'lifeoz_core_hub.dart';
+import 'widgets/realtime_core_graphics.dart';
 
 class LifeOZPhase2Home extends StatefulWidget {
   final SharedPreferences prefs;
@@ -34,10 +35,7 @@ class _LifeOZPhase2HomeState extends State<LifeOZPhase2Home> with SingleTickerPr
     WidgetsBinding.instance.addPostFrameCallback((_) => _welcome());
   }
 
-  Future<void> _speak(String text) async {
-    await _tts.stop();
-    await _tts.speak(text);
-  }
+  Future<void> _speak(String text) async { await _tts.stop(); await _tts.speak(text); }
 
   Future<void> _welcome() async {
     await Future<void>.delayed(const Duration(milliseconds: 700));
@@ -59,11 +57,7 @@ class _LifeOZPhase2HomeState extends State<LifeOZPhase2Home> with SingleTickerPr
   }
 
   @override
-  void dispose() {
-    _motion.dispose();
-    _tts.stop();
-    super.dispose();
-  }
+  void dispose() { _motion.dispose(); _tts.stop(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
@@ -123,23 +117,12 @@ class _LifeOZPhase2HomeState extends State<LifeOZPhase2Home> with SingleTickerPr
           scale: active ? 1.13 : 1,
           child: Container(
             decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.black.withOpacity(.30), border: Border.all(color: color.withOpacity(active ? .98 : .76), width: active ? 2.5 : 1.2), boxShadow: [BoxShadow(color: color.withOpacity(active ? .72 : .30), blurRadius: active ? 38 : 24, spreadRadius: active ? 7 : 1)]),
-            child: Stack(alignment: Alignment.center, children: [
-              Transform.rotate(angle: _motion.value * math.pi * 2 * (index.isEven ? 1 : -1), child: Icon(_coreIcon(index), color: color, size: active ? 34 : 30)),
-              CustomPaint(painter: _CoreOrbitPainter(color, _motion.value)),
-            ]),
+            child: RealtimeCoreGraphic(core: index, color: color, active: active, t: _motion.value),
           ),
         ),
       ),
     );
   }
-
-  IconData _coreIcon(int i) => switch (i) {
-    0 => Icons.account_balance_wallet_rounded,
-    1 => Icons.track_changes_rounded,
-    2 => Icons.bolt_rounded,
-    3 => Icons.shopping_bag_rounded,
-    _ => Icons.favorite_rounded,
-  };
 
   Widget _glassButton(IconData icon, VoidCallback onTap) => GestureDetector(
     onTap: onTap,
@@ -163,11 +146,9 @@ class _LifeOZPhase2HomeState extends State<LifeOZPhase2Home> with SingleTickerPr
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
     decoration: BoxDecoration(color: const Color(0xC9061219), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0x2200E5FF))),
     child: Row(children: [
-      const Icon(Icons.auto_awesome, size: 14, color: Color(0xFF55FF88)),
-      const SizedBox(width: 8),
+      const Icon(Icons.auto_awesome, size: 14, color: Color(0xFF55FF88)), const SizedBox(width: 8),
       Expanded(child: Text(_activeCore == null ? 'Yansi is quietly connecting your life systems.' : 'Yansi is opening your intelligence report.', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white54, fontSize: 9))),
-      const SizedBox(width: 8),
-      const Icon(Icons.circle, size: 6, color: Color(0xFF55FF88)),
+      const SizedBox(width: 8), const Icon(Icons.circle, size: 6, color: Color(0xFF55FF88)),
     ]),
   );
 }
@@ -217,16 +198,4 @@ class _EnergyPainter extends CustomPainter {
     }
   }
   @override bool shouldRepaint(covariant _EnergyPainter oldDelegate) => true;
-}
-
-class _CoreOrbitPainter extends CustomPainter {
-  final Color color; final double t; _CoreOrbitPainter(this.color, this.t);
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()..color = color.withOpacity(.55)..style = PaintingStyle.stroke..strokeWidth = .7;
-    final center = Offset(size.width / 2, size.height / 2);
-    canvas.save(); canvas.translate(center.dx, center.dy); canvas.rotate(t * math.pi * 2);
-    canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: size.width * .72, height: size.height * .32), p); canvas.restore();
-  }
-  @override bool shouldRepaint(covariant _CoreOrbitPainter oldDelegate) => true;
 }
