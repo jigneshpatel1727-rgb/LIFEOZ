@@ -1,0 +1,10 @@
+/* AllInMyDay Studio: lightweight first-principles scene engine. No external 3D editor dependency. */
+(() => {
+  const canvas=document.createElement('canvas'); canvas.id='studio-engine';
+  const host=document.querySelector('.stage'); if(!host)return; host.appendChild(canvas);
+  const ctx=canvas.getContext('2d'); const state={objects:[{id:1,type:'core',x:0,y:0,z:0,rx:10,ry:25,rz:-8,scale:1}],selected:1,grid:35};
+  const resize=()=>{const r=host.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);canvas.width=r.width*d;canvas.height=r.height*d;canvas.style.width=r.width+'px';canvas.style.height=r.height+'px';ctx.setTransform(d,0,0,d,0,0)}; resize(); addEventListener('resize',resize);
+  const project=(p)=>({x:p.x+innerWidth*.0,y:p.y});
+  function draw(){const w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);ctx.save();ctx.translate(w/2,h/2);ctx.strokeStyle='rgba(80,225,245,.12)';ctx.lineWidth=1;for(let i=-10;i<=10;i++){ctx.beginPath();ctx.moveTo(i*state.grid,-h*.45);ctx.lineTo(i*state.grid,h*.45);ctx.stroke();ctx.beginPath();ctx.moveTo(-w*.45,i*state.grid);ctx.lineTo(w*.45,i*state.grid);ctx.stroke()}state.objects.forEach(o=>{ctx.save();ctx.rotate((o.ry*Math.PI)/180);const s=100*o.scale;ctx.strokeStyle=o.id===state.selected?'#55eaff':'#357384';ctx.fillStyle='rgba(10,45,58,.55)';ctx.lineWidth=o.id===state.selected?2:1;ctx.beginPath();ctx.roundRect(-s*.55,-s*.7,s*1.1,s*1.4,s*.25);ctx.fill();ctx.stroke();ctx.strokeStyle='#64eaff55';ctx.beginPath();ctx.roundRect(-s*.7,-s*.8,s*1.4,s*1.6,s*.32);ctx.stroke();ctx.restore()});ctx.restore();requestAnimationFrame(draw)}draw();
+  window.AllInMyDayStudioEngine={state,add(type){const id=Date.now();state.objects.push({id,type,x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1});state.selected=id;return id},duplicate(){const o=state.objects.find(x=>x.id===state.selected);if(!o)return;const n={...o,id:Date.now(),x:o.x+20,y:o.y+20};state.objects.push(n);state.selected=n.id},remove(){state.objects=state.objects.filter(x=>x.id!==state.selected);state.selected=state.objects.at(-1)?.id||null},export(){return JSON.stringify(state,null,2)}};
+})();
