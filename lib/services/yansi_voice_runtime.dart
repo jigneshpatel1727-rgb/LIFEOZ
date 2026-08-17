@@ -1,53 +1,56 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'iamyansi_core_bridge.dart';
+import 'iamyansi_intent_parser.dart';
 import 'yansi_brain.dart';
 import 'yansi_companion_brain.dart';
 import 'yansi_canonical_expense_bridge.dart';
 
-/// Unified voice runtime for Yansi.
-///
-/// Keeps the existing voice listener/TTS lifecycle intact while combining
-/// LifeOS command processing with the companion intelligence layer.
-/// Voice-created expenses are synchronized into the canonical Expense store
-/// before the response is returned.
-class YansiVoiceRuntime {
+/// Unified ambient voice runtime. iamyansi remains invisible/ghost.
+class IamyansiVoiceRuntime {
   final SharedPreferences prefs;
   late final YansiBrain lifeBrain;
   late final YansiCompanionBrain companionBrain;
   late final YansiCanonicalExpenseBridge expenseBridge;
+  late final IamyansiIntentParser intentParser;
+  late final IamyansiCoreBridge coreBridge;
 
-  YansiVoiceRuntime({required this.prefs}) {
+  IamyansiVoiceRuntime({required this.prefs}) {
     lifeBrain = YansiBrain(prefs: prefs);
     companionBrain = YansiCompanionBrain.fromPrefs(prefs);
     expenseBridge = YansiCanonicalExpenseBridge(prefs: prefs);
+    intentParser = IamyansiIntentParser();
+    coreBridge = IamyansiCoreBridge(prefs: prefs);
   }
 
-  Future<YansiVoiceRuntimeResult> process(String transcript) async {
+  Future<IamyansiVoiceRuntimeResult> process(String transcript) async {
     final text = transcript.trim();
     if (text.isEmpty) {
-      return const YansiVoiceRuntimeResult(
-        response: '',
-        intent: YansiIntent.unknown,
-        usedCompanionBrain: false,
-        usedExternalKnowledge: false,
-        canonicalExpensesAdded: 0,
-      );
+      return const IamyansiVoiceRuntimeResult(response: '', intent: YansiIntent.unknown);
     }
 
+    // Keep Phase-1 command processing for compatibility, while the new
+    // deterministic iamyansi parser supplies the five-core routing boundary.
     final life = await lifeBrain.process(text);
-
-    // YansiBrain remains the authoritative command processor. Immediately
-    // bridge any newly created voice expense into the same storage consumed
-    // by the Expense core.
-    final canonicalExpensesAdded = life.intent == YansiIntent.expense
-        ? await expenseBridge.sync()
-        : 0;
+    final parsed = intentParser.parse(text);
 
     var response = life.response;
     var usedCompanion = false;
     var usedExternal = false;
+    var coreWritten = false;
+    String? writtenCore;
 
-    // Structured LifeOS commands remain authoritative. For conversational
-    // questions, let the companion layer add memory/web-aware intelligence.
+    if (!parsed.needsConfirmation && parsed.type != IamyansiIntentType.unknown) {
+      final write = await coreBridge.apply(parsed);
+      coreWritten = write.written;
+      writtenCore = write.core;
+    }
+
+    // Preserve the existing Phase-1 expense synchronisation so the Expense
+    // core receives exactly the same record format it already understands.
+    if (life.intent == YansiIntent.expense) {
+      await expenseBridge.sync();
+    }
+
     if (life.intent == YansiIntent.question) {
       final companion = await companionBrain.respond(text);
       if (companion.text.trim().isNotEmpty) {
@@ -57,28 +60,38 @@ class YansiVoiceRuntime {
       }
     }
 
-    return YansiVoiceRuntimeResult(
+    return IamyansiVoiceRuntimeResult(
       response: response,
       intent: life.intent,
+      parsedIntent: parsed.type,
       usedCompanionBrain: usedCompanion,
       usedExternalKnowledge: usedExternal,
-      canonicalExpensesAdded: canonicalExpensesAdded,
+      coreWritten: coreWritten,
+      writtenCore: writtenCore,
     );
   }
 }
 
-class YansiVoiceRuntimeResult {
+class IamyansiVoiceRuntimeResult {
   final String response;
   final YansiIntent intent;
+  final IamyansiIntentType parsedIntent;
   final bool usedCompanionBrain;
   final bool usedExternalKnowledge;
-  final int canonicalExpensesAdded;
+  final bool coreWritten;
+  final String? writtenCore;
 
-  const YansiVoiceRuntimeResult({
+  const IamyansiVoiceRuntimeResult({
     required this.response,
     required this.intent,
-    required this.usedCompanionBrain,
-    required this.usedExternalKnowledge,
-    this.canonicalExpensesAdded = 0,
+    this.parsedIntent = IamyansiIntentType.unknown,
+    this.usedCompanionBrain = false,
+    this.usedExternalKnowledge = false,
+    this.coreWritten = false,
+    this.writtenCore,
   });
 }
+
+// Backward-compatible names for existing Phase-1 callers.
+typedef YansiVoiceRuntime = IamyansiVoiceRuntime;
+typedef YansiVoiceRuntimeResult = IamyansiVoiceRuntimeResult;
