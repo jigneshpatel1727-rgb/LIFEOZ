@@ -1,4 +1,4 @@
-name: Build LifeOS APK Clean
+name: Build AllInMyDay APK
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ jobs:
   build-apk:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout LifeOS
+      - name: Checkout AllInMyDay
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
@@ -34,7 +34,7 @@ jobs:
       - name: Remove generated sample test
         run: rm -rf test
 
-      - name: Configure release build and custom LIFEOZ icon
+      - name: Configure release build and AllInMyDay icon
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -46,7 +46,7 @@ jobs:
           gradle.write_text(text)
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           text = manifest.read_text()
-          text = re.sub(r'android:label="[^"]*"', 'android:label="LifeOZ"', text, count=1)
+          text = re.sub(r'android:label="[^"]*"', 'android:label="AllInMyDay"', text, count=1)
           manifest.write_text(text)
           res = Path('android/app/src/main/res')
           drawable = res / 'drawable'; anydpi21 = res / 'mipmap-anydpi-v21'; anydpi26 = res / 'mipmap-anydpi-v26'
@@ -74,11 +74,11 @@ jobs:
       - name: Verify Dart code
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: Build LifeOS APK
+      - name: Build AllInMyDay APK
         run: flutter build apk --release --no-shrink
 
-      - name: Upload LifeOS APK
+      - name: Upload AllInMyDay APK
         uses: actions/upload-artifact@v4
         with:
-          name: LifeOS-Yansi-APK
+          name: AllInMyDay-Yansi-APK
           path: build/app/outputs/flutter-apk/app-release.apk
