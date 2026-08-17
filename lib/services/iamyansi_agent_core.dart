@@ -15,6 +15,7 @@ class IamyansiAgentCore {
     final text = input.trim();
     if (text.isEmpty) return const IamyansiAgentResult.empty();
 
+    // IMPORTANT: parse() is an instance API; keep the parser injectable for testing.
     final intent = intentParser.parse(text);
     if (intent.type == IamyansiIntentType.unknown) {
       return IamyansiAgentResult.unknown(text);
