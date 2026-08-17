@@ -2,28 +2,23 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Phase 2 local intelligence layer.
+/// Phase 2 local intelligence layer for iamyansi.
 ///
-/// This service is deliberately non-visual: Yansi remains an ambient/ghost
+/// iamyansi is deliberately non-visual: it remains an ambient/ghost
 /// intelligence rather than becoming another screen or core.
-class YansiPhase2Intelligence {
-  static const String _taskKey = 'yansi_tasks';
-  static const String _maintenanceKey = 'yansi_phase2_last_maintenance';
-  static const String _insightKey = 'yansi_phase2_daily_insights';
+class IamyansiPhase2Intelligence {
+  static const String _taskKey = 'iamyansi_tasks';
+  static const String _maintenanceKey = 'iamyansi_phase2_last_maintenance';
+  static const String _insightKey = 'iamyansi_phase2_daily_insights';
 
   final SharedPreferences prefs;
 
-  const YansiPhase2Intelligence({required this.prefs});
+  const IamyansiPhase2Intelligence({required this.prefs});
 
-  /// Runs safe, local maintenance needed by the Phase 2 experience.
-  ///
-  /// Pending tasks from earlier days are carried into today once only. The
-  /// original record is retained so history is not silently rewritten.
   Future<void> runDailyMaintenance({DateTime? now}) async {
     final today = _dateOnly(now ?? DateTime.now());
     final lastRun = prefs.getString(_maintenanceKey);
     final todayKey = _key(today);
-
     if (lastRun == todayKey) return;
 
     final tasks = _read(_taskKey);
@@ -31,28 +26,25 @@ class YansiPhase2Intelligence {
 
     for (final task in tasks) {
       if (task['completed'] == true) continue;
-
       final originalDate = DateTime.tryParse((task['date'] ?? '').toString());
       if (originalDate == null) continue;
+      if (!_dateOnly(originalDate).isBefore(today)) continue;
 
-      final taskDay = _dateOnly(originalDate);
-      if (!taskDay.isBefore(today)) continue;
-
-      final carryKey = '${task['id'] ?? ''}:$todayKey';
+      final sourceId = (task['id'] ?? '').toString();
       final alreadyCarried = tasks.any(
         (candidate) => candidate['type'] == 'task' &&
-            candidate['carriedFrom']?.toString() == (task['id'] ?? '').toString() &&
+            candidate['carriedFrom']?.toString() == sourceId &&
             candidate['dateKey']?.toString() == todayKey,
       );
       if (alreadyCarried) continue;
 
       additions.add({
-        'id': '${DateTime.now().microsecondsSinceEpoch}_$carryKey',
+        'id': '${DateTime.now().microsecondsSinceEpoch}_$sourceId:$todayKey',
         'type': 'task',
         'task': (task['task'] ?? 'Pending task').toString(),
         'completed': false,
         'source': 'phase2_carry_forward',
-        'carriedFrom': (task['id'] ?? '').toString(),
+        'carriedFrom': sourceId,
         'originalDate': originalDate.toIso8601String(),
         'date': today.toIso8601String(),
         'dateKey': todayKey,
@@ -69,7 +61,6 @@ class YansiPhase2Intelligence {
     await prefs.setString(_maintenanceKey, todayKey);
   }
 
-  /// Produces a compact, explainable snapshot for screens and Yansi.
   Map<String, dynamic> snapshot({DateTime? now}) {
     final today = _dateOnly(now ?? DateTime.now());
     final tasks = _read(_taskKey);
@@ -87,13 +78,10 @@ class YansiPhase2Intelligence {
       'openTaskCount': openToday,
       'completedTaskCount': completedToday,
       'carriedForwardCount': carriedToday,
-      'completionPercent': todayTasks.isEmpty
-          ? 0
-          : ((completedToday / todayTasks.length) * 100).round(),
+      'completionPercent': todayTasks.isEmpty ? 0 : ((completedToday / todayTasks.length) * 100).round(),
     };
   }
 
-  /// Stores a small daily insight payload for future Yansi/report surfaces.
   Future<void> saveDailyInsight(String text, {DateTime? now}) async {
     final value = text.trim();
     if (value.isEmpty) return;
@@ -113,7 +101,7 @@ class YansiPhase2Intelligence {
       'dateKey': today,
       'text': value,
       'date': DateTime.now().toIso8601String(),
-      'source': 'phase2_intelligence',
+      'source': 'iamyansi_phase2',
     }));
 
     if (raw.length > 30) raw.removeRange(0, raw.length - 30);
@@ -133,6 +121,5 @@ class YansiPhase2Intelligence {
 
   DateTime _dateOnly(DateTime value) => DateTime(value.year, value.month, value.day);
 
-  String _key(DateTime value) =>
-      '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+  String _key(DateTime value) => '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
 }
