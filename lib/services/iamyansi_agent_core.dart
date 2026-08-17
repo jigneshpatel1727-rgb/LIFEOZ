@@ -9,7 +9,11 @@ import 'iamyansi_intent_parser.dart';
 class IamyansiAgentCore {
   final IamyansiCoreBridge bridge;
   final IamyansiIntentParser intentParser;
-  const IamyansiAgentCore({required this.bridge, this.intentParser = const IamyansiIntentParser()});
+
+  // The parser is injectable, so the agent constructor itself cannot be const
+  // because IamyansiIntentParser currently has a non-const constructor.
+  IamyansiAgentCore({required this.bridge, IamyansiIntentParser? intentParser})
+      : intentParser = intentParser ?? IamyansiIntentParser();
 
   Future<IamyansiAgentResult> handle(String input, {bool confirmed = false}) async {
     final text = input.trim();
@@ -69,16 +73,21 @@ class IamyansiAgentResult {
           intent: value,
         );
 
-  const IamyansiAgentResult.completed(IamyansiIntent value, String valueId, String valueCore)
-      : this._(
+  const IamyansiAgentResult.completed(
+    IamyansiIntent value,
+    String valueId,
+    String valueCore,
+  ) : this._(
           type: IamyansiAgentResultType.completed,
           intent: value,
           id: valueId,
           core: valueCore,
         );
 
-  const IamyansiAgentResult.alreadyProcessed(IamyansiIntent value, String? valueCore)
-      : this._(
+  const IamyansiAgentResult.alreadyProcessed(
+    IamyansiIntent value,
+    String? valueCore,
+  ) : this._(
           type: IamyansiAgentResultType.alreadyProcessed,
           intent: value,
           core: valueCore,
