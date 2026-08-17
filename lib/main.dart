@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'lifeoz_3d_theme_home.dart';
-import 'services/yansi_phase2_intelligence.dart';
+import 'services/iamyansi_phase2_intelligence.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
 
-  // Phase 2 runs safe, local intelligence maintenance at startup.
-  // Yansi remains ambient; this does not open a chatbot or add a new core.
-  await YansiPhase2Intelligence(prefs: prefs).runDailyMaintenance();
+  // iamyansi remains ambient/ghost; this performs only safe local maintenance.
+  await IamyansiPhase2Intelligence(prefs: prefs).runDailyMaintenance();
 
   runApp(AllInMyDayApp(prefs: prefs));
 }
