@@ -8,7 +8,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
 
-  // iamyansi remains ambient/ghost; this performs only safe local maintenance.
+  // iamyansi remains the ambient AI intelligence inside AllInMyDay.
   await IamyansiPhase2Intelligence(prefs: prefs).runDailyMaintenance();
 
   runApp(AllInMyDayApp(prefs: prefs));
@@ -21,7 +21,7 @@ class AllInMyDayApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'ALL IN MY DAY',
+        title: 'AllInMyDay',
         theme: ThemeData(
           brightness: Brightness.dark,
           useMaterial3: true,
