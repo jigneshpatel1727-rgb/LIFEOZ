@@ -8,13 +8,14 @@ import 'iamyansi_intent_parser.dart';
 /// a third-party AI provider into the application.
 class IamyansiAgentCore {
   final IamyansiCoreBridge bridge;
-  const IamyansiAgentCore({required this.bridge});
+  final IamyansiIntentParser intentParser;
+  const IamyansiAgentCore({required this.bridge, this.intentParser = const IamyansiIntentParser()});
 
   Future<IamyansiAgentResult> handle(String input, {bool confirmed = false}) async {
     final text = input.trim();
     if (text.isEmpty) return const IamyansiAgentResult.empty();
 
-    final intent = IamyansiIntentParser.parse(text);
+    final intent = intentParser.parse(text);
     if (intent.type == IamyansiIntentType.unknown) {
       return IamyansiAgentResult.unknown(text);
     }
