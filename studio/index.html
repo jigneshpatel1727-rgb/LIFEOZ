@@ -1,4 +1,19 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AllInMyDay 3D Studio</title><link rel="stylesheet" href="style.css"></head>
-<body><canvas id="space"></canvas><main><header><div class="brand">ALLINMYDAY <span>3D STUDIO</span></div><button id="mode">ENERGY COCOON</button></header><section class="hero"><div class="copy"><p class="eyebrow">PRODUCT ARCHITECTURE LAB</p><h1>One intelligent body.<br><em>Six layers of protection.</em></h1><p>Explore the AllInMyDay concept from the outside shell to the intelligent sensor core.</p><div class="controls"><button data-action="explode">EXPLODE LAYERS</button><button data-action="reset">RESET</button></div><div class="layer-list" id="layers"></div></div><div class="viewer"><div class="watch" id="watch"><div class="ring r1"></div><div class="ring r2"></div><div class="screen"><div class="orb"></div><div class="pulse"></div></div><div class="cocoon c1"></div><div class="cocoon c2"></div><div class="cocoon c3"></div><div class="strap top"></div><div class="strap bottom"></div></div><div class="caption">IMPACT • THERMAL • SENSOR • CORE</div></div></section></main><script src="app.js"></script></body></html>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#02060d"><title>AllInMyDay — 3D Studio</title><link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="space" aria-hidden="true"></canvas>
+<main>
+<header><div class="brand">ALLINMYDAY <span>3D STUDIO</span></div><div class="status"><i></i> CONCEPT LAB</div><button id="mode">ENERGY COCOON</button></header>
+<section class="hero">
+<div class="copy"><p class="eyebrow">ORIGINAL PRODUCT ARCHITECTURE</p><h1>Built to <span>absorb.</span><br>Built to think.</h1><p>Explore the first AllInMyDay hardware architecture: a protective material system, intelligent sensor strap and Yansi safety core designed as one ecosystem.</p>
+<div class="controls"><button data-action="explode">EXPLODE</button><button data-action="thermal">THERMAL FLOW</button><button data-action="reset">RESET</button></div>
+<div class="layer-list" id="layers"></div></div>
+<div class="viewer"><div class="orbit orbit-a"></div><div class="orbit orbit-b"></div><div class="watch" id="watch"><div class="strap top"></div><div class="strap bottom"></div><div class="cocoon c3" data-layer="3"></div><div class="cocoon c2" data-layer="2"></div><div class="cocoon c1" data-layer="1"></div><div class="core"><div class="screen"><div class="grid"></div><div class="orb"></div><div class="pulse"></div><div class="yansi-dot"></div><div class="screen-label">YANSI</div></div></div><div class="sensor-port"><span></span><span></span><span></span><span></span></div></div><div class="caption">IMPACT / THERMAL / SENSOR / INTELLIGENCE</div></div>
+</section>
+<section class="lab"><div><small>LIVE MATERIAL MAP</small><strong id="readout">Energy Cocoon ready</strong></div><div class="metrics"><span>IMPACT <b id="impact">ABSORB</b></span><span>THERMAL <b id="thermalState">BALANCED</b></span><span>SENSOR <b>LOCKED</b></span><span>YANSI <b>ACTIVE</b></span></div></section>
+</main><script src="app.js"></script>
+</body></html>
