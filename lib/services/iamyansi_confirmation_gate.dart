@@ -6,8 +6,17 @@ class IamyansiConfirmationGate {
   const IamyansiConfirmationGate();
 
   bool needsConfirmation(IamyansiCapability capability) {
-    return capability == IamyansiCapability.sensitiveAction ||
-        capability == IamyansiCapability.externalAction;
+    switch (capability) {
+      case IamyansiCapability.notificationRead:
+      case IamyansiCapability.investmentAction:
+      case IamyansiCapability.externalMessage:
+      case IamyansiCapability.deleteData:
+      case IamyansiCapability.deviceControl:
+      case IamyansiCapability.backgroundListening:
+        return true;
+      default:
+        return false;
+    }
   }
 
   IamyansiConfirmationRequest createRequest({
