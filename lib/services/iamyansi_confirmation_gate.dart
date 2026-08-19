@@ -1,12 +1,21 @@
 import 'iamyansi_capability_policy.dart';
 
 /// Central confirmation gate for actions that can create consequential changes.
-/// UI and AI layers can use this before invoking a real capability.
+/// The gate mirrors the policy so the orchestration layer has one safe check
+/// before an executor is allowed to act.
 class IamyansiConfirmationGate {
   const IamyansiConfirmationGate();
 
   bool needsConfirmation(IamyansiCapability capability) {
     switch (capability) {
+      case IamyansiCapability.expenseWrite:
+      case IamyansiCapability.taskWrite:
+      case IamyansiCapability.shoppingWrite:
+      case IamyansiCapability.calendarWrite:
+      case IamyansiCapability.diaryWrite:
+      case IamyansiCapability.webResearch:
+      case IamyansiCapability.voiceTranscription:
+        return false;
       case IamyansiCapability.notificationRead:
       case IamyansiCapability.investmentAction:
       case IamyansiCapability.externalMessage:
@@ -14,8 +23,6 @@ class IamyansiConfirmationGate {
       case IamyansiCapability.deviceControl:
       case IamyansiCapability.backgroundListening:
         return true;
-      default:
-        return false;
     }
   }
 
