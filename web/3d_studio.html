@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Allinmyday 3D Studio</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#02050b;color:#eaf8ff;font-family:system-ui,sans-serif}
+#stage{position:fixed;inset:0}.hud{position:fixed;inset:0;pointer-events:none}.top{position:absolute;top:18px;left:20px}.brand{font-weight:800;letter-spacing:.08em}.sub{font-size:10px;opacity:.55;margin-top:4px}.panel{position:absolute;top:18px;right:18px;width:255px;padding:14px;border:1px solid #23435c;border-radius:16px;background:#020a12dd;backdrop-filter:blur(14px);pointer-events:auto;box-shadow:0 15px 50px #0008}.panel h3{margin:0 0 10px;font-size:13px}.row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #173044;font-size:11px}.ok{color:#78ef9b}.warn{color:#ffc36b}.button{width:100%;margin-top:9px;padding:9px;border:1px solid #2b6689;border-radius:10px;background:#071824;color:#dff8ff;cursor:pointer}.button:hover{background:#0b2536}.bottom{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);padding:10px 14px;border:1px solid #23435c;border-radius:14px;background:#020a12cc;font-size:11px;white-space:nowrap}.hidden{display:none}
+</style>
+</head>
+<body><div id="stage"></div><div class="hud">
+<div class="top"><div class="brand">ALLINMYDAY 3D STUDIO</div><div class="sub">MODEL → ANALYZE → SMART PART PLAN → ASSEMBLY</div></div>
+<div class="panel"><h3>Smart Part Planner</h3><div class="row"><span>Model</span><span id="model">Demo assembly</span></div><div class="row"><span>Parts</span><span id="parts">3</span></div><div class="row"><span>Connectors</span><span id="connectors">6</span></div><div class="row"><span>Printability</span><span id="print" class="ok">READY</span></div><div class="row"><span>Plan</span><span id="plan" class="ok">BALANCED</span></div><input id="file" class="button" type="file" accept=".stl,.obj,.glb,.gltf" aria-label="Load 3D model"><button id="explode" class="button">Exploded View</button><button id="reset" class="button">Reset Assembly</button><div id="fileNote" class="sub"></div></div>
+<div id="status" class="bottom">Yansi: model intelligence ready — choose a model or inspect the demo assembly.</div>
+</div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.179.1/build/three.module.js';
+import {OrbitControls} from 'https://cdn.jsdelivr.net/npm/three@0.179.1/examples/jsm/controls/OrbitControls.js';
+import {STLLoader} from 'https://cdn.jsdelivr.net/npm/three@0.179.1/examples/jsm/loaders/STLLoader.js';
+const stage=document.querySelector('#stage'),status=document.querySelector('#status');
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x02050b);scene.fog=new THREE.FogExp2(0x02050b,.045);
+const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.1,100);camera.position.set(7,6,10);
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;stage.appendChild(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.target.set(0,0,0);
+scene.add(new THREE.AmbientLight(0x47718f,1.8));const key=new THREE.PointLight(0x43c9ff,35,30);key.position.set(4,7,6);scene.add(key);const rim=new THREE.PointLight(0x914cff,22,25);rim.position.set(-6,2,-5);scene.add(rim);
+const root=new THREE.Group();scene.add(root);const parts=[];const connectors=[];let exploded=false;
+const mat=(c)=>new THREE.MeshStandardMaterial({color:c,metalness:.45,roughness:.3,emissive:c,emissiveIntensity:.12});
+function addPart(size,pos,color,name){const g=new THREE.BoxGeometry(...size);const m=new THREE.Mesh(g,mat(color));m.position.set(...pos);m.userData={name,base:m.position.clone()};root.add(m);parts.push(m);return m}
+function addConnector(pos,dir){const g=new THREE.CylinderGeometry(.08,.08,.45,16);const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0x78e9ff,emissive:0x168dcc,emissiveIntensity:1.4}));m.position.set(...pos);m.lookAt(new THREE.Vector3(...dir));root.add(m);connectors.push(m)}
+addPart([3.6,1.2,2.6],[-2.1,0,0],0x247da6,'Base section');addPart([3.2,2.8,2.4],[1.2,.7,0],0x5c3fa2,'Upper section');addPart([2.2,1.1,2.2],[2.2,-1.2,0],0x3a9b67,'Support section');
+[[0,.7,1.3],[0,.7,-1.3],[-.2,1.4,0],[.2,1.4,0],[1.7,-.6,1.1],[1.7,-.6,-1.1]].forEach(p=>addConnector(p,[p[0],p[1]+1,p[2]]));
+const grid=new THREE.GridHelper(16,32,0x17384a,0x0d1f2b);grid.position.y=-2.1;scene.add(grid);
+const ring=new THREE.Mesh(new THREE.TorusGeometry(5,.012,8,160),new THREE.MeshBasicMaterial({color:0x2b9ed0,transparent:true,opacity:.35}));ring.rotation.x=Math.PI/2;scene.add(ring);
+function setStatus(t){status.textContent='Yansi: '+t}
+function planModel(){const box=new THREE.Box3().setFromObject(root),s=box.getSize(new THREE.Vector3());const max=Math.max(s.x,s.y,s.z);const count=Math.max(2,Math.ceil(max/4));document.querySelector('#parts').textContent=String(count);document.querySelector('#connectors').textContent=String(count*2);document.querySelector('#plan').textContent=count<=3?'BALANCED':'MULTI-PART';document.querySelector('#print').textContent=s.y>6?'CHECK ORIENTATION':'READY';document.querySelector('#print').className=s.y>6?'warn':'ok';setStatus('analysis complete — proposed '+count+' printable section'+(count===1?'':'s')+' with alignment connectors.')}
+function toggleExplode(){exploded=!exploded;parts.forEach((p,i)=>{const b=p.userData.base;const d=b.clone().sub(new THREE.Vector3(.2,0,0)).normalize().multiplyScalar(exploded?(i+1)*.9:0);p.position.copy(b).add(d)});connectors.forEach((c,i)=>{const base=c.userData.base||c.position.clone();c.userData.base=base;if(exploded)c.position.copy(base).multiplyScalar(1.18);else c.position.copy(base)});document.querySelector('#explode').textContent=exploded?'Assembled View':'Exploded View';setStatus(exploded?'exploded assembly — connector locations remain visible.':'assembly restored — connector alignment locked.')}
+document.querySelector('#explode').onclick=toggleExplode;document.querySelector('#reset').onclick=()=>{exploded=false;parts.forEach(p=>p.position.copy(p.userData.base));connectors.forEach(c=>c.position.copy(c.userData.base||c.position));document.querySelector('#explode').textContent='Exploded View';planModel();setStatus('assembly reset — ready for the next planning pass.')};
+document.querySelector('#file').onchange=async e=>{const f=e.target.files[0];if(!f)return;document.querySelector('#model').textContent=f.name;document.querySelector('#fileNote').textContent='STL preview loading…';if(/\.stl$/i.test(f.name)){const loader=new STLLoader();const buf=await f.arrayBuffer();const geo=loader.parse(buf);geo.computeVertexNormals();const mesh=new THREE.Mesh(geo,mat(0x4faed1));mesh.scale.setScalar(3/Math.max(...geo.boundingBox?.getSize(new THREE.Vector3()).toArray()));mesh.position.y=-1;root.add(mesh);parts.push(mesh);planModel();document.querySelector('#fileNote').textContent='STL loaded. Smart planning heuristics applied.';setStatus('STL loaded — geometry analyzed and a first-pass split plan generated.')}else{document.querySelector('#fileNote').textContent='Format accepted for pipeline planning; live preview currently supports STL.';setStatus('model received — preview adapter is ready for additional format loaders.')}};
+planModel();
+function animate(t){requestAnimationFrame(animate);ring.rotation.z=t*.00008;controls.update();renderer.render(scene,camera)}animate(0);
+onresize=()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)};
+</script></body></html>
