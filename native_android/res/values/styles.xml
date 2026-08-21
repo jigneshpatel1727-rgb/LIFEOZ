@@ -2,11 +2,11 @@
 <resources>
     <style name="AllinmydayTheme" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
-        <item name="android:windowFullscreen">true</item>
-        <item name="android:colorAccent">#FFFFFF</item>
-        <item name="android:navigationBarColor">#02040A</item>
-        <item name="android:statusBarColor">#02040A</item>
-        <item name="android:windowLightNavigationBar">false</item>
-        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:colorAccent">#355D43</item>
+        <item name="android:navigationBarColor">#F8FAF7</item>
+        <item name="android:statusBarColor">#F8FAF7</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>
