@@ -1,5 +1,5 @@
 name: allinmyday
-description: AllInMyDay - personal life intelligence app with iamyansi AI
+description: Allinmyday - personal life intelligence app with iamyansi AI
 publish_to: "none"
 
 version: 1.0.0+1
@@ -10,20 +10,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.8
-  shared_preferences: ^2.5.3
-  flutter_tts: ^4.2.3
-  speech_to_text: ^7.0.0
-  permission_handler: ^12.0.3
-  image_picker: ^1.2.3
-  google_mlkit_text_recognition: ^0.16.0
-  record: ^6.1.2
-  path_provider: ^2.1.5
-
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
-  flutter_lints: ^5.0.0
 
 flutter:
   uses-material-design: true
