@@ -14,6 +14,12 @@ jobs:
       - name: Checkout Allinmyday
         uses: actions/checkout@v5
 
+      - name: Audit Allinmyday application layer
+        shell: bash
+        run: |
+          chmod +x native_android/audit_allinmyday.sh
+          native_android/audit_allinmyday.sh
+
       - name: Build with Android SDK only
         shell: bash
         run: |
