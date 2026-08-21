@@ -19,7 +19,13 @@ done
 
 OUT="$ROOT/out"
 rm -rf "$OUT"
-mkdir -p "$OUT/classes" "$OUT/gen" "$OUT/res"
+mkdir -p "$OUT/classes" "$OUT/gen" "$OUT/dex"
+
+# Compile the complete Allinmyday-owned native source tree.  The previous
+# script compiled MainActivity.java alone, which can fail when MainActivity
+# references sibling native classes such as IamyansiCore and AllinmydayStore.
+mapfile -t JAVA_SOURCES < <(find "$ROOT/src" -type f -name '*.java' | sort)
+[[ "${#JAVA_SOURCES[@]}" -gt 0 ]] || { echo "No native Java sources found"; exit 1; }
 
 "$AAPT2" compile --dir "$ROOT/res" -o "$OUT/resources.zip"
 "$AAPT2" link --manifest "$ROOT/AndroidManifest.xml" \
@@ -29,10 +35,12 @@ mkdir -p "$OUT/classes" "$OUT/gen" "$OUT/res"
   -o "$OUT/allinmyday-unsigned.apk" \
   "$OUT/resources.zip"
 
-javac -source 8 -target 8 -classpath "$ANDROID_JAR" -d "$OUT/classes" \
-  "$ROOT/src/com/allinmyday/MainActivity.java"
+javac -source 8 -target 8 -classpath "$ANDROID_JAR" -d "$OUT/classes" "${JAVA_SOURCES[@]}"
 
-"$D8" --min-api 23 --lib "$ANDROID_JAR" --output "$OUT/dex" $(find "$OUT/classes" -name '*.class')
+mapfile -t CLASS_FILES < <(find "$OUT/classes" -type f -name '*.class' | sort)
+[[ "${#CLASS_FILES[@]}" -gt 0 ]] || { echo "No compiled classes found"; exit 1; }
+
+"$D8" --min-api 23 --lib "$ANDROID_JAR" --output "$OUT/dex" "${CLASS_FILES[@]}"
 
 (cd "$OUT/dex" && zip -q "$OUT/allinmyday-unsigned.apk" classes.dex)
 "$ZIPALIGN" -f 4 "$OUT/allinmyday-unsigned.apk" "$OUT/Allinmyday-trial-unaligned.apk"
@@ -45,5 +53,9 @@ keytool -genkeypair -keystore "$KEYSTORE" -storepass allinmyday -keypass allinmy
 "$APKSIGNER" sign --ks "$KEYSTORE" --ks-pass pass:allinmyday --key-pass pass:allinmyday \
   --out "$OUT/Allinmyday-trial.apk" "$OUT/Allinmyday-trial-unaligned.apk"
 "$APKSIGNER" verify --verbose "$OUT/Allinmyday-trial.apk"
+
+# Final artifact sanity checks.
+[[ -s "$OUT/Allinmyday-trial.apk" ]] || { echo "APK artifact is missing or empty"; exit 1; }
+"$APKSIGNER" verify "$OUT/Allinmyday-trial.apk"
 
 echo "GREEN-CANDIDATE: $OUT/Allinmyday-trial.apk"
