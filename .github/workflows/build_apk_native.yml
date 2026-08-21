@@ -1,0 +1,28 @@
+name: Build Allinmyday Native APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  native-apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Allinmyday
+        uses: actions/checkout@v5
+
+      - name: Build with Android SDK only
+        shell: bash
+        run: |
+          chmod +x native_android/build_native_apk.sh
+          native_android/build_native_apk.sh
+
+      - name: Upload Allinmyday trial APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Allinmyday-Native-Trial-APK
+          path: native_android/out/Allinmyday-trial.apk
+          if-no-files-found: error
