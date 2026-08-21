@@ -1,0 +1,31 @@
+{
+  "name": "ALLINMYDAY 3D Mobile Theme",
+  "version": "0.1.0",
+  "principle": "One screen, one tap, one report",
+  "renderer": "native-browser-webgl-preview",
+  "external_runtime": false,
+  "cdn": false,
+  "palette": ["neon-blue", "neon-purple", "neon-green", "sunset-gold", "ocean-blue", "space-dark"],
+  "surfaces": [
+    "lock-screen",
+    "home-screen",
+    "icon-system",
+    "widgets",
+    "charging",
+    "ambient-aod"
+  ],
+  "motion": {
+    "parallax": true,
+    "orb_pulse": true,
+    "particle_field": true,
+    "core_orbit": true,
+    "gesture_tilt": true,
+    "battery_saver_mode": true
+  },
+  "core_nodes": ["finance", "goals", "productivity", "household", "calendar"],
+  "yansi": {
+    "states": ["idle", "listening", "understanding", "working", "done"],
+    "visual": "ambient-central-intelligence-orb"
+  },
+  "asset_policy": "original-allinmyday-only"
+}
