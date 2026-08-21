@@ -1,26 +1,27 @@
 package com.allinmyday;
 
 import android.app.Activity;
-import android.os.Bundle;
+import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RadialGradient;
-import android.graphics.LinearGradient;
 import android.graphics.Shader;
+import android.os.Bundle;
 import android.view.MotionEvent;
 import android.view.View;
-import android.content.Context;
-import java.util.Locale;
 
 /**
- * Allinmyday native trial surface.
- * No Flutter, third-party UI toolkit, CDN, or runtime library is used here.
+ * Allinmyday native application surface.
+ * Application layer uses Android platform APIs only: no Flutter, third-party
+ * UI toolkit, third-party 3D engine, CDN, or runtime package.
  */
 public final class MainActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        getWindow().setNavigationBarColor(Color.rgb(2,4,10));
+        getWindow().setNavigationBarColor(Color.rgb(248, 250, 247));
+        getWindow().setStatusBarColor(Color.rgb(248, 250, 247));
+        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
         setContentView(new AllinmydayView(this));
     }
 
@@ -30,88 +31,89 @@ public final class MainActivity extends Activity {
         private float yaw = 0f, pitch = 0f, lastX, lastY;
         private boolean dragging;
         private long start;
+
+        // Five original Allinmyday core symbols. Geometry is intentionally simple,
+        // calm and readable rather than neon or dashboard-heavy.
         private final float[][] cores = {
-            {-0.62f, 0.25f, 0.10f}, {0.62f, 0.25f, 0.10f},
-            {-0.48f,-0.34f, 0.00f}, {0.00f,-0.46f, 0.06f}, {0.48f,-0.34f,0.00f}
+            {-0.62f, 0.20f, 0.10f}, {0.62f, 0.20f, 0.10f},
+            {-0.45f,-0.34f, 0.00f}, {0.00f,-0.44f, 0.06f}, {0.45f,-0.34f,0.00f}
         };
+        private final String[] labels = {"Expenses", "Goals", "Tasks", "Household", "Calendar"};
         private final int[] coreColors = {
-            Color.rgb(255,190,90), Color.rgb(190,150,255), Color.rgb(100,235,135),
-            Color.rgb(100,215,255), Color.rgb(255,150,105)
+            Color.rgb(91, 122, 91), Color.rgb(80, 112, 150), Color.rgb(126, 104, 146),
+            Color.rgb(190, 132, 74), Color.rgb(74, 135, 150)
         };
 
         AllinmydayView(Context c) {
             super(c);
-            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-            text.setTypeface(android.graphics.Typeface.create("sans", android.graphics.Typeface.BOLD));
+            text.setTypeface(android.graphics.Typeface.create("sans", android.graphics.Typeface.NORMAL));
             start = System.currentTimeMillis();
-            setBackgroundColor(Color.rgb(2,5,12));
+            setBackgroundColor(Color.rgb(248, 250, 247));
         }
 
         @Override protected void onDraw(Canvas c) {
             super.onDraw(c);
-            final float w=getWidth(), h=getHeight(), cx=w*.5f, cy=h*.51f;
+            final float w=getWidth(), h=getHeight(), cx=w*.5f, cy=h*.48f;
             final float t=(System.currentTimeMillis()-start)/1000f;
-            drawAtmosphere(c,cx,cy,w,h,t);
-            for(int i=0;i<70;i++) {
-                double a=i*2.39996+t*.018;
-                float r=0.20f+(i%17)*0.045f;
-                float px=(float)(Math.cos(a)*r), py=(float)(Math.sin(a)*r*.72);
-                Point p=project(px,py,0.02f,cx,cy,w,h);
-                paint.setColor(Color.argb(80+(i%3)*35,145,190,220));
-                c.drawCircle(p.x,p.y,1.1f+(i%3)*.35f,paint);
-            }
-            // Soft spatial links. The cores intentionally use different materials/colours.
+            drawBackground(c,w,h);
+
+            // Quiet spatial links: barely visible, intended to suggest a living system.
             for(int i=0;i<cores.length;i++) {
                 Point q=project(cores[i][0],cores[i][1],cores[i][2],cx,cy,w,h);
                 Point y=project(0,0,0.12f,cx,cy,w,h);
-                paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.3f);
-                paint.setColor(Color.argb(80, coreColors[i]>>16&255, coreColors[i]>>8&255, coreColors[i]&255));
-                c.drawLine(y.x,y.y,q.x,q.y,paint); paint.setStyle(Paint.Style.FILL);
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(1.0f);
+                paint.setColor(Color.argb(55, 75, 110, 85));
+                c.drawLine(y.x,y.y,q.x,q.y,paint);
+                paint.setStyle(Paint.Style.FILL);
             }
-            // iamyansi living intelligence.
+
             Point center=project(0,0,0.12f,cx,cy,w,h);
-            float pulse=1f+.08f*(float)Math.sin(t*2.1);
-            drawOrb(c,center.x,center.y,Math.min(w,h)*.105f*pulse,t);
-            drawText(c,"iamyansi",center.x,center.y+5,18,Color.WHITE,Paint.Align.CENTER);
+            float pulse=1f+.025f*(float)Math.sin(t*1.7);
+            drawOrb(c,center.x,center.y,Math.min(w,h)*.105f*pulse);
+            drawText(c,"iamyansi",center.x,center.y+5,17,Color.rgb(38,66,50),Paint.Align.CENTER);
 
             for(int i=0;i<cores.length;i++) {
                 Point q=project(cores[i][0],cores[i][1],cores[i][2],cx,cy,w,h);
-                float p=1f+.07f*(float)Math.sin(t*1.7+i);
-                drawCore(c,q.x,q.y,Math.min(w,h)*.043f*p,coreColors[i],t+i);
+                drawCore(c,q.x,q.y,Math.min(w,h)*.040f,coreColors[i]);
+                drawText(c,labels[i],q.x,q.y+Math.min(w,h)*.070f,11,Color.rgb(62,72,66),Paint.Align.CENTER);
             }
-            drawText(c,"ALLINMYDAY",22,38,18,Color.WHITE,Paint.Align.LEFT);
-            drawText(c,"immersive life intelligence",22,59,10,Color.argb(165,220,230,240),Paint.Align.LEFT);
-            drawText(c,"DRAG TO EXPLORE  •  TAP A CORE",w-22,h-24,10,Color.argb(150,220,230,240),Paint.Align.RIGHT);
+
+            drawText(c,"ALLINMYDAY",22,38,18,Color.rgb(38,66,50),Paint.Align.LEFT);
+            drawText(c,"One screen. One tap. One report.",22,59,10,Color.rgb(100,112,103),Paint.Align.LEFT);
+            drawText(c,"DRAG TO EXPLORE",w-22,h-24,10,Color.rgb(100,112,103),Paint.Align.RIGHT);
+            postInvalidateDelayed(32);
         }
 
-        private void drawAtmosphere(Canvas c,float cx,float cy,float w,float h,float t) {
-            paint.setShader(new RadialGradient(cx,cy*.82f,Math.max(w,h)*.72f,
-                new int[]{Color.rgb(12,20,35),Color.rgb(3,8,17),Color.rgb(1,3,8)},null,Shader.TileMode.CLAMP));
-            c.drawRect(0,0,w,h,paint); paint.setShader(null);
-            for(int i=0;i<5;i++) {
-                float x=w*(.16f+i*.18f)+(float)Math.sin(t*.12f+i)*12;
-                float y=h*(.18f+(i%3)*.27f);
-                paint.setColor(Color.argb(18,90,170,220)); c.drawCircle(x,y,70+i*15,paint);
-            }
+        private void drawBackground(Canvas c,float w,float h) {
+            paint.setShader(new RadialGradient(w*.5f,h*.40f,Math.max(w,h)*.72f,
+                new int[]{Color.rgb(255,255,253),Color.rgb(248,250,247),Color.rgb(238,244,238)},
+                null,Shader.TileMode.CLAMP));
+            c.drawRect(0,0,w,h,paint);
+            paint.setShader(null);
+            paint.setColor(Color.argb(20,70,105,80));
+            c.drawCircle(w*.16f,h*.78f,Math.min(w,h)*.20f,paint);
+            c.drawCircle(w*.86f,h*.24f,Math.min(w,h)*.17f,paint);
         }
 
-        private void drawOrb(Canvas c,float x,float y,float r,float t) {
-            paint.setShader(new RadialGradient(x-r*.18f,y-r*.22f,r,
-                new int[]{Color.WHITE,Color.rgb(130,215,255),Color.rgb(35,85,125),Color.TRANSPARENT},
-                new float[]{0f,.18f,.58f,1f},Shader.TileMode.CLAMP));
+        private void drawOrb(Canvas c,float x,float y,float r) {
+            paint.setShader(new RadialGradient(x-r*.22f,y-r*.24f,r,
+                new int[]{Color.WHITE,Color.rgb(229,239,230),Color.rgb(183,205,187),Color.TRANSPARENT},
+                new float[]{0f,.35f,.72f,1f},Shader.TileMode.CLAMP));
             c.drawCircle(x,y,r,paint); paint.setShader(null);
-            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.5f);
-            paint.setColor(Color.argb(180,160,225,255));
+            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.2f);
+            paint.setColor(Color.argb(100,82,116,91));
             c.drawCircle(x,y,r*1.22f,paint); c.drawCircle(x,y,r*1.43f,paint);
             paint.setStyle(Paint.Style.FILL);
         }
 
-        private void drawCore(Canvas c,float x,float y,float r,int color,float phase) {
-            paint.setShadowLayer(r*1.6f,0,0,Color.argb(90,Color.red(color),Color.green(color),Color.blue(color)));
-            paint.setColor(Color.argb(235,Color.red(color),Color.green(color),Color.blue(color))); c.drawCircle(x,y,r,paint);
-            paint.clearShadowLayer();
-            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.1f); paint.setColor(Color.argb(180,255,255,255));
-            c.drawCircle(x,y,r*1.35f,paint); paint.setStyle(Paint.Style.FILL);
+        private void drawCore(Canvas c,float x,float y,float r,int color) {
+            paint.setColor(Color.argb(22,Color.red(color),Color.green(color),Color.blue(color)));
+            c.drawCircle(x,y,r*1.8f,paint);
+            paint.setColor(color); c.drawCircle(x,y,r,paint);
+            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.0f);
+            paint.setColor(Color.argb(100,Color.red(color),Color.green(color),Color.blue(color)));
+            c.drawCircle(x,y,r*1.32f,paint); paint.setStyle(Paint.Style.FILL);
         }
 
         private Point project(float x,float y,float z,float cx,float cy,float w,float h) {
@@ -131,7 +133,12 @@ public final class MainActivity extends Activity {
             switch(e.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN: dragging=true; lastX=e.getX(); lastY=e.getY(); return true;
                 case MotionEvent.ACTION_MOVE:
-                    if(dragging) { yaw+=(e.getX()-lastX)*.004f; pitch+=(e.getY()-lastY)*.003f; pitch=Math.max(-.55f,Math.min(.55f,pitch)); lastX=e.getX(); lastY=e.getY(); invalidate(); }
+                    if(dragging) {
+                        yaw+=(e.getX()-lastX)*.004f;
+                        pitch+=(e.getY()-lastY)*.003f;
+                        pitch=Math.max(-.55f,Math.min(.55f,pitch));
+                        lastX=e.getX(); lastY=e.getY(); invalidate();
+                    }
                     return true;
                 case MotionEvent.ACTION_UP: dragging=false; performClick(); return true;
             }
