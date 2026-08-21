@@ -7,24 +7,45 @@ on:
 
 jobs:
   native-apk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
-      - name: Checkout Allinmyday
-        uses: actions/checkout@v5
+      - name: Checkout Allinmyday source
+        uses: actions/checkout@v4
+
+      - name: Verify native build environment
+        shell: bash
+        run: |
+          set -euxo pipefail
+          java -version
+          javac -version
+          test -n "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT}}"
+          find "$SDK/platforms" -maxdepth 1 -type d -name 'android-*' -print | sort -V | tail -n 3
+          find "$SDK/build-tools" -maxdepth 1 -type d -name '[0-9]*' -print | sort -V | tail -n 3
 
       - name: Audit Allinmyday application layer
         shell: bash
         run: |
+          set -euxo pipefail
           chmod +x native_android/audit_allinmyday.sh
           native_android/audit_allinmyday.sh
 
-      - name: Build with Android SDK only
+      - name: Build Allinmyday native APK
         shell: bash
         run: |
+          set -euxo pipefail
           chmod +x native_android/build_native_apk.sh
           native_android/build_native_apk.sh
+
+      - name: Verify final APK artifact
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -s native_android/out/Allinmyday-trial.apk
+          ls -lh native_android/out/Allinmyday-trial.apk
+          sha256sum native_android/out/Allinmyday-trial.apk
 
       - name: Upload Allinmyday trial APK
         uses: actions/upload-artifact@v4
