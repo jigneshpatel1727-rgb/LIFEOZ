@@ -3,10 +3,12 @@ package com.allinmyday;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Local Allinmyday-owned profile and records. No third-party database. */
+/** Local Allinmyday-owned profile, login gate and records. No third-party database. */
 public final class AllinmydayStore {
     private static final String PREFS = "allinmyday_store";
     private final SharedPreferences prefs;
@@ -29,12 +31,14 @@ public final class AllinmydayStore {
     }
 
     public boolean hasProfile() { return !getName().trim().isEmpty(); }
+    public boolean hasLoginPin() { return !prefs.getString("profile_pin_hash", "").isEmpty(); }
     public String getName() { return prefs.getString("profile_name", ""); }
     public String getEmail() { return prefs.getString("profile_email", ""); }
     public String getCurrency() { return prefs.getString("profile_currency", "INR (₹)"); }
     public String getLanguage() { return prefs.getString("profile_language", "English"); }
     public String getTheme() { return prefs.getString("profile_theme", "Nature Green"); }
 
+    /** Existing five-field save remains for backward compatibility; new profiles should use the PIN overload. */
     public void saveProfile(String name, String email, String currency, String language, String theme) {
         prefs.edit().putString("profile_name", name == null ? "" : name.trim())
             .putString("profile_email", email == null ? "" : email.trim())
@@ -42,6 +46,30 @@ public final class AllinmydayStore {
             .putString("profile_language", language == null ? "English" : language)
             .putString("profile_theme", theme == null ? "Nature Green" : theme)
             .apply();
+    }
+
+    public void saveProfile(String name, String email, String currency, String language, String theme, String pin) {
+        saveProfile(name, email, currency, language, theme);
+        if (pin != null && !pin.trim().isEmpty()) {
+            prefs.edit().putString("profile_pin_hash", hash(pin.trim())).apply();
+        }
+    }
+
+    public boolean verifyLoginPin(String pin) {
+        String saved = prefs.getString("profile_pin_hash", "");
+        return !saved.isEmpty() && saved.equals(hash(pin == null ? "" : pin.trim()));
+    }
+
+    private String hash(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] bytes = digest.digest(value.getBytes(StandardCharsets.UTF_8));
+            StringBuilder out = new StringBuilder(bytes.length * 2);
+            for (byte b : bytes) out.append(String.format(java.util.Locale.US, "%02x", b & 0xff));
+            return out.toString();
+        } catch (Exception e) {
+            return value;
+        }
     }
 
     public long addRecord(String core, String title, double amount, long day, boolean completed) {
