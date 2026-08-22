@@ -31,6 +31,7 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state); store = new AllinmydayStore(this); iamyansi = new IamyansiCore(); applyTheme(store.getTheme());
+        TaskCarryForward.carryPending(store);
         if (store.hasProfile() && store.hasLoginPin()) showLogin(); else showOnboarding();
     }
 
