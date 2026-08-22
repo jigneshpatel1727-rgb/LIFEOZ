@@ -1,15 +1,11 @@
 package com.allinmyday;
 
-import android.content.Context;
-import java.util.List;
-
 /** Builds a portable text snapshot of local Allinmyday records; no cloud service involved. */
 public final class LocalBackup {
     private LocalBackup() {}
 
     public static String export(AllinmydayStore store) {
-        StringBuilder out = new StringBuilder();
-        out.append("ALLINMYDAY_BACKUP_V1\n");
+        StringBuilder out = new StringBuilder(BackupFormat.header());
         out.append("name=").append(escape(store.getName())).append('\n');
         out.append("email=").append(escape(store.getEmail())).append('\n');
         out.append("currency=").append(escape(store.getCurrency())).append('\n');
