@@ -1,23 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.allinmyday">
-
     <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="35" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-
-    <application
-        android:theme="@style/AllinmydayTheme"
-        android:label="Allinmyday"
-        android:icon="@drawable/allinmyday_logo"
-        android:allowBackup="false"
-        android:supportsRtl="true">
+    <application android:theme="@style/AllinmydayTheme" android:label="Allinmyday" android:icon="@drawable/allinmyday_logo" android:allowBackup="false" android:supportsRtl="true">
         <activity android:name=".PermissionsActivity" android:screenOrientation="portrait" android:exported="false" />
         <activity android:name=".LifeToolsActivity" android:screenOrientation="portrait" android:exported="false" />
         <activity android:name=".ReportsActivity" android:screenOrientation="portrait" android:exported="false" />
         <activity android:name=".ReceiptScanActivity" android:screenOrientation="portrait" android:exported="false" />
+        <activity android:name=".LocalBackupActivity" android:screenOrientation="portrait" android:exported="false" />
         <activity android:name=".MainActivity" android:screenOrientation="portrait" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
