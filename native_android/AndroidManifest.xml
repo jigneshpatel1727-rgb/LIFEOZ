@@ -9,6 +9,7 @@
     <application
         android:theme="@style/AllinmydayTheme"
         android:label="Allinmyday"
+        android:icon="@drawable/allinmyday_logo"
         android:allowBackup="false"
         android:supportsRtl="true">
         <activity
