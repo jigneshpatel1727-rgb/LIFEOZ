@@ -12,6 +12,7 @@
         <activity android:name=".ReportsActivity" android:screenOrientation="portrait" android:exported="false" />
         <activity android:name=".ReceiptScanActivity" android:screenOrientation="portrait" android:exported="false" />
         <activity android:name=".LocalBackupActivity" android:screenOrientation="portrait" android:exported="false" />
+        <activity android:name=".IamyansiVoiceActivity" android:screenOrientation="portrait" android:exported="false" />
         <activity android:name=".MainActivity" android:screenOrientation="portrait" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
