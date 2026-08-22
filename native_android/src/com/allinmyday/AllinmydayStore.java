@@ -107,6 +107,18 @@ public final class AllinmydayStore {
         return total;
     }
 
+    /** Returns whether a record with the same core/title already exists on the requested local day. */
+    public boolean hasRecordOnDay(String core, String title, long day) {
+        long start = DateBucket.startOfDay(day);
+        long end = start + 24L * 60L * 60L * 1000L;
+        String wantedCore = core == null ? "" : core;
+        String wantedTitle = title == null ? "" : title;
+        for (Record r : getRecords(wantedCore)) {
+            if (r.day >= start && r.day < end && r.title.equals(wantedTitle)) return true;
+        }
+        return false;
+    }
+
     public void setCompleted(long id, boolean completed) {
         prefs.edit().putBoolean("record_" + id + "_completed", completed).apply();
     }
